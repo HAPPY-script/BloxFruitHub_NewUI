@@ -44,8 +44,16 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFrui
 
 print("UI System ✅")
 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/ToggleUIEffect.lua"))()
+
+print("Toggle UI Effect ✅")
+
 --=== TAB SYSTEM ============================================================================================================================--
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
 
-print("Status System ✅")
+print("Status tab System ✅")
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
+
+print("Main tab System ✅")
