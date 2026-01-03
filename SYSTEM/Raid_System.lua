@@ -1,16 +1,23 @@
 local ScrollingTab = game.Players.LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
 
 --=== RAID ===================================================================================================================--
+
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local player = Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local hrp = character:WaitForChild("HumanoidRootPart")
 
-    -- LẤY UI MỚI: ScrollingTab -> tìm Frame "Raid" -> trong đó tìm "AutoRaidButton"
+    -- ======= UI NEW: wait ToggleUI và tìm nút trong ScrollingTab -> Raid -> AutoRaidButton
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    ToggleUI.Refresh()
+    ToggleUI.Set("AutoRaidButton", false) -- khởi mặc định OFF
+
+    local BUTTON_NAME = "AutoRaidButton"
+
     local ScrollingTab = player
         .PlayerGui
         :WaitForChild("BloxFruitHubGui")
@@ -23,67 +30,69 @@ do
         return
     end
 
-    local BUTTON_NAME = "AutoRaidButton"
-    local toggleRaid = raidFrame:FindFirstChild(BUTTON_NAME, true)
-    if not toggleRaid then
+    local raidBtn = raidFrame:FindFirstChild(BUTTON_NAME, true)
+    if not raidBtn then
         warn("Không tìm thấy Button:", BUTTON_NAME)
         return
     end
 
-    -- colors
-    local COLOR_RED = Color3.fromRGB(255, 0, 0)
-    local COLOR_GREEN = Color3.fromRGB(0, 255, 0)
-    local COLOR_YELLOW = Color3.fromRGB(255, 255, 0)
+    -- tìm UIStroke (nếu có) trong button (tìm đệ quy)
+    local btnStroke = raidBtn:FindFirstChildWhichIsA and raidBtn:FindFirstChildWhichIsA("UIStroke", true) or raidBtn:FindFirstChild("UIStroke")
 
-    -- helper: tìm UIStroke bên trong button (nếu có)
-    local function findStroke(instance)
-        for _, c in ipairs(instance:GetChildren()) do
-            if c:IsA("UIStroke") then return c end
-        end
-        for _, c in ipairs(instance:GetDescendants()) do
-            if c:IsA("UIStroke") then return c end
-        end
-        return nil
-    end
+    -- màu dùng
+    local COLOR_OFF       = Color3.fromRGB(255, 0, 0)     -- trở về ban đầu
+    local COLOR_ON        = Color3.fromRGB(0, 255, 0)
+    local COLOR_WARNING   = Color3.fromRGB(255, 255, 0)   -- tween sang vàng theo yêu cầu
 
-    local stroke = findStroke(toggleRaid)
-
-    -- trạng thái điều khiển
+    -- ======= trạng thái của hệ thống
     local running = false
     local autoClicking = false
-    local isClearingIsland = false
 
-    -- bảo vệ spam click & animation
-    local clickDebounce = false
-    local animatingNoIsland = false
+    -- khóa để tránh re-entrance / spam
+    local clickLock = false        -- khoá ngắn cho toggle bình thường
+    local blockedAnim = false      -- khoá khi đang chạy animation NO-ISLAND (vàng->đỏ)
+    local shortDebounceTime = 0.12
 
-    -- helper set visual state của button (ON/OFF)
-    local function setToggleVisual(on)
-        running = on
-        autoClicking = on
-        if on then
-            pcall(function() toggleRaid.Text = "ON" end)
-            pcall(function() toggleRaid.BackgroundColor3 = COLOR_GREEN end)
-        else
-            pcall(function() toggleRaid.Text = "OFF" end)
-            pcall(function() toggleRaid.BackgroundColor3 = COLOR_RED end)
+    -- helper: an toàn cancel tween cũ
+    local function safeCancel(t)
+        if t and typeof(t.Cancel) == "function" then
+            pcall(function() t:Cancel() end)
         end
     end
 
-    -- reset về OFF (không gọi ToggleUI)
+    -- cập nhật giao diện nút theo trạng thái running
+    local function applyButtonState()
+        if running then
+            pcall(function()
+                raidBtn.Text = "ON"
+                raidBtn.BackgroundColor3 = COLOR_ON
+                if btnStroke then btnStroke.Color = COLOR_ON end
+            end)
+        else
+            pcall(function()
+                raidBtn.Text = "OFF"
+                raidBtn.BackgroundColor3 = COLOR_OFF
+                if btnStroke then btnStroke.Color = COLOR_OFF end
+            end)
+        end
+    end
+
+    -- reset khi tắt / respawn
     local function resetRaidButton()
         running = false
         autoClicking = false
-        pcall(function() toggleRaid.Text = "OFF" end)
-        pcall(function() toggleRaid.BackgroundColor3 = COLOR_RED end)
+        applyButtonState()
     end
 
-    -- kiểm tra đảo gần
+    -- hàm check island gần
     local function hasIslandNearby()
         local map = workspace:FindFirstChild("Map")
         if not map then return false end
         local raidMap = map:FindFirstChild("RaidMap")
         if not raidMap then return false end
+
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
 
         for _, island in ipairs(raidMap:GetChildren()) do
             if island:IsA("Model") then
@@ -95,100 +104,90 @@ do
                 end
             end
         end
-
         return false
     end
 
-    -- FLASH khi không có island: tween → vàng (2s) → tween về đỏ (2s)
-    local function flashNoIsland()
-        if animatingNoIsland then return end
-        animatingNoIsland = true
+    -- khi spam click và không có island: tween sang vàng 2s rồi tween về đỏ 2s
+    local function flashNoIslandAnimation()
+        if blockedAnim then return end
+        blockedAnim = true
 
-        local origBg = toggleRaid.BackgroundColor3 or COLOR_RED
-        local origStrokeColor = stroke and stroke.Color or nil
+        -- Cancel trước đó nếu có (an toàn)
+        -- (Không giữ biến tween global vì chúng là cục bộ, nhưng safeCancel nếu cần)
 
-        -- tween to yellow (2s)
-        local t1 = TweenService:Create(toggleRaid, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = COLOR_YELLOW })
-        local strokeTween1
-        if stroke then
-            strokeTween1 = TweenService:Create(stroke, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Color = COLOR_YELLOW })
-            strokeTween1:Play()
-        end
-        t1:Play()
-        t1.Completed:Wait()
+        local tInfo = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local bgToYellow = TweenService:Create(raidBtn, tInfo, { BackgroundColor3 = COLOR_WARNING })
+        local strokeToYellow = btnStroke and TweenService:Create(btnStroke, tInfo, { Color = COLOR_WARNING }) or nil
 
-        -- tween back to red (2s)
-        local t2 = TweenService:Create(toggleRaid, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = COLOR_RED })
-        local strokeTween2
-        if stroke then
-            strokeTween2 = TweenService:Create(stroke, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Color = origStrokeColor or COLOR_RED })
-            strokeTween2:Play()
-        end
-        t2:Play()
-        t2.Completed:Wait()
+        local bgToRed = TweenService:Create(raidBtn, tInfo, { BackgroundColor3 = COLOR_OFF })
+        local strokeToRed = btnStroke and TweenService:Create(btnStroke, tInfo, { Color = COLOR_OFF }) or nil
 
-        pcall(function() toggleRaid.Text = "OFF" end)
-        animatingNoIsland = false
+        -- sequential: to yellow -> to red. Chạy non-blocking nhưng block clicks until done
+        task.spawn(function()
+            pcall(function()
+                bgToYellow:Play()
+                if strokeToYellow then strokeToYellow:Play() end
+                bgToYellow.Completed:Wait()
+            end)
+            task.wait(0.03) -- tiny gap
+            pcall(function()
+                bgToRed:Play()
+                if strokeToRed then strokeToRed:Play() end
+                bgToRed.Completed:Wait()
+            end)
+            blockedAnim = false
+        end)
     end
 
-    -- Event handler: khi bấm nút (Activated ưu tiên)
-    local function onToggleClicked()
-        if clickDebounce then return end
-        clickDebounce = true
-        task.delay(0.20, function() clickDebounce = false end) -- short debounce to avoid spam
+    -- Kết nối nút (Activated ưu tiên)
+    local function onButtonClick()
+        if clickLock then return end
+        clickLock = true
+        task.delay(shortDebounceTime, function() clickLock = false end)
 
-        -- nếu muốn bật mà không có island -> flash và KHÔNG bật
+        -- nếu đang chạy animation NO-ISLAND thì ignore
+        if blockedAnim then return end
+
+        -- nếu chưa chạy và không có island -> chạy animation cảnh báo và không bật
         if not running and not hasIslandNearby() then
-            if not animatingNoIsland then
-                pcall(function() toggleRaid.Text = "NO ISLAND" end)
-                task.spawn(function()
-                    flashNoIsland()
-                end)
-            end
+            flashNoIslandAnimation()
             return
         end
 
-        -- toggle thực sự (KHÔNG liên quan tới ToggleUI cũ)
-        local newState = not running
-        setToggleVisual(newState)
+        -- thực hiện toggle trạng thái
+        running = not running
+        autoClicking = running
+
+        -- gửi lệnh cho ToggleUI để đồng bộ
+        pcall(function() ToggleUI.Set(BUTTON_NAME, running) end)
+
+        applyButtonState()
 
         if running then
+            -- bật attribute như ban đầu
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
         else
+            -- tắt attribute
             pcall(function()
                 player:SetAttribute("FastAttackEnemy", false)
             end)
         end
     end
 
-    if toggleRaid.Activated then
-        toggleRaid.Activated:Connect(onToggleClicked)
+    if raidBtn.Activated then
+        raidBtn.Activated:Connect(onButtonClick)
     else
-        toggleRaid.MouseButton1Click:Connect(onToggleClicked)
+        raidBtn.MouseButton1Click:Connect(onButtonClick)
     end
 
-    -- phần auto click remote (giữ nguyên logic của bạn)
-    task.spawn(function()
-        while true do
-            task.wait(0.4)
-            if running then
-                pcall(function()
-                    local args = { 0.4000000059604645 }
-                    game:GetService("ReplicatedStorage")
-                        :WaitForChild("Modules")
-                        :WaitForChild("Net")
-                        :WaitForChild("RE/RegisterAttack")
-                        :FireServer(unpack(args))
-                end)
-            end
-        end
-    end)
+    -- ======= Phần logic Auto RAID giữ nguyên (chỉ chuyển các tham chiếu toggleRaid -> raidBtn)
+    -- Các biến/ hàm khác copy từ script gốc, nhưng cập nhật tên biến UI
 
-    -- Các hàm liên quan tới di chuyển, tìm island, getEnemiesNear, followEnemy, highlight...
-    -- ensureAnchor
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
     local anchor = nil
     local function ensureAnchor()
         if not anchor or not anchor.Parent then
@@ -203,7 +202,14 @@ do
         return anchor
     end
 
-    -- tweenCloseTo
+    local function getIslandCenter(model)
+        if not model then return nil end
+        local cf, size = model:GetBoundingBox()
+        local center = cf.Position
+        center = center + Vector3.new(0, size.Y/2, 0)
+        return center
+    end
+
     local function tweenCloseTo(targetPos, stopDist, isEnemy)
         if not hrp then return end
         stopDist = stopDist or 40
@@ -238,11 +244,9 @@ do
         end
     end
 
-    -- getHighestPriorityIsland
     local function getHighestPriorityIsland()
         local map = workspace:FindFirstChild("Map")
         if not map then return nil end
-
         local raidMap = map:FindFirstChild("RaidMap")
         if not raidMap then return nil end
 
@@ -270,7 +274,6 @@ do
         return bestIsland
     end
 
-    -- getEnemiesNear
     local function getEnemiesNear(origin)
         local enemies = {}
         local folder = workspace:FindFirstChild("Enemies")
@@ -278,7 +281,7 @@ do
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
                 local dist = (origin.Position - mob.HumanoidRootPart.Position).Magnitude
-                if dist <= 2500 and mob.Humanoid.Health > 0 then
+                if dist <= 2500 and mob:FindFirstChildOfClass("Humanoid").Health > 0 then
                     table.insert(enemies, mob)
                 end
             end
@@ -286,7 +289,8 @@ do
         return enemies
     end
 
-    -- updateHighlight
+    local isClearingIsland = false
+
     local function updateHighlight(enemy)
         if not enemy then return end
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
@@ -303,7 +307,6 @@ do
         end
 
         local highlight = enemy:FindFirstChild("RaidHighlight")
-
         local conn
         conn = RunService.RenderStepped:Connect(function()
             if not running or not humanoid.Parent or humanoid.Health <= 0 or not highlight or highlight.Parent ~= enemy then
@@ -311,38 +314,36 @@ do
                 conn:Disconnect()
                 return
             end
-
             local percent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
             highlight.FillColor = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
         end)
     end
 
-    -- followEnemy
     local function followEnemy(enemy)
         if not enemy or not enemy.Parent then return end
-
         isClearingIsland = true
 
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-        if not hrpEnemy or not humanoid then return end
+        if not hrpEnemy or not humanoid then
+            isClearingIsland = false
+            return
+        end
 
         updateHighlight(enemy)
-        local anchor = ensureAnchor()
+        local anchorPart = ensureAnchor()
         local camera = workspace.CurrentCamera
 
         camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anchor
+        camera.CameraSubject = anchorPart
 
         while humanoid.Health > 0 and running do
             if not hrp then break end
-
             updateHighlight(enemy)
-
             local anchorY = hrpEnemy.Position.Y + 25
             local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
 
-            anchor.Position = anchor.Position:Lerp(targetPos, 0.15)
+            anchorPart.Position = anchorPart.Position:Lerp(targetPos, 0.15)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
 
@@ -356,23 +357,42 @@ do
         isClearingIsland = false
     end
 
-    -- reset khi respawn
+    -- Auto click remote (giữ nguyên)
+    task.spawn(function()
+        while true do
+            task.wait(0.4)
+            if running then
+                pcall(function()
+                    local args = { 0.4000000059604645 }
+                    ReplicatedStorage
+                        :WaitForChild("Modules")
+                        :WaitForChild("Net")
+                        :WaitForChild("RE/RegisterAttack")
+                        :FireServer(unpack(args))
+                end)
+            end
+        end
+    end)
+
+    -- Reset khi respawn
     player.CharacterAdded:Connect(function(newChar)
         character = newChar
         hrp = character:WaitForChild("HumanoidRootPart")
         resetRaidButton()
     end)
 
-    -- vòng lặp chính Auto RAID (giữ logic gốc, chỉ dùng biến 'running')
+    -- Vòng lặp chính Auto RAID
     task.spawn(function()
         while true do
             RunService.Heartbeat:Wait()
             if not hrp then continue end
 
+            -- Anti fall
             if running and hrp.Position.Y < -1 then
                 hrp.CFrame = hrp.CFrame + Vector3.new(0, 200, 0)
             end
 
+            -- tự tắt khi không còn island
             if running and not hasIslandNearby() then
                 resetRaidButton()
                 continue
@@ -382,24 +402,15 @@ do
 
             local island = getHighestPriorityIsland()
             if island and not isClearingIsland then
-                local root = island:FindFirstChild("PrimaryPart") or island:FindFirstChildWhichIsA("BasePart")
+                local root = island.PrimaryPart or island:FindFirstChildWhichIsA("BasePart")
                 if root then
-                    local islandCenter = (function(m)
-                        if not m then return nil end
-                        local cf, size = m:GetBoundingBox()
-                        local center = cf.Position
-                        center = center + Vector3.new(0, size.Y/2, 0)
-                        return center
-                    end)(island)
-
+                    local islandCenter = getIslandCenter(island)
                     tweenCloseTo(islandCenter, 1)
                     RunService.RenderStepped:Wait()
 
                     local timer = 0
                     while timer < 1 do
-                        if #getEnemiesNear(hrp) > 0 then
-                            break
-                        end
+                        if #getEnemiesNear(hrp) > 0 then break end
                         timer += task.wait(1)
                     end
                 end
@@ -412,13 +423,15 @@ do
                     if enemyHRP then
                         tweenCloseTo(enemyHRP.Position, 250, true)
                     end
-
                     followEnemy(enemy)
                     if not running then break end
                 end
             end
         end
     end)
+
+    -- Áp dụng trạng thái ban đầu (OFF)
+    resetRaidButton()
 end
 
 --=== BUY MICROPCHIP ===================================================================================================================--
