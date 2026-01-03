@@ -1128,9 +1128,6 @@ local FarmZones = {
             end)
         elseif not on and running then
             running = false
-            pcall(function()
-                player:SetAttribute("FastAttackEnemy", false)
-            end)
         end
     end
 
@@ -1162,8 +1159,6 @@ local FarmZones = {
         if ToggleUI and ToggleUI.Set then
             pcall(ToggleUI.Set, BUTTON_NAME, false)
         end
-        -- đảm bảo các attribute tắt
-        pcall(function() player:SetAttribute("FastAttackEnemy", false) end)
     end
 
     -- Kết nối sự kiện chết cho mỗi character
