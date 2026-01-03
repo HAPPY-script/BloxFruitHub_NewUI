@@ -133,10 +133,8 @@ do
     end
 
     local function stopLoop()
-        if equipThread then
-            -- task.cancel may not be necessary because thread checks loopEquip
-            equipThread = nil
-        end
+        loopEquip = false
+        equipThread = nil
     end
 
     -- tween helper cho text transparency (0->1 or 1->0)
@@ -160,6 +158,9 @@ do
 
     -- Hàm xử lý CheckToolButton logic
     local function handleCheckOnce()
+        local prevLoop = loopEquip
+        loopEquip = false
+        
         if checkInProgress then return end
         checkInProgress = true
         checkBtn.Active = false
@@ -218,6 +219,11 @@ do
             markNone()
         end
 
+        if prevLoop and savedToolName then
+            loopEquip = true
+            startLoop()
+        end
+
         -- small debounce to prevent immediate re-click spam
         task.delay(0.2, function()
             checkInProgress = false
@@ -266,10 +272,16 @@ do
             if savedToolName then
                 startLoop()
             end
+            
         elseif not isOn and loopEquip then
             loopEquip = false
             stopLoop()
+
+            savedToolName = nil
+            updateCheckAppearance("none")
+            animatedSetText(checkBtn, "None")
         end
+
     end
 
     autoHoldBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
