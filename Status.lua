@@ -1,3 +1,5 @@
+local ScrollingTab = game.Players.LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
+
 local Status = Instance.new("Frame")
 Status.Name = "Status"
 Status.Size = UDim2.new(1, 0, 1, 0)
@@ -6,7 +8,7 @@ Status.BackgroundTransparency = 1
 Status.BorderSizePixel = 0
 Status.BorderColor3 = Color3.new(0, 0, 0)
 Status.Transparency = 1
-Status.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Status.Parent = ScrollingTab
 
 local MoonStatus = Instance.new("ImageLabel")
 MoonStatus.Name = "MoonStatus"
