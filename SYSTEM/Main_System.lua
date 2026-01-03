@@ -7,41 +7,108 @@ do
 
     local player = Players.LocalPlayer
 
-    -- ===== UI PATH yêu cầu =====
-    local ScrollingTab = Players.LocalPlayer
+    -- ===== UI PATH (UI mới) =====
+    local ScrollingTab = player
         .PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
 
-    local guiRoot = Players.LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui")
-    local Main = guiRoot:WaitForChild("Main")
-
-    -- Tên nút trong Main (nút trigger)
-    local BUTTON_NAME = "AutoFarmLvlButton"
-
-    -- Chờ ToggleUI global (module UI effect) nếu bạn dùng _G.ToggleUI
-    repeat task.wait() until _G and _G.ToggleUI
-    local ToggleUI = _G.ToggleUI
-
-    -- tìm nút trigger trong Main (nút để bấm bật/tắt)
-    local triggerBtn = Main:FindFirstChild(BUTTON_NAME, true)
-    if not triggerBtn then
-        warn("[AutoFarm] Không tìm thấy nút trigger:", BUTTON_NAME)
-        return
+    -- inside ScrollingTab we expect a Frame named "Main", then inside it a Button "AutoFarmLvlButton"
+    local function getMainFrame()
+        -- Wait until a Frame named "Main" appears inside ScrollingTab
+        local f = ScrollingTab:FindFirstChild("Main")
+        while not f do
+            task.wait(0.05)
+            f = ScrollingTab:FindFirstChild("Main")
+        end
+        return f
     end
 
-    -- Nếu trong ScrollingTab cũng có Button cùng tên (để ToggleUI hiển thị),
-    -- ToggleUI.Set sẽ được gọi với cùng tên. Nếu không có, ToggleUI.Refresh/Set sẽ
-    -- chỉ log warning bên trong module nếu không tìm thấy.
-    ToggleUI.Refresh()
-    ToggleUI.Set(BUTTON_NAME, false) -- default OFF UI
+    local function findToggleButton()
+        local mainFrame = getMainFrame()
+        local btn = mainFrame:FindFirstChild("AutoFarmLvlButton", true)
+        while not btn do
+            task.wait(0.05)
+            btn = mainFrame:FindFirstChild("AutoFarmLvlButton", true)
+        end
+        return btn
+    end
 
-    -- ===== Config vùng farm (giữ nguyên từ script bạn gửi) =====
-    local currentQuestBeli = 0
-    local currentQuestKills = 0
-    local maxQuestKills = 9
-    local expectedRewardBeli = 500000
+    -- ===== game logic vars =====
+    local running = false
+    local wasRunningBeforeDeath = false
+    local lastLevel = 0
+
+    -- wait for ToggleUI module exposed on _G
+    repeat task.wait() until _G and _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    -- ensure ToggleUI has refresh function
+    if ToggleUI and ToggleUI.Refresh then
+        pcall(ToggleUI.Refresh)
+    end
+
+    local BUTTON_NAME = "AutoFarmLvlButton"
+
+    -- ===== helper: safe bind click with rebind support =====
+    local currentConn = nil
+    local function bindToggleButton()
+        -- find button (wait until present)
+        local ok, btn = pcall(findToggleButton)
+        if not ok or not btn then
+            warn("[AutoFarm] Không tìm thấy AutoFarmLvlButton")
+            return
+        end
+
+        -- ensure ToggleUI knows about UI
+        pcall(function() ToggleUI.Refresh() end)
+        -- ensure initial visual OFF
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        running = false
+
+        -- disconnect previous connection
+        if currentConn then
+            currentConn:Disconnect()
+            currentConn = nil
+        end
+
+        currentConn = btn.Activated:Connect(function()
+            -- simple debounce small window to avoid extreme spam; ToggleUI is already spam-safe
+            running = not running
+            -- send UI command (visual)
+            pcall(function() ToggleUI.Set(BUTTON_NAME, running) end)
+
+            -- side-effects when turning ON
+            if running then
+                pcall(function()
+                    player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                    player:SetAttribute("FastAttackEnemy", true)
+                end)
+                lastLevel = (player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") and player.Data.Level.Value) or lastLevel
+            else
+                pcall(function()
+                    player:SetAttribute("FastAttackEnemy", false)
+                end)
+            end
+        end)
+    end
+
+    -- initial bind (and rebind whenever ScrollingTab's descendants change)
+    bindToggleButton()
+    ScrollingTab.DescendantAdded:Connect(function()
+        -- small delay to allow proper initialization
+        task.wait(0.05)
+        -- rebind if the button appears or was recreated
+        if not (currentConn and currentConn.Connected) then
+            bindToggleButton()
+        end
+    end)
+
+    -- ======================================================
+    -- The rest of your AutoFarm logic (unchanged behaviour)
+    -- re-used functions adapted to use 'running' flag above
+    -- ======================================================
+
 
     local FarmZones = {
         {
@@ -886,10 +953,6 @@ do
         }
     }
 
-    -- Auto Farm biến và helper functions
-    local running = false
-    local lastLevel = 0
-
     local function getLevel()
         local d = player:FindFirstChild("Data")
         return d and d:FindFirstChild("Level") and d.Level.Value or 0
@@ -904,72 +967,60 @@ do
         return nil
     end
 
-    -- tween movement helper (giữ nguyên)
     local MOVE_SPEED = 275
     local function tweenTo(pos)
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
-
         local distance = (hrp.Position - pos).Magnitude
         if distance < 5 then return end
         if distance > 15000 then return end
-
         local tweenTime = distance / MOVE_SPEED
         local tw = TweenService:Create(hrp, TweenInfo.new(tweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), { CFrame = CFrame.new(pos) })
         tw:Play()
         tw.Completed:Wait()
     end
 
-    -- accept quest (giữ nguyên, dùng pcall)
+    -- Remotes usage (kept)
     local function acceptQuest(zone)
         if not zone then return end
-        tweenTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
-        task.wait(1)
-
-        local args = { [1] = "StartQuest", [2] = zone.QuestName, [3] = zone.QuestIndex }
         pcall(function()
-            local remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage:WaitForChild("Remotes")
-            local comm = remotes:FindFirstChild("CommF_") or remotes:WaitForChild("CommF_")
-            comm:InvokeServer(unpack(args))
+            tweenTo(zone.QuestNPCPos + Vector3.new(0,3,0))
+            task.wait(1)
+            local args = { [1] = "StartQuest", [2] = zone.QuestName, [3] = zone.QuestIndex }
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
         end)
-
-        currentQuestKills = 0
-        currentQuestBeli = player:WaitForChild("Data"):WaitForChild("Beli").Value
-
-        if zone.RewardBeli then expectedRewardBeli = zone.RewardBeli end
     end
 
-    -- Auto attack loop (keep as spawn, non-blocking)
+    -- Auto attack sender
     spawn(function()
         while true do
             task.wait(0.4)
             if running then
                 pcall(function()
-                    local modules = ReplicatedStorage:FindFirstChild("Modules") or ReplicatedStorage:WaitForChild("Modules")
-                    local net = modules:FindFirstChild("Net") or modules:WaitForChild("Net")
-                    local reg = net:FindFirstChild("RE/RegisterAttack") or net:WaitForChild("RE/RegisterAttack")
-                    reg:FireServer(0.4000000059604645)
+                    local args = { 0.4000000059604645 }
+                    local moduleNet = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                    local evt = moduleNet and moduleNet:FindFirstChild("RE/RegisterAttack")
+                    if evt and evt.FireServer then
+                        evt:FireServer(unpack(args))
+                    end
                 end)
             end
         end
     end)
 
-    -- helper: find nearest mob
     local function getNearestMob(name)
         local enemies = workspace:FindFirstChild("Enemies")
         if not enemies then return nil end
-
         local closest = nil
         local minDist = math.huge
         local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
-        local mypos = char.HumanoidRootPart.Position
-
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return nil end
         for _, mob in pairs(enemies:GetChildren()) do
             if mob.Name == name and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
                 local hum = mob:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    local dist = (mypos - mob.HumanoidRootPart.Position).Magnitude
+                    local dist = (hrp.Position - mob.HumanoidRootPart.Position).Magnitude
                     if dist < minDist then
                         closest = mob
                         minDist = dist
@@ -980,14 +1031,13 @@ do
         return closest
     end
 
-    -- follow mob (kept)
     local function followMob(mob)
-        if not mob or not mob.Parent then return end
+        if not mob then return end
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
         local camera = workspace.CurrentCamera
-
-        -- anchor part
+        local RunService = game:GetService("RunService")
+        -- anchor
         local anchor = Instance.new("Part")
         anchor.Anchored = true
         anchor.CanCollide = false
@@ -1005,83 +1055,26 @@ do
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
             local hrpEnemy = mob:FindFirstChild("HumanoidRootPart")
             if not hrpEnemy then break end
-
             if (tick() - lastUpdate) > 2 or math.abs(anchorY - hrpEnemy.Position.Y) > 15 then
                 anchorY = hrpEnemy.Position.Y + 25
                 lastUpdate = tick()
             end
-
             local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
             anchor.Position = anchor.Position:Lerp(targetPos, 0.15)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
-
             RunService.RenderStepped:Wait()
         end
 
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = hrp
-
         if anchor then anchor:Destroy() end
     end
 
-    -- ===== Hook the UI trigger button to toggle running + update UI effect =====
-    local function setTriggerVisual(enabled)
-        -- update button text/background if it's TextButton
-        pcall(function()
-            if triggerBtn:IsA("TextButton") or triggerBtn:IsA("TextLabel") then
-                triggerBtn.Text = enabled and "ON" or "OFF"
-                triggerBtn.BackgroundColor3 = enabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
-            else
-                -- if ImageButton, attempt to tint background if possible
-                if triggerBtn:IsA("ImageButton") then
-                    triggerBtn.BackgroundColor3 = enabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
-                end
-            end
-        end)
-
-        -- Update ToggleUI visuals in ScrollingTab (if button exists there)
-        pcall(function()
-            ToggleUI.Set(BUTTON_NAME, enabled)
-        end)
-    end
-
-    -- connect activation (works for mouse + touch)
-    if triggerBtn then
-        -- initialize visuals OFF
-        setTriggerVisual(false)
-
-        -- use Activated to support touch + mouse
-        if triggerBtn.Activated then
-            triggerBtn.Activated:Connect(function()
-                running = not running
-                setTriggerVisual(running)
-                lastLevel = getLevel()
-
-                if running then
-                    pcall(function()
-                        player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                        player:SetAttribute("FastAttackEnemy", true)
-                    end)
-                else
-                    pcall(function()
-                        player:SetAttribute("FastAttackEnemy", false)
-                    end)
-                end
-            end)
-        elseif triggerBtn.MouseButton1Click then
-            triggerBtn.MouseButton1Click:Connect(function()
-                running = not running
-                setTriggerVisual(running)
-                lastLevel = getLevel()
-            end)
-        end
-    end
-
-    -- main farm loop (kept)
+    -- Farm loop
     spawn(function()
         while true do
-            task.wait(0.15)
+            task.wait()
             if not running then continue end
 
             local level = getLevel()
@@ -1095,46 +1088,44 @@ do
 
             local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             if hrp and (hrp.Position - zone.FarmPos).Magnitude > 1000 then
-                tweenTo(zone.FarmPos + Vector3.new(0, 3, 0))
+                tweenTo(zone.FarmPos + Vector3.new(0,3,0))
             end
 
             local mob = getNearestMob(zone.MobName)
             if mob then
                 followMob(mob)
-                currentQuestKills = currentQuestKills + 1
             end
 
-            local newBeli = player:FindFirstChild("Data") and player:FindFirstChild("Data"):FindFirstChild("Beli") and player.Data.Beli.Value
-            if newBeli then
-                if newBeli - currentQuestBeli >= expectedRewardBeli then
-                    acceptQuest(zone)
-                elseif currentQuestKills >= maxQuestKills then
-                    acceptQuest(zone)
-                end
+            local newBeli = (player:FindFirstChild("Data") and player.Data:FindFirstChild("Beli") and player.Data.Beli.Value) or 0
+            if zone.RewardBeli and newBeli and (newBeli - (player:FindFirstChild("Data") and player.Data:FindFirstChild("Beli") and player.Data.Beli.Value or 0)) >= zone.RewardBeli then
+                acceptQuest(zone)
             end
         end
     end)
 
-    -- death handling: save/restore running state
-    local wasRunningBeforeDeath = false
+    -- Handle death / respawn: keep prior running state
     player.CharacterAdded:Connect(function(char)
-        char:WaitForChild("Humanoid").Died:Connect(function()
+        -- when character is added, attach Died listener
+        local humanoid = char:WaitForChild("Humanoid")
+        humanoid.Died:Connect(function()
             if running then
                 wasRunningBeforeDeath = true
                 running = false
-                setTriggerVisual(false)
+                -- update UI visual off
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                pcall(function() player:SetAttribute("FastAttackEnemy", false) end)
             else
                 wasRunningBeforeDeath = false
             end
         end)
-    end)
 
-    player.CharacterAdded:Connect(function(char)
-        char:WaitForChild("HumanoidRootPart")
+        -- when respawned, restore if necessary
         task.wait(1)
         if wasRunningBeforeDeath then
             running = true
-            setTriggerVisual(true)
+            pcall(function() ToggleUI.Set(BUTTON_NAME, true) end)
+            pcall(function() player:SetAttribute("FastAttackEnemy", true) end)
+            wasRunningBeforeDeath = false
         end
     end)
 end
