@@ -10,6 +10,8 @@ Status.BorderColor3 = Color3.new(0, 0, 0)
 Status.Transparency = 1
 Status.Parent = ScrollingTab
 
+--=== MOON ========================================================================================================================================
+
 local MoonStatus = Instance.new("ImageLabel")
 MoonStatus.Name = "MoonStatus"
 MoonStatus.Position = UDim2.new(0.75, 0, 0.075, 0)
@@ -18,6 +20,7 @@ MoonStatus.BackgroundColor3 = Color3.new(1, 0, 1)
 MoonStatus.BackgroundTransparency = 0.5
 MoonStatus.BorderSizePixel = 0
 MoonStatus.BorderColor3 = Color3.new(0, 0, 0)
+MoonStatus.Rotation = 180
 MoonStatus.AnchorPoint = Vector2.new(0.5, 0.5)
 MoonStatus.Transparency = 0.5
 MoonStatus.Parent = Status
@@ -35,12 +38,13 @@ UIStroke.Parent = MoonStatus
 
 local MoonTitle = Instance.new("TextLabel")
 MoonTitle.Name = "MoonTitle"
-MoonTitle.Position = UDim2.new(0.5, 0, 1.135, 0)
+MoonTitle.Position = UDim2.new(0.495, 0, -0.14, 0)
 MoonTitle.Size = UDim2.new(1, 0, 0.25, 0)
 MoonTitle.BackgroundColor3 = Color3.new(1, 1, 1)
 MoonTitle.BackgroundTransparency = 1
 MoonTitle.BorderSizePixel = 0
 MoonTitle.BorderColor3 = Color3.new(0, 0, 0)
+MoonTitle.Rotation = 180
 MoonTitle.AnchorPoint = Vector2.new(0.5, 0.5)
 MoonTitle.Text = "Moon state"
 MoonTitle.TextColor3 = Color3.new(1, 1, 1)
@@ -56,3 +60,5 @@ UIStroke2.Color = Color3.new(1, 1, 1)
 UIStroke2.Thickness = 2
 UIStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke2.Parent = MoonTitle
+
+--=== COUNT PLAYER ========================================================================================================================================
