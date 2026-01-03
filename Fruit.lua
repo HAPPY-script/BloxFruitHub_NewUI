@@ -1,0 +1,10 @@
+local Fruit = Instance.new("Frame")
+Fruit.Name = "Fruit"
+Fruit.Size = UDim2.new(1, 0, 1, 0)
+Fruit.BackgroundColor3 = Color3.new(0, 1, 0)
+Fruit.BackgroundTransparency = 1
+Fruit.BorderSizePixel = 0
+Fruit.BorderColor3 = Color3.new(0, 0, 0)
+Fruit.Visible = false
+Fruit.Transparency = 1
+Fruit.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
