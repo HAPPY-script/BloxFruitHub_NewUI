@@ -37,3 +37,9 @@ print("Island ✅")
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Order.lua"))()
 
 print("Order ✅")
+
+--=== UI SYSTEM ============================================================================================================================--
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SystemUI.lua"))()
+
+print("UI System ✅")
