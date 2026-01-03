@@ -1,3 +1,5 @@
+local ScrollingTab = game.Players.LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
+
 local Visual = Instance.new("Frame")
 Visual.Name = "Visual"
 Visual.Size = UDim2.new(1, 0, 1, 0)
@@ -7,4 +9,4 @@ Visual.BorderSizePixel = 0
 Visual.BorderColor3 = Color3.new(0, 0, 0)
 Visual.Visible = false
 Visual.Transparency = 1
-Visual.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Visual.Parent = ScrollingTab
