@@ -20,6 +20,11 @@ do
         return
     end
 
+    local function isToggleOn()
+        local bg = autoHoldBtn.BackgroundColor3
+        return bg and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
+    end
+
     -- tên các nút UI bạn đã đặt
     local BUTTON_NAME = "AutoHoldToolButton" -- nút toggle
     local CHECK_NAME  = "CheckToolButton"    -- nút check tool
@@ -159,11 +164,16 @@ do
         checkInProgress = true
         checkBtn.Active = false
 
-        -- quick helper to set UI color and text when selected
         local function markSelected(name)
             savedToolName = name
             updateCheckAppearance("selected")
             animatedSetText(checkBtn, "Selected: "..tostring(name))
+
+            -- FIX: nếu toggle đang ON thì start loop ngay
+            if loopEquip or isToggleOn() then
+                loopEquip = true
+                startLoop()
+            end
         end
 
         local function markNone()
