@@ -2,7 +2,7 @@ local BloxFruitHubGui = Instance.new("ScreenGui")
 BloxFruitHubGui.Name = "BloxFruitHubGui"
 BloxFruitHubGui.ResetOnSpawn = false
 BloxFruitHubGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-BloxFruitHubGui.DisplayOrder = 10
+BloxFruitHubGui.DisplayOrder = 100
 BloxFruitHubGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
