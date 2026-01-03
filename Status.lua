@@ -42,7 +42,6 @@ MoonTitle.BackgroundTransparency = 1
 MoonTitle.BorderSizePixel = 0
 MoonTitle.BorderColor3 = Color3.new(0, 0, 0)
 MoonTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-MoonTitle.Transparency = 1
 MoonTitle.Text = "Moon state"
 MoonTitle.TextColor3 = Color3.new(1, 1, 1)
 MoonTitle.TextSize = 14
@@ -57,4 +56,3 @@ UIStroke2.Color = Color3.new(1, 1, 1)
 UIStroke2.Thickness = 2
 UIStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke2.Parent = MoonTitle
-
