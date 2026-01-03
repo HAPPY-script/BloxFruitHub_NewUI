@@ -1,4 +1,5 @@
 --=== AUTO FARM LVL =====================================================================================================
+
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -914,29 +915,58 @@ local FarmZones = {
         return nil
     end
 
-    local MOVE_SPEED = 275
+    local MOVE_SPEED = 275 -- units per second
+
+    -- Interruptible movement function (returns true if arrived, false if interrupted)
     local function tweenTo(pos)
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
 
+        if not hrp or not hrp.Parent then return false end
+
         local distance = (hrp.Position - pos).Magnitude
-        if distance < 5 then return end
-        if distance > 15000 then return end
+        if distance < 5 then return true end
+        if distance > 15000 then return true end
 
-        local tweenTime = distance / MOVE_SPEED
+        -- Move towards pos manually so we can interrupt anytime by changing 'running'
+        local arrived = false
+        while hrp and hrp.Parent do
+            -- abort if running was set to false
+            if not running then
+                return false
+            end
 
-        local tween = TweenService:Create(
-            hrp,
-            TweenInfo.new(tweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
-            { CFrame = CFrame.new(pos) }
-        )
-        tween:Play()
-        tween.Completed:Wait()
+            local currentPos = hrp.Position
+            local toTarget = pos - currentPos
+            local distNow = toTarget.Magnitude
+            if distNow <= 1 then
+                arrived = true
+                break
+            end
+
+            local dt = RunService.Heartbeat:Wait()
+            -- step distance this frame
+            local step = math.min(distNow, MOVE_SPEED * dt)
+            -- avoid NaN if toTarget is zero
+            local dir = toTarget.Unit
+            local newPos = currentPos + dir * step
+
+            -- zero velocity and set new CFrame (smoother than setting Velocity)
+            if hrp and hrp.Parent then
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                hrp.CFrame = CFrame.new(newPos)
+            else
+                break
+            end
+        end
+
+        return arrived
     end
 
     local function acceptQuest(zone)
         if not zone then return end
-        tweenTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
+        local ok = tweenTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
+        if not ok then return end -- interrupted or couldn't reach, abort accept
         task.wait(1)
 
         local args = {
@@ -1031,8 +1061,10 @@ local FarmZones = {
 
             local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
             anchor.Position = anchor.Position:Lerp(targetPos, 0.15)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+            if hrp and hrp.Parent then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+            end
 
             RunService.RenderStepped:Wait()
         end
@@ -1064,6 +1096,7 @@ local FarmZones = {
 
             local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             if hrp and (hrp.Position - zone.FarmPos).Magnitude > 1000 then
+                -- if movement aborted, we'll just continue the loop and re-evaluate
                 tweenTo(zone.FarmPos + Vector3.new(0, 3, 0))
             end
 
