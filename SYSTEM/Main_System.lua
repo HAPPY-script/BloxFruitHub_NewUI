@@ -1,4 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
+
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -18,11 +19,6 @@ do
     if not uiMain then
         warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
         return
-    end
-
-    local function isToggleOn()
-        local bg = autoHoldBtn.BackgroundColor3
-        return bg and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
     end
 
     -- tên các nút UI bạn đã đặt
@@ -117,6 +113,7 @@ do
     -- vòng lặp giữ/equip tool (nhanh, interruptible)
     local function startLoop()
         if equipThread or not savedToolName then return end
+        loopEquip = true
         equipThread = task.spawn(function()
             while loopEquip do
                 local tool = findTool(savedToolName)
@@ -128,13 +125,22 @@ do
                 end
                 task.wait(0.5)
             end
+            -- thread kết thúc
             equipThread = nil
         end)
     end
 
     local function stopLoop()
+        -- đảm bảo đặt flag false để thread thoát, và chờ thread hoàn thành an toàn
         loopEquip = false
-        equipThread = nil
+        if equipThread then
+            local tstart = tick()
+            -- chờ tối đa 0.6s để thread kết thúc
+            while equipThread and tick() - tstart < 0.6 do
+                task.wait(0.02)
+            end
+            -- nếu thread vẫn chưa nil, ta vẫn để equipThread như cũ (không ép cancel)
+        end
     end
 
     -- tween helper cho text transparency (0->1 or 1->0)
@@ -156,23 +162,42 @@ do
         tweenTextTransparency(btn, 0, 0.16) -- fade in
     end
 
+    -- Reliable check: try ToggleUI.Get(BUTTON_NAME), fallback to color check
+    local function getToggleOn()
+        -- try ToggleUI.Get if exists
+        local ok, val = pcall(function()
+            if ToggleUI.Get then
+                return ToggleUI.Get(BUTTON_NAME)
+            end
+            return nil
+        end)
+        if ok and type(val) == "boolean" then
+            return val
+        end
+        -- fallback to infer from color (existing heuristic)
+        local bg = autoHoldBtn.BackgroundColor3
+        if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then
+            return true
+        end
+        return false
+    end
+
     -- Hàm xử lý CheckToolButton logic
     local function handleCheckOnce()
-        local prevLoop = loopEquip
-        loopEquip = false
-        
         if checkInProgress then return end
         checkInProgress = true
         checkBtn.Active = false
+
+        -- BEFORE selecting: stop any active equip loop so selection behaves
+        stopLoop()
 
         local function markSelected(name)
             savedToolName = name
             updateCheckAppearance("selected")
             animatedSetText(checkBtn, "Selected: "..tostring(name))
 
-            -- FIX: nếu toggle đang ON thì start loop ngay
-            if loopEquip or isToggleOn() then
-                loopEquip = true
+            -- nếu toggle đang ON thì start loop ngay
+            if getToggleOn() then
                 startLoop()
             end
         end
@@ -181,6 +206,8 @@ do
             savedToolName = nil
             updateCheckAppearance("none")
             animatedSetText(checkBtn, "None")
+            -- đảm bảo loop dừng nếu user chọn None
+            stopLoop()
         end
 
         -- 1) if currently holding a tool — accept it immediately (with tween)
@@ -194,7 +221,6 @@ do
 
         -- 2) else go into Waiting mode for up to 3s, polling for a tool
         updateCheckAppearance("waiting")
-        -- show Waiting... (no immediate tween out/in for simplicity, but set transparency tween too)
         tweenTextTransparency(checkBtn, 1, 0.12)
         checkBtn.Text = "Waiting..."
         tweenTextTransparency(checkBtn, 0, 0.12)
@@ -219,11 +245,6 @@ do
             markNone()
         end
 
-        if prevLoop and savedToolName then
-            loopEquip = true
-            startLoop()
-        end
-
         -- small debounce to prevent immediate re-click spam
         task.delay(0.2, function()
             checkInProgress = false
@@ -234,7 +255,6 @@ do
     -- Hook Check button (use Activated if available, fallback to MouseButton1Click)
     if checkBtn.Activated then
         checkBtn.Activated:Connect(function()
-            -- allow user to re-select even when already have savedToolName (per req)
             handleCheckOnce()
         end)
     else
@@ -245,14 +265,8 @@ do
 
     -- khi nhấn nút toggle: gửi lệnh cho ToggleUI (theo mẫu)
     autoHoldBtn.Activated:Connect(function()
-        -- get current toggle state by color or via ToggleUI if available
-        local currentOn = false
-        -- try infer from background color (common pattern): green => on
-        local bg = autoHoldBtn.BackgroundColor3
-        if bg and math.abs(bg.R - 0) < 0.1 and math.abs(bg.G - 1) < 0.2 then
-            currentOn = true
-        end
-        -- flip
+        -- try to get current state reliably, prefer ToggleUI.Get
+        local currentOn = getToggleOn()
         local target = not currentOn
         pcall(function() ToggleUI.Set(BUTTON_NAME, target) end)
     end)
@@ -272,16 +286,10 @@ do
             if savedToolName then
                 startLoop()
             end
-            
         elseif not isOn and loopEquip then
             loopEquip = false
             stopLoop()
-
-            savedToolName = nil
-            updateCheckAppearance("none")
-            animatedSetText(checkBtn, "None")
         end
-
     end
 
     autoHoldBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
