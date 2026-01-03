@@ -8,7 +8,7 @@ Main.BackgroundTransparency = 1
 Main.BorderSizePixel = 0
 Main.BorderColor3 = Color3.new(0, 0, 0)
 Main.Transparency = 1
-Main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Main.Parent = ScrollingTab
 
 local AutoHoldToolTitle = Instance.new("TextLabel")
 AutoHoldToolTitle.Name = "AutoHoldToolTitle"
