@@ -1,3 +1,5 @@
+local ScrollingTab = game.Players.LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
+
 local Raid = Instance.new("Frame")
 Raid.Name = "Raid"
 Raid.Size = UDim2.new(1, 0, 1, 0)
@@ -7,4 +9,4 @@ Raid.BorderSizePixel = 0
 Raid.BorderColor3 = Color3.new(0, 0, 0)
 Raid.Visible = false
 Raid.Transparency = 1
-Raid.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Raid.Parent = ScrollingTab
