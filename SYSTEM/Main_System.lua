@@ -1485,3 +1485,380 @@ local FarmZones = {
         player.Character.Humanoid.Died:Connect(function() onDeath() end)
     end
 end
+
+--=== AUTO FARM ARENA =====================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+
+    local player = Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+    local camera = workspace.CurrentCamera
+
+    -- đường dẫn ScrollingTab -> tìm Frame "Main" bên trong
+    local ScrollingTab = player
+        .PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local uiMain = ScrollingTab:FindFirstChild("Main", true)
+    if not uiMain then
+        warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
+        return
+    end
+
+    -- LẤY UI từ Main
+    local autoBtn = uiMain:FindFirstChild("AutoFarmArenaButton", true)
+    local distanceTextBox = uiMain:FindFirstChild("AutoFarmArenaBox", true)
+
+    if not autoBtn then
+        warn("Không tìm thấy AutoFarmArenaButton trong UI")
+        return
+    end
+    if not distanceTextBox then
+        warn("Không tìm thấy AutoFarmArenaBox trong UI")
+        return
+    end
+
+    -- internal state
+    local running = false
+    local farmPoint = nil
+    local farmBillboard = nil
+    local distanceLimit = tonumber(distanceTextBox.Text) or 5000
+    local farmCenter = nil
+
+    local anchor = nil
+    local anchorY = nil
+    local lastAnchorUpdate = 0
+    local anchorUpdateInterval = 1
+
+    local function ensureAnchor()
+        if not anchor or not anchor.Parent then
+            anchor = Instance.new("Part")
+            anchor.Anchored = true
+            anchor.CanCollide = false
+            anchor.Transparency = 1
+            anchor.Size = Vector3.new(1, 1, 1)
+            anchor.Name = "CameraAnchor"
+
+            if hrp and hrp:IsDescendantOf(workspace) then
+                anchor.Position = hrp.Position
+            else
+                anchor.Position = Vector3.new(0, 10, 0)
+            end
+
+            anchor.Parent = workspace
+        end
+        return anchor
+    end
+
+    local function tweenTo(pos)
+        -- keep original tween behavior (distance-based time)
+        if not hrp then return end
+        local dist = (hrp.Position - pos).Magnitude
+        if dist > 10000 then return end
+        local tween = TweenService:Create(hrp, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
+        tween:Play()
+        tween.Completed:Wait()
+    end
+
+    local function getNearestEnemy(centerPos)
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return nil end
+        local nearest, nearestDist
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                local hp = mob:FindFirstChildOfClass("Humanoid")
+                if hp and hp.Health > 0 then
+                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= (distanceLimit or 0) then
+                        if not nearestDist or dist < nearestDist then
+                            nearest = mob
+                            nearestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+        return nearest
+    end
+
+    local function updateHighlight(enemy)
+        if not enemy then return end
+        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+
+        if not enemy:FindFirstChild("HomeHighlight") then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "HomeHighlight"
+            highlight.FillTransparency = 0.2
+            highlight.OutlineTransparency = 0.9
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Adornee = enemy
+            highlight.Parent = enemy
+        end
+
+        local highlight = enemy:FindFirstChild("HomeHighlight")
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            if not running or not humanoid.Parent or humanoid.Health <= 0 or not highlight or highlight.Parent ~= enemy then
+                if highlight then highlight:Destroy() end
+                conn:Disconnect()
+                return
+            end
+
+            local percent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            highlight.FillColor = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
+        end)
+    end
+
+    local function followEnemy(enemy)
+        local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
+        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+        if not hrpEnemy or not humanoid then return end
+
+        updateHighlight(enemy)
+
+        local anchorLocal = ensureAnchor()
+
+        if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
+            anchorY = hrpEnemy.Position.Y + 25
+            lastAnchorUpdate = tick()
+        end
+
+        camera.CameraType = Enum.CameraType.Custom
+        camera.CameraSubject = anchorLocal
+
+        local dist = (hrp.Position - hrpEnemy.Position).Magnitude
+        if dist > 200 then
+            tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
+        else
+            while humanoid.Health > 0 and running do
+                updateHighlight(enemy)
+
+                anchorY = hrpEnemy.Position.Y + 25
+                local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
+                anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
+
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+
+                RunService.RenderStepped:Wait()
+            end
+        end
+    end
+
+    local function createFarmPoint(pos)
+        if farmPoint and farmPoint.Parent then
+            farmPoint:Destroy()
+            farmPoint = nil
+            farmBillboard = nil
+        end
+
+        farmPoint = Instance.new("Part")
+        farmPoint.Name = "FarmPoint"
+        farmPoint.Size = Vector3.new(1,1,1)
+        farmPoint.Anchored = true
+        farmPoint.CanCollide = false
+        farmPoint.Transparency = 1
+        farmPoint.Position = pos
+        farmPoint.Parent = workspace
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "FarmDistanceUI"
+        bb.Adornee = farmPoint
+        bb.Size = UDim2.new(0, 120, 0, 40)
+        bb.StudsOffset = Vector3.new(0, 2, 0)
+        bb.AlwaysOnTop = true
+        bb.Parent = farmPoint
+
+        local label = Instance.new("TextLabel", bb)
+        label.Name = "DistanceLabel"
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Font = Enum.Font.SourceSansBold
+        label.Text = "0/" .. tostring(distanceLimit)
+        label.TextColor3 = Color3.fromRGB(0,255,0)
+        label.TextStrokeTransparency = 0.6
+
+        farmBillboard = {
+            gui = bb,
+            label = label
+        }
+
+        farmCenter = farmPoint.Position
+    end
+
+    local function destroyFarmPoint()
+        if farmPoint and farmPoint.Parent then
+            farmPoint:Destroy()
+        end
+        farmPoint = nil
+        farmBillboard = nil
+        farmCenter = nil
+    end
+
+    -- XỬ LÝ TextBox FocusLost (commit khi rời focus)
+    if distanceTextBox:IsA("TextBox") then
+        distanceTextBox.FocusLost:Connect(function(enterPressed)
+            local val = tonumber(distanceTextBox.Text)
+            if val and val > 0 then
+                distanceLimit = math.floor(val)
+            else
+                distanceTextBox.Text = tostring(distanceLimit)
+            end
+            if farmBillboard and farmBillboard.label then
+                farmBillboard.label.Text = "0/" .. tostring(distanceLimit)
+            end
+        end)
+    else
+        -- nếu control là TextLabel/TextBox kiểu khác, cố gắng parse ban đầu
+        distanceLimit = tonumber(distanceTextBox.Text) or distanceLimit
+    end
+
+    -- Reset khi chết / respawn
+    player.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        hrp = newChar:WaitForChild("HumanoidRootPart")
+        running = false
+        anchorY = nil
+        destroyFarmPoint()
+        -- cập nhật UI nút từ trạng thái chạy
+        if autoBtn then
+            pcall(function()
+                autoBtn.Text = "OFF"
+                if autoBtn.BackgroundColor3 then
+                    autoBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                end
+            end)
+        end
+        camera.CameraType = Enum.CameraType.Custom
+        camera.CameraSubject = hrp
+    end)
+
+    -- Toggle behavior: khi click UI (Activated nếu có)
+    local toggleDebounce = false
+    local function setRunning(state)
+        running = state
+        if autoBtn then
+            pcall(function()
+                autoBtn.Text = running and "ON" or "OFF"
+                if autoBtn.BackgroundColor3 then
+                    autoBtn.BackgroundColor3 = running and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 50, 50)
+                end
+            end)
+        end
+
+        if running then
+            -- bật FastAttack (giữ nguyên: chỉ bật true, không gửi false khi stop)
+            pcall(function()
+                player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemy", true)
+            end)
+
+            -- tạo farmPoint ở vị trí hiện tại
+            if hrp then
+                createFarmPoint(hrp.Position)
+            end
+        else
+            -- dừng và dọn dẹp (không tắt FastAttackEnemy)
+            camera.CameraType = Enum.CameraType.Custom
+            camera.CameraSubject = hrp
+            destroyFarmPoint()
+            if anchor then
+                anchor:Destroy()
+                anchor = nil
+            end
+        end
+    end
+
+    local function onToggleActivated()
+        if toggleDebounce then return end
+        toggleDebounce = true
+        setRunning(not running)
+        task.delay(0.25, function() toggleDebounce = false end)
+    end
+
+    if autoBtn.Activated then
+        autoBtn.Activated:Connect(onToggleActivated)
+    else
+        autoBtn.MouseButton1Click:Connect(onToggleActivated)
+    end
+
+    -- Nếu UI thay đổi màu/text bên ngoài, sync lại trạng thái running (nếu muốn)
+    if autoBtn:GetPropertyChangedSignal then
+        autoBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+            task.delay(0.05, function()
+                local bg = autoBtn.BackgroundColor3
+                if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then
+                    if not running then setRunning(true) end
+                else
+                    if running then setRunning(false) end
+                end
+            end)
+        end)
+    end
+
+    -- Cập nhật Billboard + farmCenter mỗi frame (mượt và tween màu)
+    do
+        local lastRatio = -1
+        local colorTween = nil
+        RunService.RenderStepped:Connect(function()
+            if farmPoint and farmPoint.Parent and farmBillboard and farmBillboard.label and hrp then
+                local rawDist = (hrp.Position - farmPoint.Position).Magnitude
+                local clamped = math.clamp(rawDist, 0, distanceLimit)
+                local display = math.floor(clamped + 0.5)
+                farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit)
+
+                local ratio = distanceLimit > 0 and (clamped / distanceLimit) or 0
+                if math.abs(ratio - lastRatio) > 0.01 then
+                    lastRatio = ratio
+                    local r = math.floor(255 * ratio)
+                    local g = math.floor(255 * (1 - ratio))
+                    local targetColor = Color3.fromRGB(r, g, 0)
+                    if colorTween then
+                        pcall(function() colorTween:Cancel() end)
+                    end
+                    colorTween = TweenService:Create(farmBillboard.label, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {TextColor3 = targetColor})
+                    colorTween:Play()
+                end
+
+                farmCenter = farmPoint.Position
+            end
+        end)
+    end
+
+    -- Auto farm loop
+    task.spawn(function()
+        while true do
+            task.wait()
+            if not running or not hrp then continue end
+            local center = farmCenter or hrp.Position
+            local target = getNearestEnemy(center)
+            if target then
+                followEnemy(target)
+            end
+        end
+    end)
+
+    -- Auto attack loop (giữ nguyên)
+    task.spawn(function()
+        while true do
+            task.wait(0.4)
+            if running then
+                pcall(function()
+                    game:GetService("ReplicatedStorage")
+                        :WaitForChild("Modules")
+                        :WaitForChild("Net")
+                        :WaitForChild("RE/RegisterAttack")
+                        :FireServer(0.4)
+                end)
+            end
+        end
+    end)
+end
