@@ -194,10 +194,13 @@ do
 
             -- Tween to yellow over 2s, then back to original (2s). Do NOT call ToggleUI.Set(true).
             task.spawn(function()
-                -- tween to warnColor
-                tweenButtonToColor(warnColor, 2)
-                -- tween back to originals
-                tweenButtonToColor(origBg, 2)
+
+                tweenButtonToColor(warnColor, 0.25)
+
+                task.wait(2)
+
+                tweenButtonToColor(origBg, 0.25)
+
                 animating = false
             end)
 
