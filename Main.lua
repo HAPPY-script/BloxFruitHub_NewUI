@@ -259,7 +259,6 @@ AutoFarmArenaBox.BackgroundTransparency = 0.75
 AutoFarmArenaBox.BorderSizePixel = 0
 AutoFarmArenaBox.BorderColor3 = Color3.new(0, 0, 0)
 AutoFarmArenaBox.AnchorPoint = Vector2.new(0.5, 0.5)
-AutoFarmArenaBox.Transparency = 0.75
 AutoFarmArenaBox.Text = ""
 AutoFarmArenaBox.TextColor3 = Color3.new(1, 1, 1)
 AutoFarmArenaBox.TextSize = 14
