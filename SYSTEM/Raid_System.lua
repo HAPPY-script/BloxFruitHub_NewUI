@@ -13,10 +13,16 @@ do
     -- ======= UI NEW: wait ToggleUI và tìm nút trong ScrollingTab -> Raid -> AutoRaidButton
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    ToggleUI.Refresh()
-    ToggleUI.Set("AutoRaidButton", false) -- khởi mặc định OFF
 
     local BUTTON_NAME = "AutoRaidButton"
+
+    -- gọi an toàn Refresh / Set nếu có
+    if ToggleUI and type(ToggleUI.Refresh) == "function" then
+        pcall(function() ToggleUI.Refresh() end)
+    end
+    if ToggleUI and type(ToggleUI.Set) == "function" then
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+    end
 
     local ScrollingTab = player
         .PlayerGui
@@ -36,8 +42,17 @@ do
         return
     end
 
-    -- tìm UIStroke (nếu có) trong button (tìm đệ quy)
-    local btnStroke = raidBtn:FindFirstChildWhichIsA and raidBtn:FindFirstChildWhichIsA("UIStroke", true) or raidBtn:FindFirstChild("UIStroke")
+    -- tìm UIStroke (nếu có) trong button (kiểm tra an toàn và gọi đúng)
+    local btnStroke = nil
+    if raidBtn.FindFirstChildWhichIsA then
+        -- FindFirstChildWhichIsA nhận string class name, second arg recursive (true)
+        pcall(function()
+            btnStroke = raidBtn:FindFirstChildWhichIsA("UIStroke", true)
+        end)
+    end
+    if not btnStroke then
+        btnStroke = raidBtn:FindFirstChild("UIStroke")
+    end
 
     -- màu dùng
     local COLOR_OFF       = Color3.fromRGB(255, 0, 0)     -- trở về ban đầu
@@ -53,9 +68,9 @@ do
     local blockedAnim = false      -- khoá khi đang chạy animation NO-ISLAND (vàng->đỏ)
     local shortDebounceTime = 0.12
 
-    -- helper: an toàn cancel tween cũ
+    -- helper: an toàn cancel tween cũ (không bắt buộc)
     local function safeCancel(t)
-        if t and typeof(t.Cancel) == "function" then
+        if t and type(t.Cancel) == "function" then
             pcall(function() t:Cancel() end)
         end
     end
@@ -66,13 +81,13 @@ do
             pcall(function()
                 raidBtn.Text = "ON"
                 raidBtn.BackgroundColor3 = COLOR_ON
-                if btnStroke then btnStroke.Color = COLOR_ON end
+                if btnStroke then pcall(function() btnStroke.Color = COLOR_ON end) end
             end)
         else
             pcall(function()
                 raidBtn.Text = "OFF"
                 raidBtn.BackgroundColor3 = COLOR_OFF
-                if btnStroke then btnStroke.Color = COLOR_OFF end
+                if btnStroke then pcall(function() btnStroke.Color = COLOR_OFF end) end
             end)
         end
     end
@@ -84,7 +99,7 @@ do
         applyButtonState()
     end
 
-    -- hàm check island gần
+    -- hàm check island gần (giữ nguyên logic)
     local function hasIslandNearby()
         local map = workspace:FindFirstChild("Map")
         if not map then return false end
@@ -112,9 +127,6 @@ do
         if blockedAnim then return end
         blockedAnim = true
 
-        -- Cancel trước đó nếu có (an toàn)
-        -- (Không giữ biến tween global vì chúng là cục bộ, nhưng safeCancel nếu cần)
-
         local tInfo = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local bgToYellow = TweenService:Create(raidBtn, tInfo, { BackgroundColor3 = COLOR_WARNING })
         local strokeToYellow = btnStroke and TweenService:Create(btnStroke, tInfo, { Color = COLOR_WARNING }) or nil
@@ -122,14 +134,13 @@ do
         local bgToRed = TweenService:Create(raidBtn, tInfo, { BackgroundColor3 = COLOR_OFF })
         local strokeToRed = btnStroke and TweenService:Create(btnStroke, tInfo, { Color = COLOR_OFF }) or nil
 
-        -- sequential: to yellow -> to red. Chạy non-blocking nhưng block clicks until done
         task.spawn(function()
             pcall(function()
                 bgToYellow:Play()
                 if strokeToYellow then strokeToYellow:Play() end
                 bgToYellow.Completed:Wait()
             end)
-            task.wait(0.03) -- tiny gap
+            task.wait(0.03)
             pcall(function()
                 bgToRed:Play()
                 if strokeToRed then strokeToRed:Play() end
@@ -145,32 +156,29 @@ do
         clickLock = true
         task.delay(shortDebounceTime, function() clickLock = false end)
 
-        -- nếu đang chạy animation NO-ISLAND thì ignore
         if blockedAnim then return end
 
-        -- nếu chưa chạy và không có island -> chạy animation cảnh báo và không bật
         if not running and not hasIslandNearby() then
             flashNoIslandAnimation()
             return
         end
 
-        -- thực hiện toggle trạng thái
         running = not running
         autoClicking = running
 
-        -- gửi lệnh cho ToggleUI để đồng bộ
-        pcall(function() ToggleUI.Set(BUTTON_NAME, running) end)
+        -- gửi lệnh cho ToggleUI để đồng bộ, gọi an toàn
+        if ToggleUI and type(ToggleUI.Set) == "function" then
+            pcall(function() ToggleUI.Set(BUTTON_NAME, running) end)
+        end
 
         applyButtonState()
 
         if running then
-            -- bật attribute như ban đầu
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
         else
-            -- tắt attribute
             pcall(function()
                 player:SetAttribute("FastAttackEnemy", false)
             end)
@@ -184,8 +192,6 @@ do
     end
 
     -- ======= Phần logic Auto RAID giữ nguyên (chỉ chuyển các tham chiếu toggleRaid -> raidBtn)
-    -- Các biến/ hàm khác copy từ script gốc, nhưng cập nhật tên biến UI
-
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
     local anchor = nil
