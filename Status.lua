@@ -10,8 +10,6 @@ Status.BorderColor3 = Color3.new(0, 0, 0)
 Status.Transparency = 1
 Status.Parent = ScrollingTab
 
---=== MOON ========================================================================================================================================
-
 local MoonStatus = Instance.new("ImageLabel")
 MoonStatus.Name = "MoonStatus"
 MoonStatus.Position = UDim2.new(0.75, 0, 0.075, 0)
@@ -61,4 +59,38 @@ UIStroke2.Thickness = 2
 UIStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke2.Parent = MoonTitle
 
---=== COUNT PLAYER ========================================================================================================================================
+local CountPlayer = Instance.new("TextLabel")
+CountPlayer.Name = "CountPlayer"
+CountPlayer.Position = UDim2.new(0.3, 0, 0.08, 0)
+CountPlayer.Size = UDim2.new(0.25, 0, 0.025, 0)
+CountPlayer.BackgroundColor3 = Color3.new(1, 1, 1)
+CountPlayer.BackgroundTransparency = 1
+CountPlayer.BorderSizePixel = 0
+CountPlayer.BorderColor3 = Color3.new(0, 0, 0)
+CountPlayer.AnchorPoint = Vector2.new(0.5, 0.5)
+CountPlayer.Text = "A/N"
+CountPlayer.TextColor3 = Color3.new(1, 1, 1)
+CountPlayer.TextSize = 14
+CountPlayer.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CountPlayer.TextScaled = true
+CountPlayer.TextWrapped = true
+CountPlayer.Parent = Status
+
+local PlayerIcon = Instance.new("ImageLabel")
+PlayerIcon.Name = "PlayerIcon"
+PlayerIcon.Position = UDim2.new(0.3, 0, 0.045, 0)
+PlayerIcon.Size = UDim2.new(0.125, 0, 0.125, 0)
+PlayerIcon.BackgroundColor3 = Color3.new(1, 1, 1)
+PlayerIcon.BackgroundTransparency = 1
+PlayerIcon.BorderSizePixel = 0
+PlayerIcon.BorderColor3 = Color3.new(0, 0, 0)
+PlayerIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+PlayerIcon.Transparency = 1
+PlayerIcon.Image = "rbxassetid://11577689639"
+PlayerIcon.ImageColor3 = Color3.new(1, 0, 1)
+PlayerIcon.Parent = Status
+
+local UIAspectRatioConstraint2 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint2.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint2.Parent = PlayerIcon
