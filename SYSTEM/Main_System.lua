@@ -1,68 +1,115 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local RunService = game:GetService("RunService")
+
     local player = Players.LocalPlayer
 
-    -- đường dẫn ScrollingTab (bạn đã tạo sẵn UI mới)
+    -- đường dẫn ScrollingTab do bạn cung cấp
     local ScrollingTab = Players.LocalPlayer
         .PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
 
-    -- tìm Frame "Main" bên trong ScrollingTab (đệ quy)
+    -- tìm Frame "Main" trong ScrollingTab (đệ quy)
     local uiMain = ScrollingTab:FindFirstChild("Main", true)
     if not uiMain then
         warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
         return
     end
 
-    -- tìm 2 nút bạn nói: AutoHoldToolButton (toggle), CheckToolButton (check)
-    local toggleBtn = uiMain:FindFirstChild("AutoHoldToolButton", true)
-    local checkBtn  = uiMain:FindFirstChild("CheckToolButton", true)
+    -- tên các nút UI bạn đã đặt
+    local BUTTON_NAME = "AutoHoldToolButton" -- nút toggle
+    local CHECK_NAME  = "CheckToolButton"    -- nút check tool
 
-    if not toggleBtn then
-        warn("Không tìm thấy AutoHoldToolButton trong UI")
+    -- tìm nút trong uiMain (đệ quy)
+    local autoHoldBtn = uiMain:FindFirstChild(BUTTON_NAME, true)
+    local checkBtn    = uiMain:FindFirstChild(CHECK_NAME, true)
+
+    if not autoHoldBtn then
+        warn("Không tìm thấy AutoHoldToolButton:", BUTTON_NAME)
         return
     end
     if not checkBtn then
-        warn("Không tìm thấy CheckToolButton trong UI")
+        warn("Không tìm thấy CheckToolButton:", CHECK_NAME)
         return
     end
 
-    -- chờ ToggleUI helper (mẫu bạn đưa)
+    -- chờ ToggleUI helper (mẫu do bạn cung cấp)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    -- try refresh safe
-    pcall(function() if ToggleUI and ToggleUI.Refresh then ToggleUI.Refresh() end end)
-    -- ensure toggle UI off initial (optional)
-    pcall(function() if ToggleUI and ToggleUI.Set then ToggleUI.Set("AutoHoldToolButton", false) end end)
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+    -- đảm bảo khởi tạo OFF
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
-    -- trạng thái script (giữ logic cũ)
+    -- màu trạng thái
+    local COLOR_NONE = Color3.fromRGB(255, 0, 0)
+    local COLOR_WAIT = Color3.fromRGB(255, 200, 0)
+    local COLOR_OK   = Color3.fromRGB(50, 255, 50)
+
+    -- nội trạng
     local loopEquip = false
     local wasLoopRunning = false
     local savedToolName = nil
     local equipThread = nil
 
-    -- debounce / chống spam cho nút Check
-    local checking = false
+    -- trạng thái check
+    local checkInProgress = false
 
-    -- helper tìm tool theo tên (character hoặc backpack)
+    -- helper: tìm UIStroke nếu có
+    local function findStroke(instance)
+        for _, c in ipairs(instance:GetChildren()) do
+            if c:IsA("UIStroke") then return c end
+        end
+        return nil
+    end
+
+    local checkStroke = findStroke(checkBtn)
+
+    -- cập nhật giao diện cho checkBtn theo trạng thái
+    local function updateCheckAppearance(state)
+        -- state: "none" | "waiting" | "selected"
+        if state == "none" then
+            checkBtn.BackgroundColor3 = COLOR_NONE
+            if checkStroke then checkStroke.Color = COLOR_NONE end
+        elseif state == "waiting" then
+            checkBtn.BackgroundColor3 = COLOR_WAIT
+            if checkStroke then checkStroke.Color = COLOR_WAIT end
+        elseif state == "selected" then
+            checkBtn.BackgroundColor3 = COLOR_OK
+            if checkStroke then checkStroke.Color = COLOR_OK end
+        end
+    end
+
+    -- tìm tool theo tên (character hoặc backpack)
     local function findTool(name)
         if not name then return nil end
         local char = player.Character
         if char then
-            local tool = char:FindFirstChild(name)
-            if tool and tool:IsA("Tool") then return tool end
+            local t = char:FindFirstChild(name)
+            if t and t:IsA("Tool") then return t end
         end
         local bp = player:FindFirstChildOfClass("Backpack")
-        return bp and bp:FindFirstChild(name)
+        if bp then
+            local t = bp:FindFirstChild(name)
+            if t and t:IsA("Tool") then return t end
+        end
+        return nil
     end
 
-    -- loop giữ tool liên tục
+    -- tìm tool hiện đang cầm (trong Character)
+    local function findCurrentlyEquippedTool()
+        local char = player.Character
+        if not char then return nil end
+        for _, c in ipairs(char:GetChildren()) do
+            if c:IsA("Tool") then return c end
+        end
+        return nil
+    end
+
+    -- vòng lặp giữ/equip tool (nhanh, interruptible)
     local function startLoop()
         if equipThread or not savedToolName then return end
         equipThread = task.spawn(function()
@@ -70,230 +117,190 @@ do
                 local tool = findTool(savedToolName)
                 if tool and player.Character then
                     if tool.Parent ~= player.Character then
+                        -- giữ tool trong character
                         tool.Parent = player.Character
                     end
                 end
                 task.wait(0.5)
             end
+            equipThread = nil
         end)
     end
 
     local function stopLoop()
         if equipThread then
-            -- task.cancel may not exist in older runtimes; safe-guard:
-            pcall(function() task.cancel(equipThread) end)
+            -- task.cancel may not be necessary because thread checks loopEquip
             equipThread = nil
         end
     end
 
-    -- tween helper: fade text out -> set text -> fade in
-    local function tweenSetText(button, newText, outTime, inTime)
-        outTime = outTime or 0.25
-        inTime = inTime or 0.25
-        if not button or not button.Parent then return end
-
-        local ok1 = pcall(function()
-            local t1 = TweenService:Create(button, TweenInfo.new(outTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1})
-            t1:Play()
-            t1.Completed:Wait()
-        end)
-
-        -- set text (sử dụng pcall phòng lỗi)
-        pcall(function() button.Text = newText end)
-
-        pcall(function()
-            local t2 = TweenService:Create(button, TweenInfo.new(inTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-            t2:Play()
-            t2.Completed:Wait()
-        end)
+    -- tween helper cho text transparency (0->1 or 1->0)
+    local function tweenTextTransparency(btn, target, time)
+        time = time or 0.18
+        local info = TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local props = { TextTransparency = target }
+        local tw = TweenService:Create(btn, info, props)
+        tw:Play()
+        tw.Completed:Wait()
     end
 
-    -- action khi bấm CheckToolButton
-    checkBtn.Activated:Connect(function()
-        if checking then return end -- chống spam
-        checking = true
+    -- set displayed text with tween animation
+    local function animatedSetText(btn, newText)
+        -- ensure text starts visible (0)
+        pcall(function() btn.TextTransparency = 0 end)
+        tweenTextTransparency(btn, 1, 0.16) -- fade out
+        btn.Text = newText
+        tweenTextTransparency(btn, 0, 0.16) -- fade in
+    end
 
-        -- immediate get current held tool (character)
-        local char = player.Character
-        local heldTool = nil
-        if char then
-            for _, v in ipairs(char:GetChildren()) do
-                if v:IsA("Tool") then
-                    heldTool = v
-                    break
-                end
-            end
+    -- Hàm xử lý CheckToolButton logic
+    local function handleCheckOnce()
+        if checkInProgress then return end
+        checkInProgress = true
+        checkBtn.Active = false
+
+        -- quick helper to set UI color and text when selected
+        local function markSelected(name)
+            savedToolName = name
+            updateCheckAppearance("selected")
+            animatedSetText(checkBtn, "Selected: "..tostring(name))
         end
 
-        if heldTool then
-            -- fade out -> set name -> fade in
-            savedToolName = heldTool.Name
-            tweenSetText(checkBtn, "Selected: "..savedToolName, 0.18, 0.18)
-            checking = false
+        local function markNone()
+            savedToolName = nil
+            updateCheckAppearance("none")
+            animatedSetText(checkBtn, "None")
+        end
+
+        -- 1) if currently holding a tool — accept it immediately (with tween)
+        local current = findCurrentlyEquippedTool()
+        if current then
+            markSelected(current.Name)
+            checkInProgress = false
+            checkBtn.Active = true
             return
         end
 
-        -- nếu không cầm tool ngay, hiển thị "Waiting..." rồi chờ tối đa 3s
-        tweenSetText(checkBtn, "Waiting...", 0.18, 0.18)
+        -- 2) else go into Waiting mode for up to 3s, polling for a tool
+        updateCheckAppearance("waiting")
+        -- show Waiting... (no immediate tween out/in for simplicity, but set transparency tween too)
+        tweenTextTransparency(checkBtn, 1, 0.12)
+        checkBtn.Text = "Waiting..."
+        tweenTextTransparency(checkBtn, 0, 0.12)
 
-        local startT = tick()
+        local waited = 0
         local found = nil
-        while tick() - startT < 3 do
-            task.wait(0.12)
-            -- kiểm tra character/tool
-            local ch = player.Character
-            if ch then
-                for _, v in ipairs(ch:GetChildren()) do
-                    if v:IsA("Tool") then
-                        found = v
-                        break
-                    end
-                end
-            end
-            if found then break end
-            -- also check Backpack (player might pick quickly)
-            local bp = player:FindFirstChildOfClass("Backpack")
-            if bp then
-                for _, v in ipairs(bp:GetChildren()) do
-                    if v:IsA("Tool") then
-                        -- tool in backpack is also acceptable? spec: "tool đang cầm" — prefer character, but accept backpack if you want.
-                        -- We'll accept only if they move it to char; so skip here.
-                    end
-                end
+        local pollInterval = 0.15
+        while waited < 3 do
+            task.wait(pollInterval)
+            waited = waited + pollInterval
+            local cur = findCurrentlyEquippedTool()
+            if cur then
+                found = cur
+                break
             end
         end
 
         if found then
-            savedToolName = found.Name
-            tweenSetText(checkBtn, "Selected: "..savedToolName, 0.12, 0.18)
+            markSelected(found.Name)
         else
-            -- timeout: revert to "None"
-            tweenSetText(checkBtn, "None", 0.12, 0.18)
-            savedToolName = nil
+            -- no tool after waiting -> set None
+            markNone()
         end
 
-        checking = false
-    end)
-
-    -- Xử lý toggle dùng ToggleUI như mẫu
-    local function setToggleVisual(on)
-        -- nếu ToggleUI chịu trách nhiệm hiển thị thì không ép cập nhật text/bg ở đây
-        -- nhưng để tương thích với UI tùy biến, chúng ta cập nhật màu/text nếu đó là TextButton
-        pcall(function()
-            if toggleBtn and toggleBtn:IsA("TextButton") then
-                toggleBtn.Text = on and "ON" or "OFF"
-                toggleBtn.BackgroundColor3 = on and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,50,50)
-            end
+        -- small debounce to prevent immediate re-click spam
+        task.delay(0.2, function()
+            checkInProgress = false
+            checkBtn.Active = true
         end)
     end
 
-    -- sync trạng thái toggle từ ToggleUI màu (lấy từ ToggleUI nếu cần)
-    local function isToggleOn()
-        -- best-effort: nếu ToggleUI cung cấp state dùng that, else infer from button color text
-        local ok, val = pcall(function()
-            if ToggleUI and ToggleUI.Get then
-                return ToggleUI.Get("AutoHoldToolButton")
-            end
-            -- fallback: check text
-            if toggleBtn and toggleBtn:IsA("TextButton") then
-                return tostring(toggleBtn.Text):upper() == "ON"
-            end
-            return false
+    -- Hook Check button (use Activated if available, fallback to MouseButton1Click)
+    if checkBtn.Activated then
+        checkBtn.Activated:Connect(function()
+            -- allow user to re-select even when already have savedToolName (per req)
+            handleCheckOnce()
         end)
-        return ok and val or false
+    else
+        checkBtn.MouseButton1Click:Connect(function()
+            handleCheckOnce()
+        end)
     end
 
-    -- when toggle clicked: call ToggleUI.Set to change state (sample you gave)
-    toggleBtn.Activated:Connect(function()
-        -- Flip and set through ToggleUI
-        local current = isToggleOn()
-        local target = not current
-        if ToggleUI and ToggleUI.Set then
-            pcall(function() ToggleUI.Set("AutoHoldToolButton", target) end)
-        else
-            -- fallback: directly set visual & state
-            setToggleVisual(target)
-            loopEquip = target
-            stopLoop(); if loopEquip then startLoop() end
+    -- khi nhấn nút toggle: gửi lệnh cho ToggleUI (theo mẫu)
+    autoHoldBtn.Activated:Connect(function()
+        -- get current toggle state by color or via ToggleUI if available
+        local currentOn = false
+        -- try infer from background color (common pattern): green => on
+        local bg = autoHoldBtn.BackgroundColor3
+        if bg and math.abs(bg.R - 0) < 0.1 and math.abs(bg.G - 1) < 0.2 then
+            currentOn = true
         end
+        -- flip
+        local target = not currentOn
+        pcall(function() ToggleUI.Set(BUTTON_NAME, target) end)
     end)
 
-    -- Listen for ToggleUI changes by polling or by relying on ToggleUI to call refresh.
-    -- We'll add a small watcher that updates our loopEquip when the visual changes.
-    spawn(function()
-        local lastState = nil
-        while true do
-            task.wait(0.2)
-            local on = isToggleOn()
-            if on ~= lastState then
-                lastState = on
-                -- apply change
-                if on and not loopEquip then
-                    loopEquip = true
-                    setToggleVisual(true)
-                    -- only start if we have a saved tool
-                    if savedToolName then
-                        startLoop()
-                    end
-                elseif not on and loopEquip then
-                    loopEquip = false
-                    setToggleVisual(false)
-                    stopLoop()
-                end
+    -- Sync local loopEquip with button color changes (similar to earlier pattern)
+    local function setLoopFromButtonColor()
+        -- infer ON from green-ish background
+        local bg = autoHoldBtn.BackgroundColor3
+        local isOn = false
+        if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then
+            isOn = true
+        end
+
+        if isOn and not loopEquip then
+            loopEquip = true
+            -- start loop if we have a saved tool
+            if savedToolName then
+                startLoop()
             end
-        end
-    end)
-
-    -- xử lý khi nhân vật chết: nhớ trạng thái và tắt loop (giữ logic gốc)
-    local function onCharacter(char)
-        local hum = char:WaitForChild("Humanoid")
-        hum.Died:Connect(function()
-            wasLoopRunning = loopEquip
+        elseif not isOn and loopEquip then
             loopEquip = false
             stopLoop()
-            -- note: KHÔNG can thiệp ToggleUI here; we only record state
-        end)
+        end
     end
-    if player.Character then onCharacter(player.Character) end
-    player.CharacterAdded:Connect(onCharacter)
 
-    -- khi respawn: restore tool và có thể tự bật lại
-    player.CharacterAdded:Connect(function(char)
-        char:WaitForChild("HumanoidRootPart")
-        task.wait(0.5)
-        if savedToolName then
-            local tool = findTool(savedToolName)
-            if tool and char then
-                tool.Parent = char
-            end
-        end
-        if wasLoopRunning and savedToolName then
-            loopEquip = true
-            -- ensure ToggleUI shows ON (best-effort)
-            if ToggleUI and ToggleUI.Set then
-                pcall(function() ToggleUI.Set("AutoHoldToolButton", true) end)
-            else
-                setToggleVisual(true)
-            end
-            startLoop()
-        else
-            loopEquip = false
-            if ToggleUI and ToggleUI.Set then
-                -- don't force off; leave it as is — or if you want force off use: ToggleUI.Set("AutoHoldToolButton", false)
-            else
-                setToggleVisual(false)
-            end
-        end
+    autoHoldBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        -- small defer to let ToggleUI internal update finish
+        task.delay(0.05, setLoopFromButtonColor)
     end)
 
-    -- khởi tạo hiển thị ban đầu cho checkBtn (nếu muốn hiển thị None)
-    pcall(function()
-        if checkBtn and checkBtn:IsA("TextButton") then
-            if not checkBtn.Text or checkBtn.Text == "" then
-                checkBtn.Text = "None"
-            end
-            -- ensure text visible
-            checkBtn.TextTransparency = 0
+    -- Khởi tạo trạng thái theo màu hiện tại của button
+    setLoopFromButtonColor()
+
+    -- Nếu savedToolName thay đổi (ban đầu none) => cập nhật appearance
+    if savedToolName then
+        updateCheckAppearance("selected")
+        checkBtn.Text = "Selected: "..savedToolName
+    else
+        updateCheckAppearance("none")
+        checkBtn.Text = "None"
+    end
+
+    -- Khi user respawn / die: nhớ trạng thái, ngắt loop
+    local function onCharacter(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hum.Died:Connect(function()
+                wasLoopRunning = loopEquip
+                loopEquip = false
+                stopLoop()
+            end)
+        end
+    end
+
+    if player.Character then onCharacter(player.Character) end
+    player.CharacterAdded:Connect(function(char)
+        onCharacter(char)
+        -- chờ rootpart load
+        char:WaitForChild("HumanoidRootPart", 5)
+        task.wait(0.5)
+        -- nếu trước đó đang chạy và có savedToolName thì auto-equip
+        if wasLoopRunning and savedToolName then
+            loopEquip = true
+            startLoop()
         end
     end)
 end
