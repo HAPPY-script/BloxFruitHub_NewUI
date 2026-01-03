@@ -1,0 +1,10 @@
+local Raid = Instance.new("Frame")
+Raid.Name = "Raid"
+Raid.Size = UDim2.new(1, 0, 1, 0)
+Raid.BackgroundColor3 = Color3.new(1, 0.352941, 0.784314)
+Raid.BackgroundTransparency = 1
+Raid.BorderSizePixel = 0
+Raid.BorderColor3 = Color3.new(0, 0, 0)
+Raid.Visible = false
+Raid.Transparency = 1
+Raid.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
