@@ -1,3 +1,10 @@
+local BloxFruitHubGui = Instance.new("ScreenGui")
+BloxFruitHubGui.Name = "BloxFruitHubGui"
+BloxFruitHubGui.ResetOnSpawn = false
+BloxFruitHubGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+BloxFruitHubGui.DisplayOrder = 10
+BloxFruitHubGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -5,8 +12,9 @@ Main.Size = UDim2.new(0.5, 0, 0.5, 0)
 Main.BackgroundColor3 = Color3.new(0.156863, 0, 0.235294)
 Main.BorderSizePixel = 0
 Main.BorderColor3 = Color3.new(0, 0, 0)
+Main.Visible = false
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Main.Parent = BloxFruitHubGui
 
 local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
 UIAspectRatioConstraint.Name = "UIAspectRatioConstraint"
@@ -37,6 +45,7 @@ ScrollingSelectTab.BorderColor3 = Color3.new(0, 0, 0)
 ScrollingSelectTab.AnchorPoint = Vector2.new(0.5, 0.5)
 ScrollingSelectTab.Transparency = 1
 ScrollingSelectTab.Active = true
+ScrollingSelectTab.CanvasPosition = Vector2.new(0, 300)
 ScrollingSelectTab.ScrollBarImageColor3 = Color3.new(1, 0, 1)
 ScrollingSelectTab.ScrollBarThickness = 5
 ScrollingSelectTab.Parent = Main
@@ -398,6 +407,60 @@ local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
 UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
 
 UIAspectRatioConstraint11.Parent = TopButton
+
+local Button = Instance.new("ImageButton")
+Button.Name = "Button"
+Button.Position = UDim2.new(0.5, 0, 0.4, 0)
+Button.Size = UDim2.new(0, 50, 0, 50)
+Button.BackgroundColor3 = Color3.new(0.513726, 0, 0.529412)
+Button.BackgroundTransparency = 0.5
+Button.BorderSizePixel = 0
+Button.BorderColor3 = Color3.new(0, 0, 0)
+Button.Visible = false
+Button.AnchorPoint = Vector2.new(0.5, 0.5)
+Button.Transparency = 0.5
+Button.Image = "rbxassetid://134538084411628"
+Button.Parent = BloxFruitHubGui
+
+local UICorner14 = Instance.new("UICorner")
+UICorner14.Name = "UICorner"
+UICorner14.CornerRadius = UDim.new(0.15, 0)
+UICorner14.Parent = Button
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(1, 0, 1)
+UIStroke12.Transparency = 1
+UIStroke12.Parent = Button
+
+local White = Instance.new("Frame")
+White.Name = "White"
+White.Position = UDim2.new(0.5, 0, 0.5, 0)
+White.Size = UDim2.new(0.505, 0, 0.505, 0)
+White.BackgroundColor3 = Color3.new(1, 1, 1)
+White.BackgroundTransparency = 1
+White.BorderSizePixel = 0
+White.BorderColor3 = Color3.new(0, 0, 0)
+White.AnchorPoint = Vector2.new(0.5, 0.5)
+White.Transparency = 1
+White.Parent = BloxFruitHubGui
+
+local UICorner15 = Instance.new("UICorner")
+UICorner15.Name = "UICorner"
+UICorner15.CornerRadius = UDim.new(0.025, 0)
+UICorner15.Parent = White
+
+local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
+UIAspectRatioConstraint12.AspectRatio = 1.649999976158142
+UIAspectRatioConstraint12.Parent = White
+
+local UIGradient2 = Instance.new("UIGradient")
+UIGradient2.Name = "UIGradient"
+UIGradient2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient2.Rotation = -45
+UIGradient2.Offset = Vector2.new(0, -2.5)
+UIGradient2.Parent = White
 
 local gui = BloxFruitHubGui
 if gui then
