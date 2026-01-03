@@ -1498,37 +1498,83 @@ do
     local hrp = character:WaitForChild("HumanoidRootPart")
     local camera = workspace.CurrentCamera
 
-    -- đường dẫn ScrollingTab -> tìm Frame "Main" bên trong
-    local ScrollingTab = player
-        .PlayerGui
-        :WaitForChild("BloxFruitHubGui")
-        :WaitForChild("Main")
-        :WaitForChild("ScrollingTab")
+    -- === TÌM UI MỚI TRONG ScrollingTab -> Main ===
+    local ScrollingTab
+    pcall(function()
+        ScrollingTab = player.PlayerGui
+            :WaitForChild("BloxFruitHubGui")
+            :WaitForChild("Main")
+            :WaitForChild("ScrollingTab")
+    end)
 
-    local uiMain = ScrollingTab:FindFirstChild("Main", true)
-    if not uiMain then
-        warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
-        return
+    local uiMain = nil
+    if ScrollingTab then
+        uiMain = ScrollingTab:FindFirstChild("Main", true)
     end
 
-    -- LẤY UI từ Main
-    local autoBtn = uiMain:FindFirstChild("AutoFarmArenaButton", true)
-    local distanceTextBox = uiMain:FindFirstChild("AutoFarmArenaBox", true)
+    -- tên control mong muốn
+    local UI_TOGGLE_NAME = "AutoFarmArenaButton"
+    local UI_BOX_NAME    = "AutoFarmArenaBox"
 
-    if not autoBtn then
-        warn("Không tìm thấy AutoFarmArenaButton trong UI")
-        return
-    end
-    if not distanceTextBox then
-        warn("Không tìm thấy AutoFarmArenaBox trong UI")
-        return
+    -- tham chiếu tới control (nếu tìm được)
+    local ctrlToggle = nil
+    local ctrlBox    = nil
+
+    if uiMain then
+        ctrlToggle = uiMain:FindFirstChild(UI_TOGGLE_NAME, true)
+        ctrlBox    = uiMain:FindFirstChild(UI_BOX_NAME, true)
     end
 
-    -- internal state
+    -- nếu không có UI mới -> fallback: tạo nhanh trên HomeFrame để tránh lỗi
+    -- (HomeFrame phải tồn tại trong scope của bạn; nếu không, script sẽ warn)
+    if (not ctrlToggle or not ctrlBox) then
+        warn("AutoFarmArena UI không tìm thấy trong ScrollingTab/Main — sẽ fallback tạo UI tạm (nên dùng UI mới của bạn).")
+        -- cố gắng lấy HomeFrame; nếu không tồn tại thì tạo Frame parent = PlayerGui
+        local HomeFrame = rawget(_G, "HomeFrame") or player.PlayerGui:FindFirstChild("HomeFrame")
+        if not HomeFrame then
+            -- tạo Frame trong PlayerGui để đỡ lỗi (ít nhất có chỗ chứa các control)
+            local tmp = Instance.new("ScreenGui", player.PlayerGui)
+            tmp.Name = "TempAutoFarmGui"
+            HomeFrame = Instance.new("Frame", tmp)
+            HomeFrame.Name = "Home"
+            HomeFrame.Size = UDim2.new(0, 300, 0, 300)
+            HomeFrame.Position = UDim2.new(0, 20, 0, 20)
+        end
+
+        if not ctrlToggle then
+            local t = Instance.new("TextButton", HomeFrame)
+            t.Size = UDim2.new(0, 90, 0, 30)
+            t.Position = UDim2.new(0, 240, 0, 160)
+            t.Text = "OFF"
+            t.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            t.TextColor3 = Color3.new(1, 1, 1)
+            t.Font = Enum.Font.SourceSansBold
+            t.TextScaled = true
+            t.Name = UI_TOGGLE_NAME
+            ctrlToggle = t
+        end
+
+        if not ctrlBox then
+            local b = Instance.new("TextBox", HomeFrame)
+            b.Size = UDim2.new(0, 90, 0, 30)
+            b.Position = UDim2.new(0, 240, 0, 210)
+            b.Text = "5000"
+            b.Font = Enum.Font.SourceSans
+            b.TextScaled = true
+            b.ClearTextOnFocus = false
+            b.PlaceholderText = "Distance"
+            b.TextColor3 = Color3.new(1,1,1)
+            b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+            b.Name = UI_BOX_NAME
+            ctrlBox = b
+        end
+    end
+
+    -- biến trạng thái (giữ logic gốc)
     local running = false
     local farmPoint = nil
     local farmBillboard = nil
-    local distanceLimit = tonumber(distanceTextBox.Text) or 5000
+    local distanceLimit = tonumber((ctrlBox and ctrlBox.Text) or "5000") or 5000
     local farmCenter = nil
 
     local anchor = nil
@@ -1536,6 +1582,7 @@ do
     local lastAnchorUpdate = 0
     local anchorUpdateInterval = 1
 
+    -- helper ensure anchor
     local function ensureAnchor()
         if not anchor or not anchor.Parent then
             anchor = Instance.new("Part")
@@ -1544,21 +1591,19 @@ do
             anchor.Transparency = 1
             anchor.Size = Vector3.new(1, 1, 1)
             anchor.Name = "CameraAnchor"
-
             if hrp and hrp:IsDescendantOf(workspace) then
                 anchor.Position = hrp.Position
             else
                 anchor.Position = Vector3.new(0, 10, 0)
             end
-
             anchor.Parent = workspace
         end
         return anchor
     end
 
+    -- tweenTo (giữ nguyên)
     local function tweenTo(pos)
-        -- keep original tween behavior (distance-based time)
-        if not hrp then return end
+        if not hrp or not hrp.Parent then return end
         local dist = (hrp.Position - pos).Magnitude
         if dist > 10000 then return end
         local tween = TweenService:Create(hrp, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
@@ -1566,6 +1611,7 @@ do
         tween.Completed:Wait()
     end
 
+    -- getNearestEnemy (sử dụng distanceLimit)
     local function getNearestEnemy(centerPos)
         local folder = workspace:FindFirstChild("Enemies")
         if not folder then return nil end
@@ -1587,6 +1633,7 @@ do
         return nearest
     end
 
+    -- highlight update (giữ nguyên, chỉ thay tên)
     local function updateHighlight(enemy)
         if not enemy then return end
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
@@ -1606,23 +1653,23 @@ do
         local conn
         conn = RunService.RenderStepped:Connect(function()
             if not running or not humanoid.Parent or humanoid.Health <= 0 or not highlight or highlight.Parent ~= enemy then
-                if highlight then highlight:Destroy() end
+                if highlight then pcall(function() highlight:Destroy() end) end
                 conn:Disconnect()
                 return
             end
-
             local percent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
             highlight.FillColor = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
         end)
     end
 
+    -- followEnemy (giữ nguyên)
     local function followEnemy(enemy)
+        if not enemy or not enemy.Parent then return end
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
 
         updateHighlight(enemy)
-
         local anchorLocal = ensureAnchor()
 
         if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
@@ -1639,19 +1686,17 @@ do
         else
             while humanoid.Health > 0 and running do
                 updateHighlight(enemy)
-
                 anchorY = hrpEnemy.Position.Y + 25
                 local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
                 anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
-
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
-
                 RunService.RenderStepped:Wait()
             end
         end
     end
 
+    -- farm point creation (giữ nguyên)
     local function createFarmPoint(pos)
         if farmPoint and farmPoint.Parent then
             farmPoint:Destroy()
@@ -1686,11 +1731,7 @@ do
         label.TextColor3 = Color3.fromRGB(0,255,0)
         label.TextStrokeTransparency = 0.6
 
-        farmBillboard = {
-            gui = bb,
-            label = label
-        }
-
+        farmBillboard = { gui = bb, label = label }
         farmCenter = farmPoint.Position
     end
 
@@ -1703,105 +1744,109 @@ do
         farmCenter = nil
     end
 
-    -- XỬ LÝ TextBox FocusLost (commit khi rời focus)
-    if distanceTextBox:IsA("TextBox") then
-        distanceTextBox.FocusLost:Connect(function(enterPressed)
-            local val = tonumber(distanceTextBox.Text)
+    -- Xử lý thay đổi TextBox (commit khi rời focus)
+    if ctrlBox and ctrlBox:IsA("TextBox") then
+        ctrlBox.FocusLost:Connect(function(enterPressed)
+            local val = tonumber(ctrlBox.Text)
             if val and val > 0 then
                 distanceLimit = math.floor(val)
             else
-                distanceTextBox.Text = tostring(distanceLimit)
+                ctrlBox.Text = tostring(distanceLimit)
             end
             if farmBillboard and farmBillboard.label then
                 farmBillboard.label.Text = "0/" .. tostring(distanceLimit)
             end
         end)
     else
-        -- nếu control là TextLabel/TextBox kiểu khác, cố gắng parse ban đầu
-        distanceLimit = tonumber(distanceTextBox.Text) or distanceLimit
+        -- fallback: if ctrlBox is not TextBox, try to read its Text periodically
+        spawn(function()
+            while true do
+                task.wait(1)
+                if ctrlBox and ctrlBox.Text then
+                    local val = tonumber(ctrlBox.Text)
+                    if val and val > 0 then distanceLimit = math.floor(val) end
+                    if farmBillboard and farmBillboard.label then
+                        farmBillboard.label.Text = "0/" .. tostring(distanceLimit)
+                    end
+                end
+            end
+        end)
     end
 
-    -- Reset khi chết / respawn
+    -- Reset khi chết / respawn (giữ nguyên)
     player.CharacterAdded:Connect(function(newChar)
         character = newChar
         hrp = newChar:WaitForChild("HumanoidRootPart")
         running = false
         anchorY = nil
         destroyFarmPoint()
-        -- cập nhật UI nút từ trạng thái chạy
-        if autoBtn then
-            pcall(function()
-                autoBtn.Text = "OFF"
-                if autoBtn.BackgroundColor3 then
-                    autoBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                end
-            end)
+        -- nếu UI toggle là TextButton: set visual OFF; else do nothing (external UI manages state)
+        if ctrlToggle and ctrlToggle:IsA("TextButton") then
+            ctrlToggle.Text = "OFF"
+            ctrlToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
         end
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = hrp
     end)
 
-    -- Toggle behavior: khi click UI (Activated nếu có)
-    local toggleDebounce = false
-    local function setRunning(state)
-        running = state
-        if autoBtn then
-            pcall(function()
-                autoBtn.Text = running and "ON" or "OFF"
-                if autoBtn.BackgroundColor3 then
-                    autoBtn.BackgroundColor3 = running and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 50, 50)
-                end
-            end)
-        end
-
+    -- Hook toggle: dùng Activated (và fallback MouseButton1Click)
+    local function setRunningState(on)
+        running = on
         if running then
-            -- bật FastAttack (giữ nguyên: chỉ bật true, không gửi false khi stop)
+            -- bật FastAttack (giữ logic gốc)
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
-
-            -- tạo farmPoint ở vị trí hiện tại
-            if hrp then
-                createFarmPoint(hrp.Position)
+            -- tạo farmPoint tại vị trí HRP hiện tại
+            if hrp then createFarmPoint(hrp.Position) end
+            -- update toggle visual if possible
+            if ctrlToggle and ctrlToggle:IsA("TextButton") then
+                ctrlToggle.Text = "ON"
+                ctrlToggle.BackgroundColor3 = Color3.fromRGB(0,255,0)
             end
         else
-            -- dừng và dọn dẹp (không tắt FastAttackEnemy)
+            -- tắt: cleanup
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hrp
             destroyFarmPoint()
-            if anchor then
+            if anchor and anchor.Parent then
                 anchor:Destroy()
                 anchor = nil
             end
+            if ctrlToggle and ctrlToggle:IsA("TextButton") then
+                ctrlToggle.Text = "OFF"
+                ctrlToggle.BackgroundColor3 = Color3.fromRGB(255,50,50)
+            end
+            -- NOTE: per your earlier request we DO NOT set FastAttackEnemy = false here
         end
     end
 
-    local function onToggleActivated()
-        if toggleDebounce then return end
-        toggleDebounce = true
-        setRunning(not running)
-        task.delay(0.25, function() toggleDebounce = false end)
-    end
-
-    if autoBtn.Activated then
-        autoBtn.Activated:Connect(onToggleActivated)
-    else
-        autoBtn.MouseButton1Click:Connect(onToggleActivated)
-    end
-
-    -- Nếu UI thay đổi màu/text bên ngoài, sync lại trạng thái running (nếu muốn)
-    if autoBtn:GetPropertyChangedSignal then
-        autoBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-            task.delay(0.05, function()
-                local bg = autoBtn.BackgroundColor3
-                if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then
-                    if not running then setRunning(true) end
-                else
-                    if running then setRunning(false) end
-                end
+    if ctrlToggle then
+        if ctrlToggle.Activated then
+            ctrlToggle.Activated:Connect(function()
+                setRunningState(not running)
             end)
-        end)
+        else
+            ctrlToggle.MouseButton1Click:Connect(function()
+                setRunningState(not running)
+            end)
+        end
+
+        -- nếu UI bên ngoài thay đổi màu/text, sync lại running state (try best-effort by color)
+        if ctrlToggle:IsA("TextButton") then
+            ctrlToggle:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+                task.delay(0.05, function()
+                    -- infer ON when greenish
+                    local bg = ctrlToggle.BackgroundColor3
+                    local isOn = bg.G and (bg.G > bg.R and bg.G > bg.B and bg.G > 0.5)
+                    if isOn ~= running then
+                        -- adopt external desired state
+                        setRunningState(isOn)
+                    end
+                end)
+            end)
+        end
     end
 
     -- Cập nhật Billboard + farmCenter mỗi frame (mượt và tween màu)
@@ -1833,7 +1878,7 @@ do
         end)
     end
 
-    -- Auto farm loop
+    -- Auto farm loop (sử dụng farmCenter khi có)
     task.spawn(function()
         while true do
             task.wait()
