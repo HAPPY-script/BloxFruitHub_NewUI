@@ -351,8 +351,8 @@ OffIcon3.Parent = Dot3
 
 local Frame = Main
 if Frame then
-	for _, obj in ipairs(Main:GetDescendants()) do
-		if obj:IsA("TextLabel") then
+	for _, obj in ipairs(Frame:GetDescendants()) do
+		if obj:IsA("TextLabel") or obj:IsA("TextBox") then
 			obj.TextTransparency = 0
 		end
 	end
