@@ -11,11 +11,10 @@ do
         :WaitForChild("ScrollingTab")
 
     local StatusFrame = ScrollingTab:WaitForChild("Status")
-    local MoonImage = StatusFrame:WaitForChild("MoonStatus") -- ImageLabel có sẵn
+    local MoonImage = StatusFrame:WaitForChild("MoonStatus")
 
     -- ===== CONFIG Moon Image =====
     MoonImage.ScaleType = Enum.ScaleType.Stretch
-    MoonImage.Rotation = 180
 
     -- ===== Utils =====
     local function extractIdFromUrl(url)
