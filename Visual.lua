@@ -1,0 +1,10 @@
+local Visual = Instance.new("Frame")
+Visual.Name = "Visual"
+Visual.Size = UDim2.new(1, 0, 1, 0)
+Visual.BackgroundColor3 = Color3.new(0.882353, 0, 1)
+Visual.BackgroundTransparency = 1
+Visual.BorderSizePixel = 0
+Visual.BorderColor3 = Color3.new(0, 0, 0)
+Visual.Visible = false
+Visual.Transparency = 1
+Visual.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
