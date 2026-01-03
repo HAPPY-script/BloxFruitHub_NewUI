@@ -43,3 +43,9 @@ print("Order ✅")
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SystemUI.lua"))()
 
 print("UI System ✅")
+
+--=== TAB SYSTEM ============================================================================================================================--
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Status_System.lua"))()
+
+print("Status System ✅")
