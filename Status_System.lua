@@ -65,3 +65,31 @@ do
 end
 
 -- COUNT PLAYER ===============================================================================================================
+
+do
+    local Players = game:GetService("Players")
+
+    -- ===== UI PATH (UI mới) =====
+    local ScrollingTab = Players.LocalPlayer
+        .PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local StatusFrame = ScrollingTab:WaitForChild("Status")
+    local CountPlayerLabel = StatusFrame:WaitForChild("CountPlayer")
+
+    -- ===== Update Player Count =====
+    local function updatePlayerCount()
+        local currentPlayers = #Players:GetPlayers()
+        local maxPlayers = Players.MaxPlayers
+        CountPlayerLabel.Text = string.format("%d/%d", currentPlayers, maxPlayers)
+    end
+
+    -- ===== Listen join / leave =====
+    Players.PlayerAdded:Connect(updatePlayerCount)
+    Players.PlayerRemoving:Connect(updatePlayerCount)
+
+    -- ===== First update =====
+    updatePlayerCount()
+end
