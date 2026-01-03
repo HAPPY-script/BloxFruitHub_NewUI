@@ -46,6 +46,6 @@ print("UI System ✅")
 
 --=== TAB SYSTEM ============================================================================================================================--
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Status_System.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
 
 print("Status System ✅")
