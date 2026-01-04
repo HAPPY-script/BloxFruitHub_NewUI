@@ -305,6 +305,7 @@ SelectMicrochipButton.Size = UDim2.new(0.7, 0, 0.03, 0)
 SelectMicrochipButton.BackgroundColor3 = Color3.new(0, 0.588235, 0.392157)
 SelectMicrochipButton.BorderSizePixel = 0
 SelectMicrochipButton.BorderColor3 = Color3.new(0, 0, 0)
+SelectMicrochipButton.ZIndex = 2
 SelectMicrochipButton.AnchorPoint = Vector2.new(0.5, 0.5)
 SelectMicrochipButton.Text = "Select Microchip"
 SelectMicrochipButton.TextColor3 = Color3.new(1, 1, 1)
@@ -323,14 +324,13 @@ UIStroke7.Parent = SelectMicrochipButton
 
 local List = Instance.new("Frame")
 List.Name = "List"
-List.Position = UDim2.new(0.5, 0, 3.55, 0)
+List.Position = UDim2.new(0.5, 0, 1, 0)
 List.Size = UDim2.new(1, 0, 5, 0)
 List.BackgroundColor3 = Color3.new(0.156863, 0.117647, 0.235294)
 List.BorderSizePixel = 0
 List.BorderColor3 = Color3.new(0, 0, 0)
 List.Visible = false
-List.ZIndex = 2
-List.AnchorPoint = Vector2.new(0.5, 0.5)
+List.AnchorPoint = Vector2.new(0.5, 0)
 List.Parent = SelectMicrochipButton
 
 local UIStroke8 = Instance.new("UIStroke")
