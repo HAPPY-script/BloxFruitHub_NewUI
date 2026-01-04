@@ -282,27 +282,28 @@ do
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
-    -- tìm ScrollingTab -> Raid
+    -- khai báo ScrollingTab (theo mẫu chuẩn)
     local ScrollingTab = player.PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
 
-    local raidFrame = ScrollingTab:FindFirstChild("Raid", true) or ScrollingTab:FindFirstChild("Raid")
-    if not raidFrame then
-        warn("Không tìm thấy Frame 'Raid' trong ScrollingTab")
+    -- tìm Frame "Player Setting" trong ScrollingTab (đệ quy)
+    local playerSetting = ScrollingTab:FindFirstChild("Player Setting", true) or ScrollingTab:FindFirstChild("Player Setting")
+    if not playerSetting then
+        warn("Không tìm thấy Frame 'Player Setting' trong ScrollingTab")
         return
     end
 
-    -- controls tên chuẩn
+    -- controls tên chuẩn trong Player Setting
     local TOGGLE_NAME = "TPKeyPCButton"
     local SELECT_NAME = "SelectTPKeyPCButton"
 
-    local toggleBtn = raidFrame:FindFirstChild(TOGGLE_NAME, true)
-    local selectBtn = raidFrame:FindFirstChild(SELECT_NAME, true)
+    local toggleBtn = playerSetting:FindFirstChild(TOGGLE_NAME, true)
+    local selectBtn = playerSetting:FindFirstChild(SELECT_NAME, true)
 
-    if not toggleBtn then warn("Không tìm thấy TPKeyPCButton") return end
-    if not selectBtn then warn("Không tìm thấy SelectTPKeyPCButton") return end
+    if not toggleBtn then warn("Không tìm thấy TPKeyPCButton trong Player Setting") return end
+    if not selectBtn then warn("Không tìm thấy SelectTPKeyPCButton trong Player Setting") return end
 
     -- helper: tìm UIStroke first descendant
     local function findStroke(inst)
@@ -346,37 +347,24 @@ do
 
     -- Safe text change with lock to prevent race
     local function safeSetText(btn, newText)
-        -- cancel if another animation on this btn flagged cancelled? we'll use lock object
-        if animLocks[btn] then
-            -- mark cancel; the running animation should check this (we will implement by returning early if lock changed)
-            animLocks[btn].cancel = true
-        end
+        if animLocks[btn] then animLocks[btn].cancel = true end
         local lock = { cancel = false }
         animLocks[btn] = lock
 
-        -- fade out
         local twOut = tweenTextTransparency(btn, 1, TWEEN_TEXT_TIME)
         twOut.Completed:Wait()
-        if lock.cancel then
-            animLocks[btn] = nil
-            return
-        end
+        if lock.cancel then animLocks[btn] = nil return end
 
-        -- set text
         pcall(function() btn.Text = newText end)
 
-        -- fade in
         local twIn = tweenTextTransparency(btn, 0, TWEEN_TEXT_TIME)
         twIn.Completed:Wait()
-        -- final cleanup
         if animLocks[btn] == lock then animLocks[btn] = nil end
     end
 
     -- Set select button appearance for states: "none", "waiting", "selected"
     local function setSelectAppearance(state, keyName)
-        -- state: "none" | "waiting" | "selected"
         if state == "none" then
-            -- color -> red, text -> "None"
             tweenGui(selectBtn, { BackgroundColor3 = COLOR_RED }, TWEEN_COLOR_TIME)
             if selectStroke then tweenGui(selectStroke, { Color = COLOR_RED }, TWEEN_COLOR_TIME) end
             safeSetText(selectBtn, "None")
@@ -431,38 +419,18 @@ do
     end
 
     -- Listening logic
-    local function stopListening(cancelled)
-        listeningForKey = false
-        listenCancelToken = nil
-        if cancelled then
-            -- revert to None
-            selectedKey = nil
-            setSelectAppearance("none")
-        else
-            if selectedKey then
-                setSelectAppearance("selected", selectedKey)
-            else
-                setSelectAppearance("none")
-            end
-        end
-    end
-
     local function startListening()
         if listeningForKey then return end
         listeningForKey = true
-        -- show waiting visuals
         setSelectAppearance("waiting")
 
-        -- create cancel token
         local token = {}
         listenCancelToken = token
 
-        -- connect temporary InputBegan to catch one key
         local conn
         conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             if not listeningForKey then return end
-            -- determine name
             local inputName = nil
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 inputName = input.KeyCode.Name
@@ -475,23 +443,16 @@ do
             end
 
             if inputName then
-                -- store and finish listening
                 selectedKey = inputName
-                -- apply selected visuals (green + text)
                 setSelectAppearance("selected", selectedKey)
                 listeningForKey = false
-                -- cancel timeout by clearing token
                 listenCancelToken = nil
-                -- disconnect
                 if conn then conn:Disconnect() end
             end
         end)
 
-        -- timeout after WAIT_TIMEOUT seconds
         task.delay(WAIT_TIMEOUT, function()
-            -- if token still valid and listening -> time out
             if listenCancelToken == token and listeningForKey then
-                -- stop listening and revert to None
                 listeningForKey = false
                 listenCancelToken = nil
                 if conn then conn:Disconnect() end
@@ -501,13 +462,17 @@ do
         end)
     end
 
-    -- clicking selectBtn toggles listening: if already listening -> cancel and revert None; else start
-    local function onSelectActivated()
+    local function stopListeningCancel()
         if listeningForKey then
-            -- cancel
             listeningForKey = false
             listenCancelToken = nil
             setSelectAppearance("none")
+        end
+    end
+
+    local function onSelectActivated()
+        if listeningForKey then
+            stopListeningCancel()
             return
         end
         startListening()
@@ -556,7 +521,6 @@ do
         local mouse = player:GetMouse()
         local pos = mouse.Hit.Position
 
-        -- distance limit XZ
         local dx = hrp.Position.X - pos.X
         local dz = hrp.Position.Z - pos.Z
         if (dx*dx + dz*dz) ^ 0.5 > 250 then return end
@@ -569,10 +533,7 @@ do
     -- Input handler for performing teleport when toggle ON
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-        if listeningForKey then
-            -- selection handler will consume this (startListening installed its own InputBegan)
-            return
-        end
+        if listeningForKey then return end
         if not teleportEnabled then return end
         if not selectedKey then return end
 
@@ -594,7 +555,6 @@ do
 
     -- Keep toggle state in sync and ensure initial states
     task.delay(0.05, syncToggleFromBtn)
-    -- ensure selectBtn text shows selectedKey if exists
     if selectedKey then
         setSelectAppearance("selected", selectedKey)
     else
@@ -603,7 +563,6 @@ do
 
     -- ensure toggle off on respawn for safety (also keep selectedKey)
     local function onCharacterAdded(char)
-        -- ask ToggleUI to set off to avoid drift
         pcall(function() ToggleUI.Set(TOGGLE_NAME, false) end)
     end
     if player.Character then onCharacterAdded(player.Character) end
