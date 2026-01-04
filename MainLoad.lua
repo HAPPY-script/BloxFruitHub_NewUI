@@ -61,3 +61,7 @@ print("Main tab System ✅")
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
 
 print("Raid tab System ✅")
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
+
+print("Combat tab System ✅")
