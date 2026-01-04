@@ -440,17 +440,6 @@ do
         mainGui = player.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main")
     end
 
-    local overlay = Instance.new("TextButton")
-    overlay.Name = "MicrochipListOverlay"
-    overlay.AutoButtonColor = false
-    overlay.BackgroundTransparency = 1
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.Position = UDim2.new(0,0,0,0)
-    overlay.Visible = false
-    overlay.Text = ""
-    overlay.ZIndex = baseZ + 1
-    overlay.Parent = mainGui
-
     -- Tween helpers
     local function tweenGui(obj, props, time)
         local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -496,9 +485,42 @@ do
         listOpen = false
     end
 
-    -- Click overlay closes list
-    overlay.MouseButton1Click:Connect(function()
-        if listOpen then closeList() end
+    -- helper: check if a screen point is inside a GuiObject
+    local function isPointInsideGui(gui, screenPos)
+        if not gui or not gui:IsA("GuiObject") or not gui.Visible then return false end
+        local absPos = gui.AbsolutePosition
+        local absSize = gui.AbsoluteSize
+        return (
+            screenPos.X >= absPos.X and
+            screenPos.X <= absPos.X + absSize.X and
+            screenPos.Y >= absPos.Y and
+            screenPos.Y <= absPos.Y + absSize.Y
+        )
+    end
+
+    -- global click handler: click outside List -> close
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if not listOpen then return end
+
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            local pos = input.Position
+
+            -- nếu click TRONG listFrame thì KHÔNG đóng
+            if isPointInsideGui(listFrame, pos) then
+                return
+            end
+
+            -- nếu click vào Select button thì để handler riêng xử lý
+            if isPointInsideGui(selectBtn, pos) then
+                return
+            end
+
+            -- còn lại: click ngoài -> đóng list
+            closeList()
+        end
     end)
 
     -- toggle when clicking SelectMicrochipButton
