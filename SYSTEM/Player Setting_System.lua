@@ -15,9 +15,11 @@ do
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
 
-    local playerSetting = ScrollingTab:FindFirstChild("Player Setting", true) or ScrollingTab:FindFirstChild("Player Setting")
+    local playerSetting = ScrollingTab:FindFirstChild("Player Setting", true)
+        or ScrollingTab:FindFirstChild("Player Setting")
+
     if not playerSetting then
-        warn("Không tìm thấy Frame 'Player Setting' trong ScrollingTab")
+        warn("Không tìm thấy Frame 'Player Setting'")
         return
     end
 
@@ -30,97 +32,99 @@ do
     if not speedBtn then warn("Không tìm thấy SpeedButton") return end
     if not speedBox then warn("Không tìm thấy SpeedBox") return end
 
+    -- ===== DEFAULT =====
+    local DEFAULT_SPEED = 3
+    local MIN_SPEED = 0.1
+    local MAX_SPEED = 10
+
+    speedBox.Text = tostring(DEFAULT_SPEED)
+
     -- ensure ToggleUI initial
     pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
     -- internal state
     local isActive = false
-    local speedValue = tonumber(speedBox.Text) or 3
-    if type(speedValue) ~= "number" or speedValue <= 0 then speedValue = 3 end
-    speedValue = math.clamp(math.floor(speedValue), 1, 10)
-
+    local speedValue = DEFAULT_SPEED
     local distancePerTeleport = 1.5
 
-    -- helper: infer ON from button background color (greenish)
+    -- ===== helper: detect toggle state via color =====
     local function inferToggleOn(btn)
-        local bg = nil
+        local bg
         pcall(function() bg = btn.BackgroundColor3 end)
-        if not bg then return false end
-        if bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then
-            return true
-        end
-        return false
+        return bg and bg.G > bg.R and bg.G > bg.B
     end
 
-    -- Sync local isActive when ToggleUI updates the button visuals
     local function syncFromButtonColor()
-        local on = inferToggleOn(speedBtn)
-        if on ~= isActive then
-            isActive = on
-        end
+        isActive = inferToggleOn(speedBtn)
     end
 
-    -- Watch for property changes (ToggleUI will change BackgroundColor3)
     speedBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        -- small defer to allow ToggleUI internal transition finish
         task.delay(0.05, syncFromButtonColor)
     end)
 
-    -- Wire button activation to request ToggleUI change (do NOT set color/text directly)
+    -- Toggle button
     local function onButtonActivated()
         local cur = inferToggleOn(speedBtn)
-        pcall(function() ToggleUI.Set(BUTTON_NAME, not cur) end)
+        pcall(function()
+            ToggleUI.Set(BUTTON_NAME, not cur)
+        end)
     end
+
     if speedBtn.Activated then
         speedBtn.Activated:Connect(onButtonActivated)
     else
         speedBtn.MouseButton1Click:Connect(onButtonActivated)
     end
 
-    -- SpeedBox: validate input on FocusLost
-    speedBox.FocusLost:Connect(function(enterPressed)
+    -- ===== SpeedBox validate (FIX CHÍNH Ở ĐÂY) =====
+    speedBox.FocusLost:Connect(function()
         local n = tonumber(speedBox.Text)
-        if n and n > 0 and n <= 10 then
-            speedValue = math.clamp(math.floor(n), 1, 10)
-            speedBox.Text = tostring(speedValue)
-        else
-            -- restore to last valid
-            speedBox.Text = tostring(speedValue)
+
+        if not n then
+            n = DEFAULT_SPEED
         end
+
+        if n > MAX_SPEED then
+            n = MAX_SPEED
+        elseif n <= 0 then
+            n = MIN_SPEED
+        end
+
+        speedValue = n
+        speedBox.Text = tostring(n)
     end)
 
-    -- Teleport helper (one small sub-step)
+    -- ===== Teleport logic =====
     local function TeleportStep(character, hrp)
-        if not character or not hrp then return end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         if not humanoid then return end
-        local moveDirection = humanoid.MoveDirection or Vector3.zero
-        if moveDirection.Magnitude > 0 then
-            local newPos = hrp.Position + (moveDirection.Unit * distancePerTeleport)
-            hrp.CFrame = CFrame.new(newPos, newPos + moveDirection)
+
+        local dir = humanoid.MoveDirection
+        if dir.Magnitude > 0 then
+            local newPos = hrp.Position + (dir.Unit * distancePerTeleport)
+            hrp.CFrame = CFrame.new(newPos, newPos + dir)
         end
     end
 
-    -- Main RenderStepped loop: execute teleport steps when isActive
     RunService.RenderStepped:Connect(function()
+        if not isActive then return end
+
         local char = player.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        if isActive then
-            for i = 1, math.max(1, speedValue) do
-                -- safe pcall to avoid runtime stopping
-                pcall(TeleportStep, char, hrp)
-            end
+
+        local steps = math.max(1, math.floor(speedValue))
+        for _ = 1, steps do
+            pcall(TeleportStep, char, hrp)
         end
     end)
 
-    -- When player dies: ensure toggle is turned off to avoid UI/state drift
-    local function onCharacterAdded(newChar)
-        local humanoid = newChar:WaitForChild("Humanoid", 5)
-        local hrp = newChar:WaitForChild("HumanoidRootPart", 5)
-        -- always reset local running and request UI OFF
+    -- ===== Reset on respawn =====
+    local function onCharacterAdded(char)
         isActive = false
         pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+        local humanoid = char:WaitForChild("Humanoid", 5)
         if humanoid then
             humanoid.Died:Connect(function()
                 isActive = false
