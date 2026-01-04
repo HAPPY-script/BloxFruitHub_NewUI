@@ -52,16 +52,20 @@ print("Toggle UI Effect 2/2✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
 
-print("Status tab System 1/4✅")
+print("Status tab System 1/5✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
 
-print("Main tab System 2/4✅")
+print("Main tab System 2/5✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
 
-print("Raid tab System 3/4✅")
+print("Raid tab System 3/5✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
 
-print("Combat tab System 4/4✅")
+print("Combat tab System 4/5✅")
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua"))()
+
+print("Combat tab System 5/5✅")
