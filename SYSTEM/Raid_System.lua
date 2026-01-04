@@ -1368,20 +1368,5 @@ do
         end
     end
 
-    -- reset on respawn/death: tắt running và đảm bảo ToggleUI OFF
-    local function onCharacterAdded(char)
-        running = false
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.Died:Connect(function()
-                running = false
-                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-            end)
-        end
-    end
-    if player.Character then onCharacterAdded(player.Character) end
-    player.CharacterAdded:Connect(onCharacterAdded)
-
-    -- initial sync
     task.delay(0.05, syncFromButton)
 end
