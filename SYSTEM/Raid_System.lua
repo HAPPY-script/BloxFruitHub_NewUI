@@ -1031,3 +1031,363 @@ do
     -- small initial sync after UI settled
     task.delay(0.05, syncFromButtonColor)
 end
+
+--=== SELECT BUFF DUNGEON ===================================================================================================================--
+
+do
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BLOX_FRUIT/refs/heads/main/UISelectBuffDungeon.lua"))()
+    -- CONFIG
+    local SCAN_INTERVAL = 2
+    local MIN_SG_REQUIRED = 3
+
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local player = Players.LocalPlayer
+
+    -- chờ ToggleUI helper
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    -- path tới ScrollingTab -> tìm Raid frame
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local raidFrame = ScrollingTab:FindFirstChild("Raid", true)
+
+    -- NAMES (theo bạn cung cấp)
+    local BUTTON_NAME = "AutoSelectBuffButton"       -- tên dùng cho ToggleUI.Set(...)
+    local TOGGLE_BTN_NAME = "AutoSelectBuffButton"  -- nút toggle trong UI (cùng tên)
+    local SETTING_BTN_NAME = "SettingAutoBuffButton" -- nút gọi game.ReplicatedStorage.BuffUIEvent:Fire("toggle")
+    local TARGET_GUI_NAME = "AutoBuffSelectionGui"
+    local EXEC_PATH = {"Main", "Execution"}
+
+    -- tìm nút toggle và nút setting trong Raid frame (nếu không found -> warn)
+    local toggleBtn = nil
+    local settingBtn = nil
+    if raidFrame then
+        toggleBtn = raidFrame:FindFirstChild(TOGGLE_BTN_NAME, true)
+        settingBtn = raidFrame:FindFirstChild(SETTING_BTN_NAME, true)
+    end
+
+    if not toggleBtn then
+        warn("AutoSelect: Không tìm thấy nút toggle (AutoSelectBuffButton) trong Raid. Tạo nút tạm trên HomeFrame nếu có.")
+        -- fallback: tạo nút tạm (nếu HomeFrame tồn tại)
+        if typeof(HomeFrame) ~= "nil" and HomeFrame then
+            toggleBtn = Instance.new("TextButton", HomeFrame)
+            toggleBtn.Size = UDim2.new(0, 90, 0, 30)
+            toggleBtn.Position = UDim2.new(0, 240, 0, 160)
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            toggleBtn.TextColor3 = Color3.new(1,1,1)
+            toggleBtn.Font = Enum.Font.SourceSansBold
+            toggleBtn.TextScaled = true
+            toggleBtn.Name = TOGGLE_BTN_NAME
+        else
+            warn("AutoSelect: Không có HomeFrame để tạo nút fallback. Script sẽ không thể toggle.")
+        end
+    end
+
+    if not settingBtn then
+        warn("AutoSelect: Không tìm thấy nút SettingAutoBuffButton trong Raid (nút gọi BuffUIEvent). Nếu cần, tạo riêng.")
+    end
+
+    -- ===== helpers từ mẫu/phiên bản trước (normalize, safe find, click, build exec keys...) =====
+
+    local function normalizeText(txt)
+        if not txt then return "" end
+        local s = tostring(txt):gsub("<[^>]+>", "")
+        s = s:match("^%s*(.-)%s*$") or s
+        return s:lower()
+    end
+
+    local function safeFindGui(parent, name)
+        if not parent then return nil end
+        local ok, res = pcall(function() return parent:FindFirstChild(name) end)
+        if ok then return res end
+        return nil
+    end
+
+    local function clickButtonVirt(btn)
+        if not btn or not btn.Parent then return false end
+        local ok, res = pcall(function()
+            local pos = btn.AbsolutePosition
+            local size = btn.AbsoluteSize
+            local x = pos.X + size.X / 2
+            local y = pos.Y + size.Y / 2
+            if VirtualInputManager and VirtualInputManager.SendMouseButtonEvent then
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+                task.wait()
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+                return true
+            else
+                if btn.Activate then
+                    btn:Activate()
+                    return true
+                end
+            end
+            return false
+        end)
+        return ok and res
+    end
+
+    local function execSortKey(guiObject)
+        if not guiObject then return math.huge end
+        local ok, y = pcall(function() return guiObject.AbsolutePosition.Y end)
+        if ok and type(y) == "number" then return y end
+        if guiObject.Position and guiObject.Position.Y then
+            return (guiObject.Position.Y.Scale or 0) + ((guiObject.Position.Y.Offset or 0) / 100000)
+        end
+        return math.huge
+    end
+
+    local function buildExecutionKeys(execFrame)
+        local result = {}
+        if not execFrame then return result end
+
+        for _, child in ipairs(execFrame:GetChildren()) do
+            if child:IsA("GuiObject") then
+                local nameText
+                local label = child:FindFirstChild("DisplayName")
+                if label and label:IsA("TextLabel") and label.Text ~= "" then
+                    nameText = label.Text
+                elseif child:IsA("TextButton") and tostring(child.Text or "") ~= "" then
+                    nameText = tostring(child.Text)
+                else
+                    for _, sub in ipairs(child:GetDescendants()) do
+                        if sub:IsA("TextLabel") and tostring(sub.Text or "") ~= "" then
+                            nameText = tostring(sub.Text)
+                            break
+                        end
+                    end
+                end
+
+                if nameText and nameText ~= "" then
+                    local key = normalizeText(nameText)
+                    local y = execSortKey(child)
+                    table.insert(result, { key = key, obj = child, y = y })
+                end
+            end
+        end
+
+        table.sort(result, function(a, b)
+            if a.y == b.y then return a.key < b.key end
+            return a.y < b.y
+        end)
+        return result
+    end
+
+    local function scanValidScreenGuis(pg)
+        local valid = {}
+        if not pg then return valid end
+
+        for _, sg in ipairs(pg:GetChildren()) do
+            if sg:IsA("ScreenGui") and sg.Name == "ScreenGui" and sg.Enabled then
+                local frame = safeFindGui(sg, "1")
+                if frame and frame:IsA("Frame") then
+                    local btn = safeFindGui(frame, "2")
+                    if btn and btn:IsA("TextButton") and btn.Visible and btn.Active then
+                        local label = safeFindGui(btn, "DisplayName")
+                        if label and label:IsA("TextLabel") and tostring(label.Text) ~= "" then
+                            table.insert(valid, {
+                                sg = sg,
+                                btn = btn,
+                                label = label,
+                                key = normalizeText(label.Text)
+                            })
+                        end
+                    end
+                end
+            end
+        end
+
+        return valid
+    end
+
+    local function findExecIndex(execList, key)
+        if not key then return nil end
+        for i, e in ipairs(execList) do
+            if e.key == key then return i end
+        end
+        return nil
+    end
+
+    local function chooseTopMost(entries)
+        if not entries or #entries == 0 then return nil end
+        local best = entries[1]
+        local bestY = (best.btn and best.btn.AbsolutePosition and best.btn.AbsolutePosition.Y) or math.huge
+        for i = 2, #entries do
+            local v = entries[i]
+            local y = (v.btn and v.btn.AbsolutePosition and v.btn.AbsolutePosition.Y) or math.huge
+            if y < bestY then
+                best = v
+                bestY = y
+            end
+        end
+        return best
+    end
+
+    -- processSelection: trả về true nếu đã click
+    local function processSelection(validSGs, execList)
+        if #validSGs == 0 then return false end
+        if #execList == 0 then
+            -- fallback random
+            clickButtonVirt(validSGs[math.random(1, #validSGs)].btn)
+            return true
+        end
+
+        local candidates = {}
+        for _, v in ipairs(validSGs) do
+            local idx = findExecIndex(execList, v.key)
+            if idx then table.insert(candidates, { sg = v, idx = idx }) end
+        end
+
+        if #candidates > 0 then
+            local bestIdx = math.huge
+            for _, c in ipairs(candidates) do
+                if c.idx < bestIdx then bestIdx = c.idx end
+            end
+
+            local bestCandidates = {}
+            for _, c in ipairs(candidates) do
+                if c.idx == bestIdx then table.insert(bestCandidates, c.sg) end
+            end
+
+            local chosen = chooseTopMost(bestCandidates)
+            if chosen then
+                clickButtonVirt(chosen.btn)
+                return true
+            end
+        end
+
+        -- fallback random
+        clickButtonVirt(validSGs[math.random(1, #validSGs)].btn)
+        return true
+    end
+
+    -- ===== CORE =====
+    local lastScan = 0
+    local lastClickTime = 0
+    local running = false
+
+    local function tryProcess()
+        if not running then return end
+        if os.clock() - lastClickTime < SCAN_INTERVAL then return end
+
+        local pg = player:FindFirstChild("PlayerGui")
+        if not pg then return end
+        local targetGui = safeFindGui(pg, TARGET_GUI_NAME)
+        if not targetGui then return end
+
+        local execFrame = targetGui
+        for _, part in ipairs(EXEC_PATH) do
+            execFrame = safeFindGui(execFrame, part)
+            if not execFrame then break end
+        end
+        if not execFrame or not execFrame:IsA("ScrollingFrame") then return end
+
+        local validSGs = scanValidScreenGuis(pg)
+        if #validSGs < MIN_SG_REQUIRED then return end
+
+        local execList = buildExecutionKeys(execFrame)
+        local clicked = processSelection(validSGs, execList)
+        if clicked then lastClickTime = os.clock() end
+    end
+
+    RunService.Heartbeat:Connect(function(dt)
+        if os.clock() - lastScan >= SCAN_INTERVAL then
+            lastScan = os.clock()
+            pcall(tryProcess)
+        end
+    end)
+
+    -- ===== ToggleUI integration (mẫu) =====
+    local function inferToggleOn(btn)
+        local bg
+        pcall(function() bg = btn and btn.BackgroundColor3 end)
+        return bg and bg.G > bg.R and bg.G > bg.B
+    end
+
+    local function syncFromButton()
+        if not toggleBtn then return end
+        local on = inferToggleOn(toggleBtn)
+        if on == running then return end
+        running = on
+        -- khi bật -> reset timers để cho phép click nhanh
+        if running then
+            lastClickTime = 0
+        else
+            -- khi tắt -> reset trạng thái nếu cần
+        end
+
+        -- cập nhật text/ui hiển thị nếu bạn muốn phản hồi cục bộ
+        pcall(function()
+            if toggleBtn.Text then toggleBtn.Text = running and "ON" or "OFF" end
+            toggleBtn.BackgroundColor3 = running and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,50,50)
+        end)
+    end
+
+    -- kết nối thay đổi màu (ToggleUI thay đổi màu) -> sync
+    if toggleBtn then
+        toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+            task.delay(0.05, syncFromButton)
+        end)
+    end
+
+    -- khi người dùng kích vào nút -> gọi ToggleUI.Set
+    local function onButtonActivated()
+        if not toggleBtn then return end
+        local cur = inferToggleOn(toggleBtn)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, not cur) end)
+    end
+
+    if toggleBtn then
+        if toggleBtn.Activated then
+            toggleBtn.Activated:Connect(onButtonActivated)
+        else
+            toggleBtn.MouseButton1Click:Connect(onButtonActivated)
+        end
+    end
+
+    -- Setting button: gọi BuffUIEvent:Fire("toggle") khi click
+    if settingBtn then
+        local function onSettingActivated()
+            pcall(function()
+                if ReplicatedStorage and ReplicatedStorage:FindFirstChild("BuffUIEvent") then
+                    ReplicatedStorage:FindFirstChild("BuffUIEvent"):Fire("toggle")
+                else
+                    -- fallback: try direct access (some setups use global path)
+                    if game.ReplicatedStorage and game.ReplicatedStorage:FindFirstChild("BuffUIEvent") then
+                        game.ReplicatedStorage.BuffUIEvent:Fire("toggle")
+                    end
+                end
+            end)
+        end
+        if settingBtn.Activated then
+            settingBtn.Activated:Connect(onSettingActivated)
+        else
+            settingBtn.MouseButton1Click:Connect(onSettingActivated)
+        end
+    end
+
+    -- reset on respawn/death: tắt running và đảm bảo ToggleUI OFF
+    local function onCharacterAdded(char)
+        running = false
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.Died:Connect(function()
+                running = false
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+            end)
+        end
+    end
+    if player.Character then onCharacterAdded(player.Character) end
+    player.CharacterAdded:Connect(onCharacterAdded)
+
+    -- initial sync
+    task.delay(0.05, syncFromButton)
+end
