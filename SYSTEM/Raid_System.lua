@@ -195,7 +195,7 @@ do
 
                 tweenButtonToColor(warnColor, 0.25)
 
-                task.wait(2)
+                task.wait(1)
 
                 tweenButtonToColor(origBg, 0.25)
 
@@ -523,4 +523,511 @@ do
     else
         buyBtn.MouseButton1Click:Connect(buy)
     end
+end
+
+--=== AUTO DUNGEON ===================================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    local player = Players.LocalPlayer
+
+    -- chờ ToggleUI helper
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    -- TÌM button trong ScrollingTab -> Raid -> AutoDungeonButton
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local raidFrame = ScrollingTab:FindFirstChild("Raid", true) or ScrollingTab:FindFirstChild("Raid")
+    if not raidFrame then
+        warn("Không tìm thấy Frame 'Raid' trong ScrollingTab")
+        return
+    end
+
+    local BUTTON_NAME = "AutoDungeonButton"
+    local autoBtn = raidFrame:FindFirstChild(BUTTON_NAME, true)
+    if not autoBtn then
+        warn("Không tìm thấy Button:", BUTTON_NAME)
+        return
+    end
+
+    -- helper: tìm UIStroke descendant đầu tiên
+    local function findStroke(inst)
+        for _, v in ipairs(inst:GetDescendants()) do
+            if v:IsA("UIStroke") then return v end
+        end
+        return nil
+    end
+    local btnStroke = findStroke(autoBtn)
+
+    -- tween helper
+    local function tweenGui(obj, props, time, style, dir)
+        local info = TweenInfo.new(time or 0.25, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
+        local tw = TweenService:Create(obj, info, props)
+        tw:Play()
+        return tw
+    end
+
+    -- settings từ script gốc
+    local DISTANCE_LIMIT = 900
+    local SCAN_INTERVAL = 0.08
+    local MOVE_SPEED = 600
+    local FOLLOW_HEIGHT = 35
+    local ATTACK_INTERVAL = 0.5
+
+    local ALLOWED_PLACE = 73902483975735
+
+    -- internal state
+    local autoDungeon = false
+    local pauseForExit = false
+    local lastEquippedToolName = nil
+    local toolTrackConn = nil
+
+    local farmCenter = nil
+    local movementLock = false
+    local followLock = false
+    local currentTarget = nil
+
+    local IGNORED_ENEMIES = { ["Blank Buddy"] = true }
+    local function isIgnoredEnemy(m) return IGNORED_ENEMIES[m.Name] == true end
+
+    -- character refs
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+
+    local function refreshCharacterRefs(newChar)
+        character = newChar or player.Character
+        if character then
+            hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+        else
+            hrp = nil
+        end
+    end
+
+    -- tool tracking
+    local function hookToolTracking(char)
+        if toolTrackConn then
+            pcall(function() toolTrackConn:Disconnect() end)
+            toolTrackConn = nil
+        end
+        if not char then return end
+
+        local existing = char:FindFirstChildOfClass("Tool")
+        if existing and autoDungeon then
+            lastEquippedToolName = existing.Name
+        end
+
+        toolTrackConn = char.ChildAdded:Connect(function(obj)
+            if obj and obj:IsA("Tool") and autoDungeon then
+                lastEquippedToolName = obj.Name
+            end
+        end)
+    end
+
+    -- movement helper (interruptible)
+    local function moveToPositionInterruptible(targetPos, interruptFn)
+        if not hrp or not hrp.Parent then return false end
+        movementLock = true
+        local arrived = false
+
+        while hrp and hrp.Parent do
+            local pos = hrp.Position
+            local dir = (targetPos - pos)
+            local dist = dir.Magnitude
+            if dist <= 1 then
+                arrived = true
+                break
+            end
+            if interruptFn and interruptFn() then break end
+            local dt = RunService.Heartbeat:Wait()
+            local step = math.min(dist, MOVE_SPEED * dt)
+            local newPos = pos + dir.Unit * step
+            hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            hrp.CFrame = CFrame.new(newPos)
+        end
+
+        movementLock = false
+        return arrived
+    end
+
+    -- enemy finders (giữ nguyên logic)
+    local function getNearestPriorityEnemy(centerPos)
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return nil end
+        local best, bestDist
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model")
+                and mob.Name == "PropHitboxPlaceholder"
+                and not isIgnoredEnemy(mob)
+                and mob:FindFirstChild("HumanoidRootPart") then
+
+                local hp = mob:FindFirstChildOfClass("Humanoid")
+                if hp and hp.Health > 0 then
+                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= DISTANCE_LIMIT then
+                        if not bestDist or dist < bestDist then
+                            best = mob
+                            bestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    local function getNearestEnemy(centerPos)
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return nil end
+        local nearest, nearestDist
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+                local hp = mob:FindFirstChildOfClass("Humanoid")
+                if hp and hp.Health > 0 then
+                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= DISTANCE_LIMIT then
+                        if not nearestDist or dist < nearestDist then
+                            nearest = mob
+                            nearestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+        return nearest
+    end
+
+    local function getNearestDungeonModel()
+        local map = workspace:FindFirstChild("Map")
+        if not map then return nil end
+        local dungeon = map:FindFirstChild("Dungeon")
+        if not dungeon then return nil end
+
+        local nearest, nearestDist
+        local myPos = (hrp and hrp.Position) or Vector3.new(0,0,0)
+        for _, mdl in ipairs(dungeon:GetChildren()) do
+            if mdl:IsA("Model") then
+                local pos
+                if mdl.PrimaryPart then
+                    pos = mdl.PrimaryPart.Position
+                else
+                    local ok, pivot = pcall(function() return mdl:GetPivot().Position end)
+                    pos = ok and pivot or nil
+                end
+                if pos then
+                    local d = (myPos - pos).Magnitude
+                    if not nearestDist or d < nearestDist then
+                        nearest = mdl
+                        nearestDist = d
+                    end
+                end
+            end
+        end
+        return nearest
+    end
+
+    local function checkDungeonExitOnModel(mdl)
+        if not mdl then return nil end
+        local exit = mdl:FindFirstChild("ExitTeleporter", true)
+        if not exit then return nil end
+        local root = exit:FindFirstChild("Root")
+        if not root or not root:IsA("BasePart") then return nil end
+        local hasTouch = root:FindFirstChild("TouchInterest") or root:FindFirstChildOfClass("TouchTransmitter")
+        if hasTouch then return root end
+        return nil
+    end
+
+    -- follow and root handlers (giữ logic cũ)
+    local function followEnemy(enemy)
+        local isPriorityTarget = (enemy and enemy.Name == "PropHitboxPlaceholder")
+        if followLock then return end
+        followLock = true
+        currentTarget = enemy
+
+        if not enemy or not enemy.Parent or not hrp then
+            followLock = false
+            currentTarget = nil
+            return
+        end
+
+        local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
+        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+        if not hrpEnemy or not humanoid then
+            followLock = false
+            currentTarget = nil
+            return
+        end
+
+        local highPos = hrpEnemy.Position + Vector3.new(0, FOLLOW_HEIGHT, 0)
+        local function interruptIfBetterEnemy()
+            if not autoDungeon then return true end
+            local center = hrp.Position
+            local pri = getNearestPriorityEnemy(center)
+            if pri and pri ~= enemy then return true end
+            if isPriorityTarget then return false end
+            local newNearest = getNearestEnemy(center)
+            if newNearest and newNearest ~= enemy then
+                local newDist = (center - newNearest.HumanoidRootPart.Position).Magnitude
+                local curDist = (center - hrpEnemy.Position).Magnitude
+                if newDist + 1 < curDist then return true end
+            end
+            return false
+        end
+
+        moveToPositionInterruptible(highPos, interruptIfBetterEnemy)
+
+        if not autoDungeon or not hrp or not hrp.Parent then
+            followLock = false
+            currentTarget = nil
+            return
+        end
+
+        while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
+            local center = hrp.Position
+            local priNow = getNearestPriorityEnemy(center)
+            if priNow and priNow ~= enemy then break end
+
+            if not isPriorityTarget then
+                local newNearest = getNearestEnemy(center)
+                if newNearest and newNearest ~= enemy and newNearest:FindFirstChild("HumanoidRootPart") then
+                    local newDist = (center - newNearest.HumanoidRootPart.Position).Magnitude
+                    local curDist = (center - hrpEnemy.Position).Magnitude
+                    if newDist + 1 < curDist then break end
+                end
+            end
+
+            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + FOLLOW_HEIGHT, hrpEnemy.Position.Z)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.5)
+            RunService.RenderStepped:Wait()
+        end
+
+        followLock = false
+        currentTarget = nil
+    end
+
+    local function handleDungeonRoot(rootPart)
+        if movementLock then return end
+        pauseForExit = true
+
+        local waited = 0
+        while waited < 2 do
+            if not autoDungeon then
+                pauseForExit = false
+                return
+            end
+            if not hrp or not hrp.Parent then
+                pauseForExit = false
+                return
+            end
+            if getNearestPriorityEnemy(hrp.Position) or getNearestEnemy(hrp.Position) then
+                pauseForExit = false
+                return
+            end
+            task.wait(0.1)
+            waited = waited + 0.1
+        end
+
+        local target = rootPart.Position + Vector3.new(0, 3, 0)
+        local function interruptIfEnemyAppears()
+            if not autoDungeon then return true end
+            if getNearestPriorityEnemy(hrp.Position) then return true end
+            return getNearestEnemy(hrp.Position) ~= nil
+        end
+
+        local arrived = moveToPositionInterruptible(target, interruptIfEnemyAppears)
+        if not arrived then
+            pauseForExit = false
+            return
+        end
+
+        local waitedTouch = 0
+        while waitedTouch < 3 and pauseForExit and rootPart and rootPart.Parent do
+            local stillTouch = rootPart:FindFirstChild("TouchInterest")
+                or rootPart:FindFirstChildOfClass("TouchTransmitter")
+            if not stillTouch then break end
+            if getNearestPriorityEnemy(hrp.Position) then break end
+            if getNearestEnemy(hrp.Position) then break end
+            task.wait(0.25)
+            waitedTouch = waitedTouch + 0.25
+        end
+
+        pauseForExit = false
+    end
+
+    -- attack loop
+    task.spawn(function()
+        while true do
+            task.wait(ATTACK_INTERVAL)
+            if autoDungeon and not pauseForExit then
+                pcall(function()
+                    ReplicatedStorage
+                        :WaitForChild("Modules")
+                        :WaitForChild("Net")
+                        :WaitForChild("RE/RegisterAttack")
+                        :FireServer(ATTACK_INTERVAL)
+                end)
+            end
+        end
+    end)
+
+    -- main scanning loop
+    task.spawn(function()
+        while true do
+            task.wait(SCAN_INTERVAL)
+            if not autoDungeon then continue end
+            if not hrp or not hrp.Parent then continue end
+            if pauseForExit then continue end
+
+            farmCenter = hrp.Position
+
+            local priorityEnemy = getNearestPriorityEnemy(farmCenter)
+            if priorityEnemy then
+                task.spawn(function() pcall(function() followEnemy(priorityEnemy) end) end)
+                continue
+            end
+
+            local enemy = getNearestEnemy(farmCenter)
+            if enemy then
+                task.spawn(function() pcall(function() followEnemy(enemy) end) end)
+                continue
+            end
+
+            local nearestDungeonModel = getNearestDungeonModel()
+            if nearestDungeonModel then
+                local rootPart = checkDungeonExitOnModel(nearestDungeonModel)
+                if rootPart then
+                    task.spawn(function() pcall(function() handleDungeonRoot(rootPart) end) end)
+                    continue
+                end
+            end
+        end
+    end)
+
+    -- respawn handling
+    player.CharacterAdded:Connect(function(newChar)
+        refreshCharacterRefs(newChar)
+        hookToolTracking(newChar)
+        pauseForExit = true
+        movementLock = false
+        followLock = false
+        currentTarget = nil
+
+        task.delay(0.5, function()
+            pauseForExit = false
+            if autoDungeon and lastEquippedToolName then
+                task.wait(0.2)
+                if newChar and not newChar:FindFirstChildOfClass("Tool") then
+                    local bp = player:FindFirstChild("Backpack")
+                    local tool = bp and bp:FindFirstChild(lastEquippedToolName)
+                    if tool then
+                        pcall(function() tool.Parent = newChar end)
+                    end
+                end
+            end
+        end)
+    end)
+
+    -- initial hook
+    hookToolTracking(character)
+
+    -- ---------- UI integration with ToggleUI ----------
+    -- ensure initial OFF (via ToggleUI; will update visuals)
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+    -- helper infer on/off from background color
+    local function inferToggleOnFromColor(btn)
+        local bg
+        pcall(function() bg = btn.BackgroundColor3 end)
+        if not bg then return false end
+        return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
+    end
+
+    -- sync local autoDungeon when ToggleUI changes visual of button
+    local function syncFromButtonColor()
+        local on = inferToggleOnFromColor(autoBtn)
+        if on == autoDungeon then return end
+        autoDungeon = on
+
+        if autoDungeon then
+            -- when turned on: hook and set attributes (non-destructive)
+            hookToolTracking(character)
+            pcall(function()
+                player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemy", true)
+                player:SetAttribute("AutoBuso", true)
+                player:SetAttribute("AutoObserve", true)
+                player:SetAttribute("AutoAbility", true)
+                player:SetAttribute("AutoAwakening", true)
+            end)
+            if hrp and hrp.Parent then
+                farmCenter = hrp.Position
+            end
+        else
+            -- when turned off: allow loops to stop gracefully
+            pauseForExit = false
+        end
+    end
+
+    autoBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        -- small defer to let ToggleUI internal transition finish
+        task.delay(0.05, syncFromButtonColor)
+    end)
+
+    -- blocked animation guard
+    local blockedAnim = false
+    local function animateBlockedWarning()
+        if blockedAnim then return end
+        blockedAnim = true
+        local origBg = autoBtn.BackgroundColor3 or Color3.fromRGB(255,50,50)
+        local origStroke = (btnStroke and btnStroke.Color) or Color3.fromRGB(255,0,0)
+        local warnColor = Color3.fromRGB(255,255,0)
+
+        -- tween to warn
+        tweenGui(autoBtn, { BackgroundColor3 = warnColor }, 0.25)
+        if btnStroke then tweenGui(btnStroke, { Color = warnColor }, 0.25) end
+
+        -- wait 1s then tween back to original red (or whatever current bg is)
+        task.delay(1, function()
+            tweenGui(autoBtn, { BackgroundColor3 = origBg }, 0.25)
+            if btnStroke then tweenGui(btnStroke, { Color = origStroke }, 0.25) end
+            blockedAnim = false
+        end)
+    end
+
+    -- click handler: request ToggleUI.Set unless blocked by PlaceId
+    local function onButtonActivated()
+        -- infer current ON state from color and flip
+        local currentOn = inferToggleOnFromColor(autoBtn)
+        local requested = not currentOn
+
+        if requested then
+            -- trying to enable: check PlaceId
+            if game.PlaceId ~= ALLOWED_PLACE then
+                -- animate yellow -> red and do NOT call ToggleUI.Set
+                animateBlockedWarning()
+                return
+            end
+        end
+
+        -- allowed: request ToggleUI change (ToggleUI will change visuals -> propertyChanged will sync autoDungeon)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
+    end
+
+    if autoBtn.Activated then
+        autoBtn.Activated:Connect(onButtonActivated)
+    else
+        autoBtn.MouseButton1Click:Connect(onButtonActivated)
+    end
+
+    -- small initial sync after UI settled
+    task.delay(0.05, syncFromButtonColor)
 end
