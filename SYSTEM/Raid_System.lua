@@ -478,7 +478,7 @@ do
         overlay.ZIndex = baseZ + 5
         setDescendantsZIndex(listFrame, baseZ + 6)
 
-        local tw = tweenGui(listFrame, { Size = UDim2.new(1, 0, 0, 5) }, TWEEN_TIME) -- open to offset Y = 5
+        local tw = tweenGui(listFrame, { Size = UDim2.new(1, 0, 5, 0) }, TWEEN_TIME)
         tw.Completed:Wait()
         animatingList = false
         listOpen = true
