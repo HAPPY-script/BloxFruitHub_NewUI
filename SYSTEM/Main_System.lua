@@ -1566,6 +1566,7 @@ do
 
     -- game state
     local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
     local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
     local running = false
 
@@ -1580,6 +1581,31 @@ do
     local anchorY = nil
     local lastAnchorUpdate = 0
     local anchorUpdateInterval = 1
+
+    local function onCharacterDied()
+    	if running then
+    		running = false
+
+    		-- tắt UI toggle
+    		pcall(function()
+    			ToggleUI.Set(BUTTON_NAME, false)
+    		end)
+
+    		-- cleanup an toàn
+    		camera.CameraType = Enum.CameraType.Custom
+    		camera.CameraSubject = hrp
+    		destroyFarmPoint()
+
+    		if anchor and anchor.Parent then
+    			anchor:Destroy()
+    		end
+    		anchor = nil
+    	end
+    end
+
+    if humanoid then
+    	humanoid.Died:Connect(onCharacterDied)
+    end
 
     -- helper: normalize textbox initial value
     if not distanceBox.Text or distanceBox.Text == "" then
@@ -1767,17 +1793,27 @@ do
         end)
     end
 
-    -- sync when character respawn
     player.CharacterAdded:Connect(function(newChar)
-        character = newChar
-        hrp = newChar:WaitForChild("HumanoidRootPart")
-        running = false
-        if anchor and anchor.Parent then anchor:Destroy() end
-        anchor = nil
-        destroyFarmPoint()
-        -- reset autoBtn UI textual state if you want (but ToggleUI controls it)
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = hrp
+    	character = newChar
+    	hrp = newChar:WaitForChild("HumanoidRootPart")
+    	local humanoid = newChar:WaitForChild("Humanoid")
+
+    	running = false
+
+    	-- force UI OFF khi respawn
+    	pcall(function()
+    		ToggleUI.Set(BUTTON_NAME, false)
+    	end)
+
+    	if anchor and anchor.Parent then anchor:Destroy() end
+    	anchor = nil
+    	destroyFarmPoint()
+
+    	camera.CameraType = Enum.CameraType.Custom
+    	camera.CameraSubject = hrp
+
+    	-- reconnect died event
+    	humanoid.Died:Connect(onCharacterDied)
     end)
 
     -- When user clicks the UI toggle: call ToggleUI.Set like mẫu
