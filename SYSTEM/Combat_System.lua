@@ -9,6 +9,74 @@ do
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
 
+    local TWEEN_TIME = 0.18
+    local modeAnimating = {}
+
+    local COLOR_TOGGLE = Color3.fromRGB(255,125,0)
+    local COLOR_HOLD   = Color3.fromRGB(255,255,0)
+
+    local function getUIStroke(btn)
+    	for _, c in ipairs(btn:GetChildren()) do
+    		if c:IsA("UIStroke") then
+    			return c
+    		end
+    	end
+    end
+
+    local function tween(props, time)
+    	local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    	local t = TweenService:Create(props.obj, info, props.goal)
+    	t:Play()
+    	return t
+    end
+
+    local function animateModeButton(btn, isHold)
+    	if not btn:IsA("TextButton") and not btn:IsA("TextLabel") then return end
+
+    	-- cancel animation cũ
+    	if modeAnimating[btn] then
+    		modeAnimating[btn].cancelled = true
+    	end
+
+    	local anim = { cancelled = false }
+    	modeAnimating[btn] = anim
+
+    	local stroke = getUIStroke(btn)
+    	local targetColor = isHold and COLOR_HOLD or COLOR_TOGGLE
+    	local targetText  = "Mode: " .. (isHold and "Hold" or "Toggle")
+
+    	-- Fade out
+    	local t1 = tween({
+    		obj = btn,
+    		goal = { TextTransparency = 1 }
+    	})
+    	t1.Completed:Wait()
+    	if anim.cancelled then return end
+
+    	-- Set text
+    	btn.Text = targetText
+
+    	-- Fade in
+    	tween({
+    		obj = btn,
+    		goal = { TextTransparency = 0 }
+    	})
+
+    	-- Background
+    	tween({
+    		obj = btn,
+    		goal = { BackgroundColor3 = targetColor }
+    	})
+
+    	-- Stroke
+    	if stroke then
+    		tween({
+    			obj = stroke,
+    			goal = { Color = targetColor }
+    		})
+    	end
+    end
+
     -- wait ToggleUI
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
@@ -143,29 +211,21 @@ do
     end)
 
     LocalPlayer:GetAttributeChangedSignal("FastAttackEnemyMode"):Connect(function()
-        local v = LocalPlayer:GetAttribute("FastAttackEnemyMode")
-        enemyHoldMode = (tostring(v) == "Hold")
-        -- update mode button text (allowed)
-        pcall(function()
-            if btnModeEnemy:IsA("TextButton") or btnModeEnemy:IsA("TextLabel") then
-                btnModeEnemy.Text = "Mode: " .. (enemyHoldMode and "Hold" or "Toggle")
-            end
-        end)
-        enemyActive = false
+    	local v = LocalPlayer:GetAttribute("FastAttackEnemyMode")
+    	enemyHoldMode = (tostring(v) == "Hold")
+    	enemyActive = false
+
+    	animateModeButton(btnModeEnemy, enemyHoldMode)
     end)
 
     LocalPlayer:GetAttributeChangedSignal("FastAttackPlayerMode"):Connect(function()
-        local v = LocalPlayer:GetAttribute("FastAttackPlayerMode")
-        playerHoldMode = (tostring(v) == "Hold")
-        pcall(function()
-            if btnModePlayer:IsA("TextButton") or btnModePlayer:IsA("TextLabel") then
-                btnModePlayer.Text = "Mode: " .. (playerHoldMode and "Hold" or "Toggle")
-            end
-        end)
-        playerActive = false
+    	local v = LocalPlayer:GetAttribute("FastAttackPlayerMode")
+    	playerHoldMode = (tostring(v) == "Hold")
+    	playerActive = false
+
+    	animateModeButton(btnModePlayer, playerHoldMode)
     end)
 
-    -- init from attributes (and sync UI)
     do
         local v = LocalPlayer:GetAttribute("FastAttackEnemy") == true
         isFastAttackEnemyEnabled = v
@@ -417,6 +477,4 @@ do
             if playerHoldMode then playerActive = false end
         end
     end)
-
-    -- End of block: nothing else changes
 end
