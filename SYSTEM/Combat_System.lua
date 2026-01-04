@@ -14,15 +14,11 @@ do
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
-    -- ScrollingTab -> Combat
+    -- ScrollingTab (bạn đã khởi tạo trước đó)
     local ScrollingTab = LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
-    local uiMain = ScrollingTab:FindFirstChild("Main", true)
-    if not uiMain then
-        warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
-        return
-    end
 
-    local combatFrame = uiMain:FindFirstChild("Combat", true)
+    -- tìm Frame "Combat" trực tiếp trong ScrollingTab (hoặc descendants)
+    local combatFrame = ScrollingTab:FindFirstChild("Combat") or ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:WaitForChild("Combat", 5)
     if not combatFrame then
         warn("Không tìm thấy Frame 'Combat' trong ScrollingTab")
         return
@@ -421,4 +417,6 @@ do
             if playerHoldMode then playerActive = false end
         end
     end)
+
+    -- End of block: nothing else changes
 end
