@@ -1314,21 +1314,15 @@ do
 
     local function syncFromButton()
         if not toggleBtn then return end
+
         local on = inferToggleOn(toggleBtn)
         if on == running then return end
+
         running = on
-        -- khi bật -> reset timers để cho phép click nhanh
+
         if running then
             lastClickTime = 0
-        else
-            -- khi tắt -> reset trạng thái nếu cần
         end
-
-        -- cập nhật text/ui hiển thị nếu bạn muốn phản hồi cục bộ
-        pcall(function()
-            if toggleBtn.Text then toggleBtn.Text = running and "ON" or "OFF" end
-            toggleBtn.BackgroundColor3 = running and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,50,50)
-        end)
     end
 
     -- kết nối thay đổi màu (ToggleUI thay đổi màu) -> sync
