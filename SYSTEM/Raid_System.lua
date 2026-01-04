@@ -365,19 +365,18 @@ end
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
-    local UserInputService = game:GetService("UserInputService")
 
     local player = Players.LocalPlayer
 
-    -- wait for ToggleUI present (pattern chung)
-    repeat task.wait() until _G.ToggleUI
-    local ToggleUI = _G.ToggleUI
-
     -- ScrollingTab -> Raid
-    local ScrollingTab = player.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
-    local raidFrame = ScrollingTab:FindFirstChild("Raid", true) or ScrollingTab:FindFirstChild("Raid")
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local raidFrame = ScrollingTab:FindFirstChild("Raid", true)
     if not raidFrame then
-        warn("Không tìm thấy Frame 'Raid' trong ScrollingTab")
+        warn("Không tìm thấy Frame 'Raid'")
         return
     end
 
@@ -385,22 +384,22 @@ do
     local buyBtn    = raidFrame:FindFirstChild("BuyMicrochipButton", true)
     local selectBtn = raidFrame:FindFirstChild("SelectMicrochipButton", true)
 
-    if not buyBtn then warn("Không tìm thấy BuyMicrochipButton") return end
-    if not selectBtn then warn("Không tìm thấy SelectMicrochipButton") return end
-
-    -- find List frame inside selectBtn
-    local listFrame = selectBtn:FindFirstChild("List", true) or selectBtn:FindFirstChild("List")
-    if not listFrame then
-        warn("Không tìm thấy Frame 'List' trong SelectMicrochipButton")
+    if not buyBtn or not selectBtn then
+        warn("Thiếu BuyMicrochipButton hoặc SelectMicrochipButton")
         return
     end
 
-    -- helper: find UIStroke child (first)
+    local listFrame = selectBtn:FindFirstChild("List", true)
+    if not listFrame then
+        warn("Không tìm thấy List trong SelectMicrochipButton")
+        return
+    end
+
+    -- UIStroke helper
     local function findStroke(inst)
         for _, c in ipairs(inst:GetDescendants()) do
             if c:IsA("UIStroke") then return c end
         end
-        return nil
     end
 
     local buyStroke = findStroke(buyBtn)
@@ -410,232 +409,118 @@ do
     local COLOR_RED   = Color3.fromRGB(255, 0, 0)
     local COLOR_GREEN = Color3.fromRGB(0, 255, 0)
 
-    -- internal state
-    local selectedChip = nil -- no selection by default
+    -- state
+    local selectedChip = nil
     local listOpen = false
-    local animatingList = false
+    local animating = false
 
-    -- ensure initial List state: closed
-    listFrame.Size = UDim2.new(1, 0, 0, 0)   -- closed: {1,0},{0,0}
+    -- init list closed
     listFrame.Visible = false
-    -- ensure ZIndex so overlay sits below/above appropriately; we'll set overlay to higher index
-    local baseZ = 50
-    local function setDescendantsZIndex(root, z)
-        if root:IsA("GuiObject") then
-            root.ZIndex = z
-        end
-        for _,c in ipairs(root:GetDescendants()) do
-            if c:IsA("GuiObject") then c.ZIndex = z end
-        end
-    end
-    setDescendantsZIndex(listFrame, baseZ + 2)
+    listFrame.Size = UDim2.new(1, 0, 0, 0)
+    listFrame.ClipsDescendants = true
 
-    -- create full-screen invisible overlay (parent to the same Main so it covers UI)
-    local mainGui = raidFrame
-    while mainGui and not mainGui:IsA("ScreenGui") and mainGui.Parent do
-        mainGui = mainGui.Parent
-    end
-    -- fallback: put overlay under PlayerGui's Main if we can't find ScreenGui
-    if not mainGui or not mainGui:IsA("ScreenGui") then
-        mainGui = player.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main")
-    end
-
-    -- Tween helpers
-    local function tweenGui(obj, props, time)
-        local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tw = TweenService:Create(obj, info, props)
+    -- tween helper
+    local function tweenGui(obj, props)
+        local tw = TweenService:Create(
+            obj,
+            TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            props
+        )
         tw:Play()
         return tw
     end
 
-    local function updateBuyAppearance(hasSelection)
-        -- if hasSelection = true -> tween to green; else to red
-        local target = hasSelection and COLOR_GREEN or COLOR_RED
-        pcall(function()
-            tweenGui(buyBtn, { BackgroundColor3 = target },  TWEEN_TIME)
-            if buyStroke then tweenGui(buyStroke, { Color = target }, TWEEN_TIME) end
-        end)
+    -- buy button color
+    local function updateBuy(canBuy)
+        local col = canBuy and COLOR_GREEN or COLOR_RED
+        buyBtn.BackgroundColor3 = col
+        if buyStroke then buyStroke.Color = col end
     end
 
-    -- open/close list functions (with safe anim lock)
-    local function openList()
-        if listOpen or animatingList then return end
-        animatingList = true
-        overlay.Visible = true
-        listFrame.Visible = true
-        -- ensure overlay above others, list above overlay
-        overlay.ZIndex = baseZ + 5
-        setDescendantsZIndex(listFrame, baseZ + 6)
+    updateBuy(false)
 
-        local tw = tweenGui(listFrame, { Size = UDim2.new(1, 0, 5, 0) }, TWEEN_TIME)
-        tw.Completed:Wait()
-        animatingList = false
+    -- open / close list
+    local function openList()
+        if listOpen or animating then return end
+        animating = true
+        listFrame.Visible = true
+        tweenGui(listFrame, { Size = UDim2.new(1, 0, 5, 0) })
+            .Completed:Wait()
         listOpen = true
+        animating = false
     end
 
     local function closeList()
-        if not listOpen or animatingList then return end
-        animatingList = true
-        -- tween down then hide
-        local tw = tweenGui(listFrame, { Size = UDim2.new(1, 0, 0, 0) }, TWEEN_TIME)
-        tw.Completed:Wait()
+        if not listOpen or animating then return end
+        animating = true
+        tweenGui(listFrame, { Size = UDim2.new(1, 0, 0, 0) })
+            .Completed:Wait()
         listFrame.Visible = false
-        overlay.Visible = false
-        animatingList = false
         listOpen = false
+        animating = false
     end
 
-    -- helper: check if a screen point is inside a GuiObject
-    local function isPointInsideGui(gui, screenPos)
-        if not gui or not gui:IsA("GuiObject") or not gui.Visible then return false end
-        local absPos = gui.AbsolutePosition
-        local absSize = gui.AbsoluteSize
-        return (
-            screenPos.X >= absPos.X and
-            screenPos.X <= absPos.X + absSize.X and
-            screenPos.Y >= absPos.Y and
-            screenPos.Y <= absPos.Y + absSize.Y
-        )
-    end
-
-    -- global click handler: click outside List -> close
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if not listOpen then return end
-
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            local pos = input.Position
-
-            -- nếu click TRONG listFrame thì KHÔNG đóng
-            if isPointInsideGui(listFrame, pos) then
-                return
-            end
-
-            -- nếu click vào Select button thì để handler riêng xử lý
-            if isPointInsideGui(selectBtn, pos) then
-                return
-            end
-
-            -- còn lại: click ngoài -> đóng list
-            closeList()
-        end
-    end)
-
-    -- toggle when clicking SelectMicrochipButton
+    -- toggle list by clicking select button
     if selectBtn.Activated then
         selectBtn.Activated:Connect(function()
-            if listOpen then
-                closeList()
-            else
-                openList()
-            end
+            if listOpen then closeList() else openList() end
         end)
     else
         selectBtn.MouseButton1Click:Connect(function()
-            if listOpen then
-                closeList()
-            else
-                openList()
-            end
+            if listOpen then closeList() else openList() end
         end)
     end
 
-    -- populate chip buttons behavior:
-    -- If List already has child ImageButtons with names, wire them; otherwise try to create from standard list.
+    -- wire chip buttons
     local defaultChips = {
-        "Flame", "Ice", "Quake", "Light", "Dark",
-        "Spider", "Rumble", "Magma", "Buddha", "Sand"
+        "Flame","Ice","Quake","Light","Dark",
+        "Spider","Rumble","Magma","Buddha","Sand"
     }
 
-    local function wireChipButton(btn, chipName)
-        if not btn then return end
-        btn.Name = tostring(chipName)
+    local function wireChip(btn, chipName)
         btn.MouseButton1Click:Connect(function()
-            -- select chip
             selectedChip = chipName
-            -- update selectBtn text
-            pcall(function() selectBtn.Text = "Microchip: " .. tostring(selectedChip) end)
-            -- close list
+            selectBtn.Text = "Microchip: " .. chipName
+            updateBuy(true)
             closeList()
-            -- update buy button appearance to green
-            updateBuyAppearance(true)
         end)
     end
 
-    -- find existing imagebuttons under listFrame by name; if none, create a simple list of ImageButtons stacked vertically
-    local childrenImageButtons = {}
-    for _, child in ipairs(listFrame:GetChildren()) do
-        if child:IsA("ImageButton") then
-            table.insert(childrenImageButtons, child)
+    local found = false
+    for _, c in ipairs(listFrame:GetChildren()) do
+        if c:IsA("ImageButton") then
+            found = true
+            wireChip(c, c.Name)
         end
     end
 
-    if #childrenImageButtons >= 1 then
-        -- wire existing buttons: assume their Name equals chip name; if not, use displayed name
-        for _, btn in ipairs(childrenImageButtons) do
-            local chipName = btn.Name
-            wireChipButton(btn, chipName)
+    if not found then
+        local h = 30
+        for i, name in ipairs(defaultChips) do
+            local b = Instance.new("ImageButton")
+            b.Name = name
+            b.Size = UDim2.new(1, 0, 0, h)
+            b.Position = UDim2.new(0, 0, 0, (i-1)*h)
+            b.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            b.Parent = listFrame
+            wireChip(b, name)
         end
-    else
-        -- create minimal ImageButtons for defaultChips (stacked)
-        local itemHeight = 30
-        listFrame.ClipsDescendants = true
-        listFrame.BackgroundTransparency = listFrame.BackgroundTransparency or 0.5
-        for i, chipName in ipairs(defaultChips) do
-            local btn = Instance.new("ImageButton")
-            btn.Name = chipName
-            btn.Size = UDim2.new(1, 0, 0, itemHeight)
-            btn.Position = UDim2.new(0, 0, 0, (i-1) * itemHeight)
-            btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-            btn.Image = "" -- if you have icons, set btn.Image = "rbxassetid://..."
-            btn.Parent = listFrame
-            wireChipButton(btn, chipName)
-        end
-        -- expand the internal absolute canvas so when opening the offset 5 is visible; adjust if you need larger open height
     end
 
-    -- initial state: ensure buy button red (no purchase allowed until selection)
-    selectedChip = nil
-    pcall(function()
-        -- set initial colors immediately (no tween)
-        buyBtn.BackgroundColor3 = COLOR_RED
-        if buyStroke then buyStroke.Color = COLOR_RED end
-    end)
+    -- buy action
+    local function buy()
+        if not selectedChip then return end
+        pcall(function()
+            game:GetService("ReplicatedStorage")
+                :WaitForChild("Remotes")
+                :WaitForChild("CommF_")
+                :InvokeServer("RaidsNpc", "Select", selectedChip)
+        end)
+    end
 
-    -- Buy action: only fires when a chip selected
     if buyBtn.Activated then
-        buyBtn.Activated:Connect(function()
-            if not selectedChip then
-                warn("Không có Microchip được chọn, không thể mua.")
-                return
-            end
-            -- call remote to buy (same args as your sample)
-            local args = { "RaidsNpc", "Select", selectedChip }
-            local ok, err = pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
-            end)
-            if not ok then warn("Mua Microchip thất bại: "..tostring(err)) end
-        end)
+        buyBtn.Activated:Connect(buy)
     else
-        buyBtn.MouseButton1Click:Connect(function()
-            if not selectedChip then
-                warn("Không có Microchip được chọn, không thể mua.")
-                return
-            end
-            local args = { "RaidsNpc", "Select", selectedChip }
-            local ok, err = pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
-            end)
-            if not ok then warn("Mua Microchip thất bại: "..tostring(err)) end
-        end)
-    end
-
-    -- If selection is cleared elsewhere, provide function to clear selection and update buy button red
-    local function clearSelection()
-        selectedChip = nil
-        pcall(function() selectBtn.Text = "Select Microchip" end)
-        updateBuyAppearance(false)
+        buyBtn.MouseButton1Click:Connect(buy)
     end
 end
