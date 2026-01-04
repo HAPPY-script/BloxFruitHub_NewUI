@@ -930,6 +930,25 @@ UIGradient2.Name = "UIGradient"
 UIGradient2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 0.25, 0)})
 UIGradient2.Parent = Icon2
 
+local DelayChanceTeam = Instance.new("TextLabel")
+DelayChanceTeam.Name = "DelayChanceTeam"
+DelayChanceTeam.Position = UDim2.new(0.499, 0, 0.44, 0)
+DelayChanceTeam.Size = UDim2.new(0.72, 0, 0.045, 0)
+DelayChanceTeam.BackgroundColor3 = Color3.new(0, 0, 0)
+DelayChanceTeam.BackgroundTransparency = 0.10000000149011612
+DelayChanceTeam.BorderSizePixel = 0
+DelayChanceTeam.BorderColor3 = Color3.new(0, 0, 0)
+DelayChanceTeam.Visible = false
+DelayChanceTeam.AnchorPoint = Vector2.new(0.5, 0.5)
+DelayChanceTeam.Transparency = 0.10000000149011612
+DelayChanceTeam.Text = "?s"
+DelayChanceTeam.TextColor3 = Color3.new(1, 1, 1)
+DelayChanceTeam.TextSize = 14
+DelayChanceTeam.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+DelayChanceTeam.TextScaled = true
+DelayChanceTeam.TextWrapped = true
+DelayChanceTeam.Parent = Player_Setting
+
 local Frame = Player_Setting
 if not Frame then return end
 task.spawn(function()
