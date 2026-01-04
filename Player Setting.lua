@@ -830,6 +830,106 @@ OffIcon8.Transparency = 1
 OffIcon8.Image = "rbxassetid://109833067427302"
 OffIcon8.Parent = Dot8
 
+local MarinesButton = Instance.new("TextButton")
+MarinesButton.Name = "MarinesButton"
+MarinesButton.Position = UDim2.new(0.68, 0, 0.44, 0)
+MarinesButton.Size = UDim2.new(0.35, 0, 0.04, 0)
+MarinesButton.BackgroundColor3 = Color3.new(0, 0.588235, 1)
+MarinesButton.BackgroundTransparency = 0.75
+MarinesButton.BorderSizePixel = 0
+MarinesButton.BorderColor3 = Color3.new(0, 0, 0)
+MarinesButton.AnchorPoint = Vector2.new(0.5, 0.5)
+MarinesButton.Transparency = 0.75
+MarinesButton.Text = "Marines"
+MarinesButton.TextColor3 = Color3.new(1, 1, 1)
+MarinesButton.TextSize = 14
+MarinesButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+MarinesButton.TextScaled = true
+MarinesButton.TextWrapped = true
+MarinesButton.Parent = Player_Setting
+
+local UIStroke19 = Instance.new("UIStroke")
+UIStroke19.Name = "UIStroke"
+UIStroke19.Color = Color3.new(0, 0.588235, 1)
+UIStroke19.Thickness = 2
+UIStroke19.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke19.Parent = MarinesButton
+
+local Icon = Instance.new("ImageLabel")
+Icon.Name = "Icon"
+Icon.Position = UDim2.new(1.25, 0, -0.25, 0)
+Icon.Size = UDim2.new(2.5, 0, 2.5, 0)
+Icon.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon.BackgroundTransparency = 1
+Icon.BorderSizePixel = 0
+Icon.BorderColor3 = Color3.new(0, 0, 0)
+Icon.Rotation = -15
+Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+Icon.Transparency = 1
+Icon.Image = "rbxassetid://71742259184545"
+Icon.ImageTransparency = 1
+Icon.Parent = MarinesButton
+
+local UIAspectRatioConstraint9 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint9.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint9.Parent = Icon
+
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Name = "UIGradient"
+UIGradient.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.25, 0), NumberSequenceKeypoint.new(1, 0, 0)})
+UIGradient.Parent = Icon
+
+local PiratesButton = Instance.new("TextButton")
+PiratesButton.Name = "PiratesButton"
+PiratesButton.Position = UDim2.new(0.32, 0, 0.44, 0)
+PiratesButton.Size = UDim2.new(0.35, 0, 0.04, 0)
+PiratesButton.BackgroundColor3 = Color3.new(0.745098, 0, 0)
+PiratesButton.BackgroundTransparency = 0.75
+PiratesButton.BorderSizePixel = 0
+PiratesButton.BorderColor3 = Color3.new(0, 0, 0)
+PiratesButton.AnchorPoint = Vector2.new(0.5, 0.5)
+PiratesButton.Transparency = 0.75
+PiratesButton.Text = "Pirates"
+PiratesButton.TextColor3 = Color3.new(1, 1, 1)
+PiratesButton.TextSize = 14
+PiratesButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+PiratesButton.TextScaled = true
+PiratesButton.TextWrapped = true
+PiratesButton.Parent = Player_Setting
+
+local UIStroke20 = Instance.new("UIStroke")
+UIStroke20.Name = "UIStroke"
+UIStroke20.Color = Color3.new(0.745098, 0, 0)
+UIStroke20.Thickness = 2
+UIStroke20.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke20.Parent = PiratesButton
+
+local Icon2 = Instance.new("ImageLabel")
+Icon2.Name = "Icon"
+Icon2.Position = UDim2.new(-0.25, 0, -0.25, 0)
+Icon2.Size = UDim2.new(2.5, 0, 2.5, 0)
+Icon2.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon2.BackgroundTransparency = 1
+Icon2.BorderSizePixel = 0
+Icon2.BorderColor3 = Color3.new(0, 0, 0)
+Icon2.Rotation = 15
+Icon2.AnchorPoint = Vector2.new(0.5, 0.5)
+Icon2.Transparency = 1
+Icon2.Image = "rbxassetid://108379075345543"
+Icon2.ImageTransparency = 1
+Icon2.Parent = PiratesButton
+
+local UIAspectRatioConstraint10 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint10.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint10.Parent = Icon2
+
+local UIGradient2 = Instance.new("UIGradient")
+UIGradient2.Name = "UIGradient"
+UIGradient2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 0.25, 0)})
+UIGradient2.Parent = Icon2
+
 local Frame = Player_Setting
 if not Frame then return end
 task.spawn(function()
