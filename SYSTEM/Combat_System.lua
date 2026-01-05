@@ -1368,6 +1368,29 @@ do
         local bg = ToggleBtn.BackgroundColor3
         return bg.G > bg.R and bg.G > bg.B
     end
+    
+    -- ===== TOGGLE BUTTON CLICK =====
+    local function onToggleActivated()
+        local cur = isToggleOn()
+        pcall(function()
+            ToggleUI.Set("AutoEscapeButton", not cur)
+        end)
+    end
+
+    -- ===== SYNC UI KHI TOGGLE ĐỔI =====
+    ToggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, function()
+            if not isToggleOn() then
+                tweenReturnColor(RED)
+            end
+        end)
+    end)
+    
+    if ToggleBtn.Activated then
+        ToggleBtn.Activated:Connect(onToggleActivated)
+    else
+        ToggleBtn.MouseButton1Click:Connect(onToggleActivated)
+    end
 
     -- ===== RETURN BUTTON INIT =====
     ReturnBtn.Text = "Y=0"
