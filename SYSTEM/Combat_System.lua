@@ -12,7 +12,7 @@ do
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
-    -- ScrollingTab -> Combat
+    -- find ScrollingTab -> Combat
     local ScrollingTab = player.PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
@@ -28,12 +28,12 @@ do
     local BOX_NAME    = "FollowPlayerBox"
 
     local followBtn = combatFrame:FindFirstChild(FOLLOW_NAME, true)
-    local nameBox   = combatFrame:FindFirstChild(BOX_NAME, true)
+    local nameBox  = combatFrame:FindFirstChild(BOX_NAME, true)
 
     if not followBtn then warn("Không tìm thấy FollowPlayerButton trong Combat") return end
-    if not nameBox then warn("Không tìm thấy FollowPlayerBox trong Combat") return end
+    if not nameBox  then warn("Không tìm thấy FollowPlayerBox trong Combat") return end
 
-    -- helpers
+    -- helper: find first UIStroke descendant
     local function findStroke(inst)
         for _, c in ipairs(inst:GetDescendants()) do
             if c:IsA("UIStroke") then return c end
@@ -42,14 +42,19 @@ do
     end
     local followStroke = findStroke(followBtn)
 
+    -- tween helpers
     local function tween(obj, props, time)
         local info = TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local t = TweenService:Create(obj, info, props)
-        t:Play()
-        return t
+        local tw = TweenService:Create(obj, info, props)
+        tw:Play()
+        return tw
     end
 
-    -- toggle inference (prefer ToggleUI.Get)
+    local WARN_COLOR = Color3.fromRGB(255,255,0)
+    local RED_COLOR  = Color3.fromRGB(255,0,0)
+    local ON_COLOR   = Color3.fromRGB(50,255,50)
+
+    -- infer toggle on from ToggleUI.Get or color fallback
     local function getToggleOnByName(name, btn)
         local ok, val = pcall(function()
             if ToggleUI.Get then return ToggleUI.Get(name) end
@@ -62,184 +67,348 @@ do
         return false
     end
 
-    -- visual warn when trying to enable but invalid input
-    local WARN_COLOR = Color3.fromRGB(255,255,0)
-    local RED_COLOR  = Color3.fromRGB(255,0,0)
-    local GREEN_COLOR= Color3.fromRGB(0,255,0)
-    local warnLock = false
-    local function flashInvalid()
-        if warnLock then return end
-        warnLock = true
-        pcall(function()
-            tween(followBtn, { BackgroundColor3 = WARN_COLOR }, 0.18)
-            if followStroke then tween(followStroke, { Color = WARN_COLOR }, 0.18) end
-        end)
-        task.delay(1, function()
-            pcall(function()
-                tween(followBtn, { BackgroundColor3 = RED_COLOR }, 0.18)
-                if followStroke then tween(followStroke, { Color = RED_COLOR }, 0.18) end
-            end)
-            warnLock = false
-        end)
-    end
-
-    -- pick player by partial name (case-insensitive)
+    -- pick player helper (partial match, case-insensitive)
     local function pickTargetFromName(txt)
-        if not txt or txt:match("^%s*$") then return nil end
-        local s = txt:lower()
+        if not txt or txt == "" then return nil end
+        local k = txt:lower()
         for _,pl in pairs(Players:GetPlayers()) do
-            if pl ~= player and pl.Name:lower():find(s, 1, true) then
+            if pl ~= player and pl.Name:lower():find(k,1,true) then
                 return pl
             end
         end
         return nil
     end
 
+    -- safe refs
+    local function safeHRP()
+        local c = player.Character
+        if not c then return nil end
+        return c:FindFirstChild("HumanoidRootPart")
+    end
+    local function safeHumanoid()
+        local c = player.Character
+        if not c then return nil end
+        return c:FindFirstChildOfClass("Humanoid")
+    end
+    local function safeTargetHRP(tp)
+        if not tp then return nil end
+        local c = tp.Character
+        if not c then return nil end
+        return c:FindFirstChild("HumanoidRootPart")
+    end
+    local function safeTargetHumanoid(tp)
+        if not tp then return nil end
+        local c = tp.Character
+        if not c then return nil end
+        return c:FindFirstChildOfClass("Humanoid")
+    end
+
     -- movement / follow state
     local followEnabled = false
     local targetPlayer = nil
+    local disabledDueLowHP = false
+    local followCoroutine = nil
 
-    -- ensure initial visual (no auto reset)
-    pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-    followBtn.BackgroundColor3 = RED_COLOR
-    if followStroke then followStroke.Color = RED_COLOR end
+    -- teleport points (keep original)
+    local teleportPoints = {
+        Vector3.new(-12463.61, 374.91, -7549.53),
+        Vector3.new(-5073.83, 314.51, -3152.52),
+        Vector3.new(5661.53, 1013.04, -334.96),
+        Vector3.new(28286.36, 14896.56, 102.62)
+    }
+    local function distance(a,b) return (a-b).Magnitude end
+    local function findNearestTP(targetPos)
+        local best, bestDist = nil, math.huge
+        for _,p in ipairs(teleportPoints) do
+            local d = distance(p, targetPos)
+            if d < bestDist then bestDist = d best = p end
+        end
+        return best, bestDist
+    end
 
-    -- sync local when ToggleUI or color changes
-    local function syncFromButton()
+    -- movement params (speed fixed at 300 as requested)
+    local STOP_DIST = 4
+    local SPEED = 300 -- stud / second (constant)
+    local HEIGHT_OFFSET = 6
+
+    -- reset movement
+    local function resetMovement()
+        local hrp = safeHRP()
+        local hum = safeHumanoid()
+        if hrp then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        if hum then
+            pcall(function() hum.PlatformStand = false hum.AutoRotate = true end)
+        end
+    end
+
+    local function instantTeleport(pos)
+        local hrp = safeHRP()
+        if not hrp then return end
+        hrp.CFrame = CFrame.new(pos + Vector3.new(0,60,0))
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        RunService.Heartbeat:Wait()
+        hrp.CFrame += Vector3.new(0,3,0)
+    end
+
+    -- smooth step movement toward targetPos using fixed SPEED (frame-by-frame)
+    local function smoothMoveTo(targetPos)
+        local hrp = safeHRP()
+        if not hrp then return end
+
+        while followEnabled do
+            hrp = safeHRP()
+            if not hrp then break end
+
+            local curPos = hrp.Position
+            local toTarget = targetPos - curPos
+            local dist = toTarget.Magnitude
+            if dist <= STOP_DIST then break end
+
+            local dt = RunService.Heartbeat:Wait()
+            -- compute step not to overshoot
+            local step = math.min(SPEED * dt, dist)
+            local newPos = curPos + (toTarget.Unit * step)
+
+            -- preserve smooth look-at to target
+            pcall(function()
+                hrp.CFrame = CFrame.new(newPos, targetPos)
+            end)
+        end
+    end
+
+    -- FOLLOW LOOP (main)
+    local function followLoop()
+        -- prepare character hum
+        local hum = safeHumanoid()
+        if hum then
+            pcall(function() hum.PlatformStand = true hum.AutoRotate = false end)
+        end
+
+        while followEnabled do
+            local hrp = safeHRP()
+            local tp = targetPlayer
+            local thrp = safeTargetHRP(tp)
+            local thum = safeTargetHumanoid(tp)
+            local myHum = safeHumanoid()
+
+            if not hrp or not thrp or not thum or not myHum then break end
+
+            -- low HP safety
+            if myHum and myHum.Health / (myHum.MaxHealth or 1) * 100 < 25 then
+                local cur = hrp.Position
+                instantTeleport(Vector3.new(cur.X, cur.Y + 5000, cur.Z))
+                -- disable follow via ToggleUI
+                followEnabled = false
+                disabledDueLowHP = true
+                pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
+                break
+            end
+
+            if thum.Health <= 0 then
+                -- target died: stop following
+                pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
+                break
+            end
+
+            local targetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
+            local myPos = hrp.Position
+            local dist = distance(myPos, targetPos)
+
+            -- teleport shortcut if teleport point shortens route
+            local nearest, nd = findNearestTP(targetPos)
+            if nearest then
+                local d_tp_to_target = distance(nearest, targetPos)
+                local d_direct = distance(myPos, targetPos)
+                if d_tp_to_target < d_direct then
+                    -- quickly move to nearest TP area for advantage (few frames)
+                    for i = 1, 20 do
+                        local hrp2 = safeHRP()
+                        if not hrp2 then break end
+                        hrp2.CFrame = CFrame.new(nearest + Vector3.new(0,60,0))
+                        hrp2.AssemblyLinearVelocity = Vector3.zero
+                        hrp2.AssemblyAngularVelocity = Vector3.zero
+                        RunService.Heartbeat:Wait()
+                    end
+                    -- small raise then smooth move
+                    local hrp2 = safeHRP()
+                    if hrp2 then
+                        hrp2.CFrame = hrp2.CFrame + Vector3.new(0,100,0)
+                        RunService.Heartbeat:Wait()
+                    end
+                    -- continue smooth move from current pos
+                    smoothMoveTo(targetPos)
+                    continue
+                end
+            end
+
+            -- super-stick mode when close
+            if dist < 100 then
+                while followEnabled do
+                    local hrp2 = safeHRP()
+                    local thrp2 = safeTargetHRP(targetPlayer)
+                    local thum2 = safeTargetHumanoid(targetPlayer)
+                    local myHum2 = safeHumanoid()
+                    if not hrp2 or not thrp2 or not thum2 or not myHum2 then break end
+
+                    if myHum2.Health / (myHum2.MaxHealth or 1) * 100 < 20 then
+                        local c = hrp2.Position
+                        instantTeleport(Vector3.new(c.X, c.Y + 5000, c.Z))
+                        followEnabled = false
+                        disabledDueLowHP = true
+                        pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
+                        break
+                    end
+
+                    if thum2.Health <= 0 then
+                        pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
+                        break
+                    end
+
+                    -- tight stick: stay 1 stud behind target
+                    pcall(function()
+                        hrp2.CFrame = thrp2.CFrame * CFrame.new(0,0,1)
+                    end)
+                    RunService.Heartbeat:Wait()
+                end
+                continue
+            end
+
+            -- normal smooth move
+            smoothMoveTo(targetPos)
+        end
+
+        resetMovement()
+    end
+
+    -- play warn animation (yellow -> back red)
+    local warnLock = false
+    local function playWarn()
+        if warnLock then return end
+        warnLock = true
+        tween(followBtn, { BackgroundColor3 = WARN_COLOR }, 0.12)
+        if followStroke then tween(followStroke, { Color = WARN_COLOR }, 0.12) end
+        task.delay(1, function()
+            tween(followBtn, { BackgroundColor3 = RED_COLOR }, 0.12)
+            if followStroke then tween(followStroke, { Color = RED_COLOR }, 0.12) end
+            warnLock = false
+        end)
+    end
+
+    -- sync function: when ToggleUI or visuals changed -> start/stop follow
+    local function syncFromButtonColor()
         local on = getToggleOnByName(FOLLOW_NAME, followBtn)
         if on == followEnabled then return end
-        followEnabled = on
-        if followEnabled then
-            -- when turned on by external UI change, validate name box and pick target
-            local t = pickTargetFromName(nameBox.Text)
+
+        -- turning on
+        if on then
+            -- pick target from nameBox
+            local txt = (pcall(function() return tostring(nameBox.Text) end) and nameBox.Text) or ""
+            local t = pickTargetFromName(txt)
             if not t then
-                -- invalid -> force UI off + flash
+                -- invalid -> show warn and force ToggleUI off
+                playWarn()
                 pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-                flashInvalid()
-                followEnabled = false
-                targetPlayer = nil
                 return
             end
             targetPlayer = t
-            -- spawn follow loop
-            task.spawn(function()
-                -- small delay to avoid racing UI
-                task.wait(0.02)
-                -- follow loop
-                local SPEED = 300 -- fixed speed
-                local STOP_DIST = 4
-                while followEnabled do
-                    local char = player.Character
-                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    if not hrp then break end
-                    if not targetPlayer or not targetPlayer.Character then
-                        -- target lost -> turn off toggle
-                        pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-                        followEnabled = false
-                        targetPlayer = nil
-                        break
-                    end
-
-                    local thrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    local thum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if not thrp or not thum or thum.Health <= 0 then
-                        pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-                        followEnabled = false
-                        targetPlayer = nil
-                        break
-                    end
-
-                    -- compute target position and move smoothly with constant speed
-                    local targetPos = thrp.Position + Vector3.new(0, 6, 0) -- height offset
-                    local toTarget = targetPos - hrp.Position
-                    local dist = toTarget.Magnitude
-
-                    if dist <= STOP_DIST then
-                        -- very close: just match orientation
-                        hrp.CFrame = CFrame.new(hrp.Position, targetPos)
-                        -- yield one frame
-                        RunService.Heartbeat:Wait()
-                        continue
-                    end
-
-                    -- step with fixed speed
-                    local dt = RunService.Heartbeat:Wait()
-                    -- protect dt
-                    if not dt or dt <= 0 then dt = 1/60 end
-                    local maxStep = SPEED * dt
-                    local step = math.min(maxStep, dist)
-                    local dir = toTarget.Unit
-                    local newPos = hrp.Position + dir * step
-                    -- set CFrame to look at target
-                    hrp.CFrame = CFrame.new(newPos, targetPos)
-                end
+            followEnabled = true
+            -- update visual immediately
+            pcall(function()
+                followBtn.Text = "ON"
+                followBtn.BackgroundColor3 = ON_COLOR
+                if followStroke then followStroke.Color = ON_COLOR end
             end)
+            -- start follow coroutine if not running
+            if not followCoroutine then
+                followCoroutine = coroutine.wrap(function()
+                    followLoop()
+                    followCoroutine = nil
+                end)
+                followCoroutine()
+            end
         else
-            -- turned off: clear target
+            -- turning off
+            followEnabled = false
             targetPlayer = nil
+            pcall(function()
+                followBtn.Text = "OFF"
+                followBtn.BackgroundColor3 = RED_COLOR
+                if followStroke then followStroke.Color = RED_COLOR end
+            end)
         end
     end
 
     followBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        task.delay(0.05, syncFromButton)
+        task.delay(0.05, syncFromButtonColor)
     end)
 
-    -- When user clicks toggle -> request ToggleUI change, but intercept enable request when name invalid
-    local function onBtnActivated()
+    -- request toggle (user clicked) -> use ToggleUI.Set (but validate before calling Set ON)
+    local function requestToggle()
         local cur = getToggleOnByName(FOLLOW_NAME, followBtn)
-        local want = not cur
-        if want then
-            local nameTxt = tostring(nameBox.Text or "")
-            if nameTxt:match("^%s*$") then
-                flashInvalid()
-                return
-            end
-            local t = pickTargetFromName(nameTxt)
+        local wantOn = not cur
+        if wantOn then
+            local txt = (pcall(function() return tostring(nameBox.Text) end) and nameBox.Text) or ""
+            local t = pickTargetFromName(txt)
             if not t then
-                flashInvalid()
+                playWarn()
                 return
             end
-            -- set target and request toggle (UI system will call syncFromButton)
-            targetPlayer = t
             pcall(function() ToggleUI.Set(FOLLOW_NAME, true) end)
         else
-            -- requesting off
             pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-            targetPlayer = nil
         end
     end
 
     if followBtn.Activated then
-        followBtn.Activated:Connect(onBtnActivated)
+        followBtn.Activated:Connect(requestToggle)
     else
-        followBtn.MouseButton1Click:Connect(onBtnActivated)
+        followBtn.MouseButton1Click:Connect(requestToggle)
     end
 
-    -- When user edits Name box and commits (FocusLost) -> switch target immediately if following, else just keep
-    nameBox.FocusLost:Connect(function(enter)
-        local txt = tostring(nameBox.Text or "")
-        if txt:match("^%s*$") then
-            -- empty: if following, turn off with flash
-            if followEnabled then
-                pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-            end
-            return
-        end
-        local newT = pickTargetFromName(txt)
-        if followEnabled then
-            if newT then
-                targetPlayer = newT
-            else
-                -- target not found -> auto turn off
-                pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
-            end
+    -- when nameBox text changes while following -> switch target or disable
+    nameBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if not followEnabled then return end
+        local txt = (pcall(function() return tostring(nameBox.Text) end) and nameBox.Text) or ""
+        local t = pickTargetFromName(txt)
+        if t then
+            targetPlayer = t
         else
-            -- not following: just keep name (no action)
+            -- turn off follow safely via ToggleUI
+            pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
         end
     end)
 
-    -- keep initial sync
-    task.delay(0.05, syncFromButton)
+    -- initial UI set
+    pcall(function()
+        followBtn.BackgroundColor3 = RED_COLOR
+        if followStroke then followStroke.Color = RED_COLOR end
+        followBtn.Text = "OFF"
+    end)
+    pcall(function() ToggleUI.Set(FOLLOW_NAME, false) end)
+
+    -- clear low-HP lock when healed
+    task.spawn(function()
+        while true do
+            local hum = safeHumanoid()
+            if hum and disabledDueLowHP then
+                if hum.Health / (hum.MaxHealth or 1) * 100 >= 20 then
+                    disabledDueLowHP = false
+                end
+            end
+            task.wait(1)
+        end
+    end)
+
+    -- ensure safe refs on respawn
+    player.CharacterAdded:Connect(function()
+        resetMovement()
+        -- keep followEnabled as is? we will resync from button visuals
+        task.delay(0.05, syncFromButtonColor)
+    end)
 end
 
 --=== AIMBOT KEY PLAYER =========================================================================================--
