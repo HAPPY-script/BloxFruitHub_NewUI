@@ -1,4 +1,360 @@
+--=== AIMBOT KEY PLAYER =========================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    local player = Players.LocalPlayer
+
+    -- chờ ToggleUI helper theo chuẩn của hệ thống mới
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    -- đường dẫn cố định tới ScrollingTab -> Combat
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local combatFrame = ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:FindFirstChild("Combat")
+    if not combatFrame then
+        warn("Không tìm thấy Frame 'Combat' trong ScrollingTab")
+        return
+    end
+
+    local aimbotBtn = combatFrame:FindFirstChild("AimbotButton", true)
+    local keyBtn    = combatFrame:FindFirstChild("KeyAimbotButton", true)
+
+    if not aimbotBtn then warn("Không tìm thấy AimbotButton trong Combat") return end
+    if not keyBtn then warn("Không tìm thấy KeyAimbotButton trong Combat") return end
+
+    local TweenTimeColor = 0.25
+    local TweenTimeText  = 0.16
+    local WaitTimeout    = 5
+
+    local WARN_COLOR_FULL = Color3.fromRGB(255,255,0) -- khi bật mà chưa chọn key
+    local WAIT_COLOR      = Color3.fromRGB(255,200,0) -- khi đang chờ chọn key
+    local OK_COLOR        = Color3.fromRGB(0,255,0)   -- khi key đã chọn
+    local RED_COLOR       = Color3.fromRGB(255,0,0)   -- mặc định none
+
+    -- helper: tìm UIStroke đầu tiên trong descendants
+    local function findStroke(inst)
+        for _, v in ipairs(inst:GetDescendants()) do
+            if v:IsA("UIStroke") then return v end
+        end
+        return nil
+    end
+
+    local aimbotStroke = findStroke(aimbotBtn)
+    local keyBtnStroke = findStroke(keyBtn)
+
+    -- tween helpers
+    local function tween(obj, props, time)
+        local info = TweenInfo.new(time or TweenTimeColor, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local t = TweenService:Create(obj, info, props)
+        t:Play()
+        return t
+    end
+
+    local function tweenTextTransparency(btn, target, time)
+        local info = TweenInfo.new(time or TweenTimeText, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tw = TweenService:Create(btn, info, { TextTransparency = target })
+        tw:Play()
+        return tw
+    end
+
+    -- safe text setter with fade and reentrancy guard
+    local animLocks = setmetatable({}, { __mode = "k" }) -- weak keys
+    local function safeSetText(btn, newText)
+        if not (btn and btn.Parent) then return end
+        -- cancel previous on this btn
+        if animLocks[btn] then
+            animLocks[btn].cancel = true
+        end
+        local lock = { cancel = false }
+        animLocks[btn] = lock
+
+        -- fade out
+        local out = tweenTextTransparency(btn, 1, TweenTimeText)
+        out.Completed:Wait()
+        if lock.cancel then
+            if animLocks[btn] == lock then animLocks[btn] = nil end
+            return
+        end
+
+        pcall(function() btn.Text = newText end)
+
+        local inn = tweenTextTransparency(btn, 0, TweenTimeText)
+        inn.Completed:Wait()
+        if animLocks[btn] == lock then animLocks[btn] = nil end
+    end
+
+    -- internal state
+    local aimModEnabled = false
+    local selectedKeyName = nil -- string name of key, nil => None
+    local listeningForKey = false
+    local listenToken = nil
+    local aimbotAnimLock = false -- prevent multiple warn anims
+    local keyAnimLock = false
+
+    -- helper to detect toggle state: prefer ToggleUI.Get if available
+    local function getToggleOnByName(name, btn)
+        local ok, val = pcall(function()
+            if ToggleUI.Get then return ToggleUI.Get(name) end
+            return nil
+        end)
+        if ok and type(val) == "boolean" then return val end
+        -- fallback to color heuristic
+        local bg = nil
+        pcall(function() bg = btn.BackgroundColor3 end)
+        if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then return true end
+        return false
+    end
+
+    -- sync local aimModEnabled when button color changes (ToggleUI will change the color)
+    local function syncAimbotFromButton()
+        local on = getToggleOnByName("AimbotButton", aimbotBtn)
+        aimModEnabled = on
+    end
+    aimbotBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, syncAimbotFromButton)
+    end)
+
+    -- warn animation when trying to enable without key selected
+    local function playAimbotNoKeyWarn()
+        if aimbotAnimLock then return end
+        aimbotAnimLock = true
+        -- tween to warn color quickly
+        tween(aimbotBtn, { BackgroundColor3 = WARN_COLOR_FULL }, TweenTimeColor)
+        if aimbotStroke then tween(aimbotStroke, { Color = WARN_COLOR_FULL }, TweenTimeColor) end
+        task.delay(1, function()
+            -- return to red
+            tween(aimbotBtn, { BackgroundColor3 = RED_COLOR }, TweenTimeColor)
+            if aimbotStroke then tween(aimbotStroke, { Color = RED_COLOR }, TweenTimeColor) end
+            aimbotAnimLock = false
+        end)
+    end
+
+    -- handle aimbot toggle via ToggleUI pattern
+    local function onAimbotActivated()
+        local cur = getToggleOnByName("AimbotButton", aimbotBtn)
+        local requested = not cur
+        -- if requesting ON but no key selected -> show warn and don't toggle
+        if requested and not selectedKeyName then
+            playAimbotNoKeyWarn()
+            return
+        end
+        pcall(function() ToggleUI.Set("AimbotButton", requested) end)
+    end
+
+    if aimbotBtn.Activated then
+        aimbotBtn.Activated:Connect(onAimbotActivated)
+    else
+        aimbotBtn.MouseButton1Click:Connect(onAimbotActivated)
+    end
+
+    -- helper to set key button appearance states
+    local function setKeyBtnState(state, keyName)
+        -- state: "none" | "waiting" | "selected"
+        if state == "none" then
+            -- immediate color set via tween to RED
+            tween(keyBtn, { BackgroundColor3 = RED_COLOR }, TweenTimeColor)
+            if keyBtnStroke then tween(keyBtnStroke, { Color = RED_COLOR }, TweenTimeColor) end
+            safeSetText(keyBtn, "None")
+        elseif state == "waiting" then
+            tween(keyBtn, { BackgroundColor3 = WAIT_COLOR }, TweenTimeColor)
+            if keyBtnStroke then tween(keyBtnStroke, { Color = WAIT_COLOR }, TweenTimeColor) end
+            safeSetText(keyBtn, "Waiting...")
+        elseif state == "selected" then
+            tween(keyBtn, { BackgroundColor3 = OK_COLOR }, TweenTimeColor)
+            if keyBtnStroke then tween(keyBtnStroke, { Color = OK_COLOR }, TweenTimeColor) end
+            safeSetText(keyBtn, tostring(keyName or "None"))
+        end
+    end
+
+    -- initialize key button to default None (red)
+    pcall(function()
+        keyBtn.BackgroundColor3 = RED_COLOR
+        if keyBtnStroke then keyBtnStroke.Color = RED_COLOR end
+        keyBtn.Text = "None"
+    end)
+
+    -- listening logic for key selection
+    local function stopListening(cancelled)
+        listeningForKey = false
+        listenToken = nil
+        if cancelled then
+            selectedKeyName = nil
+            setKeyBtnState("none")
+        else
+            if selectedKeyName then
+                setKeyBtnState("selected", selectedKeyName)
+            else
+                setKeyBtnState("none")
+            end
+        end
+    end
+
+    local function startListeningForKey()
+        if listeningForKey then return end
+        listeningForKey = true
+        setKeyBtnState("waiting")
+
+        local token = {}
+        listenToken = token
+
+        local conn
+        conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if not listeningForKey then return end
+
+            local inputName = nil
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                inputName = input.KeyCode.Name
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+                inputName = "MouseButton1"
+            elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+                inputName = "MouseButton2"
+            elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+                inputName = "MouseButton3"
+            end
+
+            if inputName then
+                selectedKeyName = inputName
+                -- apply selected visuals (green + text)
+                setKeyBtnState("selected", selectedKeyName)
+                listeningForKey = false
+                listenToken = nil
+                if conn then conn:Disconnect() end
+            end
+        end)
+
+        -- timeout
+        task.delay(WaitTimeout, function()
+            if listenToken == token and listeningForKey then
+                -- timed out -> cancel and revert to None
+                listeningForKey = false
+                listenToken = nil
+                if conn then conn:Disconnect() end
+                selectedKeyName = nil
+                setKeyBtnState("none")
+            end
+        end)
+    end
+
+    -- clicking keyBtn toggles listening (click again cancels)
+    local function onKeyBtnActivated()
+        if listeningForKey then
+            -- cancel listening and revert to None (per earlier pattern)
+            listeningForKey = false
+            listenToken = nil
+            selectedKeyName = nil
+            setKeyBtnState("none")
+            return
+        end
+        startListeningForKey()
+    end
+
+    if keyBtn.Activated then
+        keyBtn.Activated:Connect(onKeyBtnActivated)
+    else
+        keyBtn.MouseButton1Click:Connect(onKeyBtnActivated)
+    end
+
+    -- Input handlers to set 'isKeyHeld' for aiming — compare against selectedKeyName
+    local isKeyHeld = false
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        -- if we're listening for key selection, don't let other handlers interfere (startListening installed its own InputBegan)
+        if listeningForKey then return end
+        if not selectedKeyName then return end
+
+        local inputName = nil
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            inputName = input.KeyCode.Name
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            inputName = "MouseButton1"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+            inputName = "MouseButton2"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+            inputName = "MouseButton3"
+        end
+
+        if inputName == selectedKeyName then
+            isKeyHeld = true
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if not selectedKeyName then return end
+        local inputName = nil
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            inputName = input.KeyCode.Name
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            inputName = "MouseButton1"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+            inputName = "MouseButton2"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+            inputName = "MouseButton3"
+        end
+
+        if inputName == selectedKeyName then
+            isKeyHeld = false
+        end
+    end)
+
+    -- Aim implementation: use camera lookAt when enabled AND key held
+    local camera = workspace.CurrentCamera
+    local function getClosestPlayerHead()
+        local cross = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+        local best, bestDist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                local head = p.Character.Head
+                local sp, onScreen = camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local pos2 = Vector2.new(sp.X, sp.Y)
+                    local d = (pos2 - cross).Magnitude
+                    if d < bestDist and d <= 200 then
+                        best = head
+                        bestDist = d
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    local function AimAtTarget()
+        -- sync aimbot enabled from ToggleUI each frame is not necessary; sync via propertyChanged earlier
+        if not aimModEnabled then return end
+        if not isKeyHeld then return end
+        local h = getClosestPlayerHead()
+        if h then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, h.Position)
+        end
+    end
+
+    -- keep aimModEnabled in sync at start
+    task.delay(0.05, syncAimbotFromButton)
+
+    -- RenderStepped aim
+    RunService.RenderStepped:Connect(AimAtTarget)
+
+    -- IMPORTANT: do not auto-reset on respawn — user requested persistent selection + toggle only off via UI
+    -- but keep button sync when UI changes after respawn (ToggleUI may update visual). We'll resync color->state.
+    player.CharacterAdded:Connect(function()
+        -- do not clear selectedKeyName or toggle state
+        -- resync aimModEnabled from button color shortly after respawn
+        task.delay(0.2, syncAimbotFromButton)
+    end)
+end
+
 --=== FAST ATTACK ENEMY & PLAYER =========================================================================================--
+
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
