@@ -41,6 +41,9 @@ do
     local disabledDueLowHP = false
     local isFollowCoroutineRunning = false
 
+    -- prevent overlapping invalid tweens
+    local invalidTweenRunning = false
+
     -----------------------------------------------------
     -- TELEPORT POINTS (giữ nguyên)
     -----------------------------------------------------
@@ -52,7 +55,7 @@ do
     }
 
     -----------------------------------------------------
-    -- Utility
+    -- Utility (giữ nguyên + helper UIStroke)
     -----------------------------------------------------
     local function safeHRP()
         local char = player.Character
@@ -95,8 +98,20 @@ do
         return best, bestDist
     end
 
+    -- tìm UIStroke (nếu có) trong descendants
+    local function getUIStroke(inst)
+        if not inst then return nil end
+        for _, desc in ipairs(inst:GetDescendants()) do
+            if desc:IsA("UIStroke") then
+                return desc
+            end
+        end
+        -- fallback: immediate children
+        return inst:FindFirstChildOfClass("UIStroke")
+    end
+
     -----------------------------------------------------
-    -- Movement params
+    -- Movement params (giữ nguyên)
     -----------------------------------------------------
     local STOP_DIST = 4
     local HEIGHT_OFFSET = 6
@@ -129,13 +144,13 @@ do
     end
 
     -----------------------------------------------------
-    -- SmoothFlyTo (cập nhật liên tục mục tiêu; frame nhỏ hơn => phản hồi nhanh hơn)
+    -- SmoothFlyTo: giữ nguyên logic gốc
     -----------------------------------------------------
     local function SmoothFlyTo(targetPos)
         local hrp = safeHRP()
+        local myHum = safeHumanoid()
         if not hrp then return end
 
-        -- bring to roughly same Y as target for smooth arc
         local targetHRP = safeTargetHRP()
         if targetHRP then
             local p = hrp.Position
@@ -145,58 +160,39 @@ do
             RunService.Heartbeat:Wait()
         end
 
-        -- we'll use a smaller frame (faster) by halving duration scale
         local startPos = hrp.Position
         local dist = (startPos - targetPos).Magnitude
         if dist <= STOP_DIST then return end
 
-        local duration = math.max(0.03, dist / 640) -- frame nhỏ hơn so với cũ (dist/320)
-        local elapsed = 0
+        local duration = math.max(0.05, dist / 320)
+        local t = 0
+
+        local dir = (targetPos - startPos).Unit
+        local finalOffset = 3
+        local adjustedTarget = targetPos - dir * finalOffset
+        if adjustedTarget.Y < targetPos.Y - 10 then
+            adjustedTarget = Vector3.new(adjustedTarget.X, targetPos.Y + 2, adjustedTarget.Z)
+        end
+
         local prevDist = (hrp.Position - targetPos).Magnitude
 
-        while followEnabled do
+        while t < 1 and followEnabled do
             hrp = safeHRP()
-            local thrp = safeTargetHRP()
             if not hrp then break end
 
-            -- recalc current target position each frame so we track moving targets
-            local currentTargetPos = targetPos
-            if thrp then
-                currentTargetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-            end
-
-            local curDist = (hrp.Position - currentTargetPos).Magnitude
+            local curDist = (hrp.Position - targetPos).Magnitude
             if curDist <= STOP_DIST then break end
 
-            -- prevent runaway if pushed
             if curDist > prevDist + 10 then
                 break
             end
             prevDist = curDist
 
-            -- compute adjusted target each frame to maintain offset behind moving target
-            local dir = (currentTargetPos - hrp.Position)
-            if dir.Magnitude == 0 then
-                RunService.Heartbeat:Wait()
-                break
-            end
-            local dirUnit = dir.Unit
-            local finalOffset = 3
-            local adjustedTarget = currentTargetPos - dirUnit * finalOffset
-            if adjustedTarget.Y < currentTargetPos.Y - 10 then
-                adjustedTarget = Vector3.new(adjustedTarget.X, currentTargetPos.Y + 2, adjustedTarget.Z)
-            end
+            t += RunService.Heartbeat:Wait() / duration
+            if t > 1 then t = 1 end
 
-            -- delta fraction based on heartbeat/time
-            local delta = RunService.Heartbeat:Wait() / duration
-            if delta > 1 then delta = 1 end
-
-            -- lerp from current position toward adjustedTarget (recomputed every frame)
-            local newPos = hrp.Position:Lerp(adjustedTarget, delta)
-            hrp.CFrame = CFrame.new(newPos, currentTargetPos) -- face current target
-
-            elapsed = elapsed + delta
-            if elapsed >= 1 then break end
+            local newPos = startPos:Lerp(adjustedTarget, t)
+            hrp.CFrame = CFrame.new(newPos, targetPos)
         end
     end
 
@@ -223,7 +219,6 @@ do
                 break
             end
 
-            -- CHECK HP
             if myHum and myHum.Health / myHum.MaxHealth * 100 < 25 then
                 local cur = hrp.Position
                 instantTeleport(Vector3.new(cur.X, cur.Y + 5000, cur.Z))
@@ -233,6 +228,7 @@ do
                 targetPlayer = nil
 
                 pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
                 break
             end
 
@@ -340,70 +336,47 @@ do
     end
 
     -----------------------------------------------------
-    -- UI STROKE helper + Tween state control
-    -----------------------------------------------------
-    local function getUIStroke(inst)
-        if not inst then return nil end
-        for _,c in ipairs(inst:GetChildren()) do
-            if c:IsA("UIStroke") then return c end
-        end
-        return inst:FindFirstChildOfClass("UIStroke")
-    end
-
-    local currentTweens = { btn = nil, stroke = nil }
-    local invalidToken = 0
-
-    -----------------------------------------------------
-    -- invalid feedback: tween to yellow then after 1s tween to red
+    -- Feedback invalid: tween yellow -> wait 1s -> tween red
     -----------------------------------------------------
     local function invalidFeedback()
-        -- increment token so delayed tasks can cancel if new feedback started
-        invalidToken = invalidToken + 1
-        local myToken = invalidToken
+        -- tránh chạy chồng
+        if invalidTweenRunning then
+            -- vẫn đảm bảo toggle off
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+            return
+        end
+        invalidTweenRunning = true
 
         local stroke = getUIStroke(followBtn)
         local yellow = Color3.fromRGB(255,255,0)
         local red = Color3.fromRGB(255,0,0)
+
         local info = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-        -- cancel previous tweens if present
         pcall(function()
-            if currentTweens.btn then currentTweens.btn:Cancel() end
-            if currentTweens.stroke then currentTweens.stroke:Cancel() end
-        end)
-
-        -- tween to yellow
-        pcall(function()
-            currentTweens.btn = TweenService:Create(followBtn, info, {BackgroundColor3 = yellow})
-            currentTweens.btn:Play()
+            local t1 = TweenService:Create(followBtn, info, {BackgroundColor3 = yellow})
+            t1:Play()
             if stroke then
-                currentTweens.stroke = TweenService:Create(stroke, info, {Color = yellow})
-                currentTweens.stroke:Play()
-            else
-                currentTweens.stroke = nil
+                local t1s = TweenService:Create(stroke, info, {Color = yellow})
+                t1s:Play()
             end
         end)
 
-        -- after 1s, tween back to red — only if token unchanged
-        task.delay(1, function()
-            if myToken ~= invalidToken then return end
-            pcall(function()
-                if currentTweens.btn then currentTweens.btn:Cancel() end
-                if currentTweens.stroke then currentTweens.stroke:Cancel() end
+        -- đảm bảo toggle bị off
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
-                currentTweens.btn = TweenService:Create(followBtn, info, {BackgroundColor3 = red})
-                currentTweens.btn:Play()
+        task.delay(1, function()
+            pcall(function()
+                local t2 = TweenService:Create(followBtn, info, {BackgroundColor3 = red})
+                t2:Play()
                 if stroke then
-                    currentTweens.stroke = TweenService:Create(stroke, info, {Color = red})
-                    currentTweens.stroke:Play()
-                else
-                    currentTweens.stroke = nil
+                    local t2s = TweenService:Create(stroke, info, {Color = red})
+                    t2s:Play()
                 end
             end)
+            -- nhỏ delay để tween kết thúc trước khi cho phép next feedback
+            task.delay(0.25, function() invalidTweenRunning = false end)
         end)
-
-        -- ensure toggle UI stays off (system will update)
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
     end
 
     -----------------------------------------------------
@@ -465,19 +438,21 @@ do
             else
                 followEnabled = false
                 targetPlayer = nil
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                -- show feedback when user changes to invalid name
                 invalidFeedback()
             end
         else
-            -- nếu chưa follow, không tự mở; chỉ chuẩn bị sẵn tên
+            -- nếu chưa follow, không auto bật; chỉ chuẩn bị sẵn tên
             if enterPressed then
-                -- nhấn Enter -> thử bật (giống hành vi trước)
+                -- cho phép nhấn Enter để thử bật ngay
                 onButtonActivated()
             end
         end
     end)
 
     -----------------------------------------------------
-    -- CLEAR LOW-HP LOCK WHEN HEALED
+    -- CLEAR LOW-HP LOCK WHEN HEALED (giữ logic)
     -----------------------------------------------------
     spawn(function()
         while true do
