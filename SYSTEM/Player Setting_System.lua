@@ -119,25 +119,6 @@ do
         end
     end)
 
-    -- ===== Reset on respawn =====
-    local function onCharacterAdded(char)
-        isActive = false
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-
-        local humanoid = char:WaitForChild("Humanoid", 5)
-        if humanoid then
-            humanoid.Died:Connect(function()
-                isActive = false
-                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-            end)
-        end
-    end
-
-    if player.Character then
-        onCharacterAdded(player.Character)
-    end
-    player.CharacterAdded:Connect(onCharacterAdded)
-
     task.delay(0.05, syncFromButtonColor)
 end
 
@@ -241,27 +222,6 @@ do
     else
         noclipButton.MouseButton1Click:Connect(onButtonActivated)
     end
-
-    -- ===== reset on respawn / death =====
-    local function onCharacterAdded(char)
-        noclipEnabled = false
-        stopNoclip()
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-
-        local humanoid = char:WaitForChild("Humanoid", 5)
-        if humanoid then
-            humanoid.Died:Connect(function()
-                noclipEnabled = false
-                stopNoclip()
-                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-            end)
-        end
-    end
-
-    if player.Character then
-        onCharacterAdded(player.Character)
-    end
-    player.CharacterAdded:Connect(onCharacterAdded)
 
     -- initial sync
     task.delay(0.05, syncFromButton)
