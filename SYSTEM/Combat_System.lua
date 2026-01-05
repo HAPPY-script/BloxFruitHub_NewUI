@@ -1336,7 +1336,7 @@ do
     local Stroke = ReturnBtn:FindFirstChildOfClass("UIStroke")
 
     -- ===== DEFAULT =====
-    local DEFAULT_THRESHOLD = 30
+    local DEFAULT_THRESHOLD = 35
     Box.Text = tostring(DEFAULT_THRESHOLD)
     pcall(function() ToggleUI.Set("AutoEscapeButton", false) end)
 
