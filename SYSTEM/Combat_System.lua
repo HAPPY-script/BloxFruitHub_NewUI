@@ -1301,3 +1301,138 @@ do
         end
     end)
 end
+
+--=== AUTO ESCAPE =========================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+
+    local player = Players.LocalPlayer
+
+    -- ===== ToggleUI =====
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() ToggleUI.Refresh() end)
+
+    -- ===== UI ROOT (CỐ ĐỊNH) =====
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local Frame = ScrollingTab:FindFirstChild("Combat", true)
+    if not Frame then return warn("Không tìm thấy Combat Frame") end
+
+    local ToggleBtn = Frame:FindFirstChild("AutoEscapeButton", true)
+    local ReturnBtn = Frame:FindFirstChild("ReturnYButton", true)
+    local Box = Frame:FindFirstChild("AutoEscapeBox", true)
+
+    if not ToggleBtn or not ReturnBtn or not Box then
+        return warn("Thiếu UI AutoEscape")
+    end
+
+    local Stroke = ReturnBtn:FindFirstChildOfClass("UIStroke")
+
+    -- ===== DEFAULT =====
+    local DEFAULT_THRESHOLD = 30
+    Box.Text = tostring(DEFAULT_THRESHOLD)
+    pcall(function() ToggleUI.Set("AutoEscapeButton", false) end)
+
+    -- ===== STATE =====
+    local escapeThreshold = DEFAULT_THRESHOLD
+    local isEscaping = false
+    local safeTimer = 0
+    local initialY = 0
+
+    -- ===== COLOR =====
+    local RED    = Color3.fromRGB(255, 0, 0)
+    local GREEN  = Color3.fromRGB(0, 255, 0)
+    local YELLOW = Color3.fromRGB(255, 255, 0)
+
+    local function tweenReturnColor(color)
+        TweenService:Create(ReturnBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = color
+        }):Play()
+
+        if Stroke then
+            TweenService:Create(Stroke, TweenInfo.new(0.2), {
+                Color = color
+            }):Play()
+        end
+    end
+
+    -- ===== TOGGLE STATE (qua màu) =====
+    local function isToggleOn()
+        local bg = ToggleBtn.BackgroundColor3
+        return bg.G > bg.R and bg.G > bg.B
+    end
+
+    -- ===== RETURN BUTTON INIT =====
+    ReturnBtn.Text = "Y=0"
+    tweenReturnColor(RED)
+
+    -- ===== BOX VALIDATE =====
+    Box.FocusLost:Connect(function()
+        local n = tonumber(Box.Text)
+        if not n then n = DEFAULT_THRESHOLD end
+        n = math.clamp(n, 0.1, 100)
+        escapeThreshold = n
+        Box.Text = tostring(n)
+    end)
+
+    -- ===== RETURN Y CLICK =====
+    ReturnBtn.Activated:Connect(function()
+        if not isToggleOn() then return end
+        if isEscaping then return end
+
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        root.CFrame = CFrame.new(root.Position.X, initialY, root.Position.Z)
+    end)
+
+    -- ===== AUTO ESCAPE LOGIC =====
+    RunService.Heartbeat:Connect(function(dt)
+        if not isToggleOn() then
+            isEscaping = false
+            safeTimer = 0
+            tweenReturnColor(RED)
+            return
+        end
+
+        local char = player.Character
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not root then return end
+
+        local hp = humanoid.Health
+        local percent = (hp / humanoid.MaxHealth) * 100
+
+        if percent < escapeThreshold then
+            if not isEscaping then
+                initialY = root.Position.Y
+                ReturnBtn.Text = "Y=" .. math.floor(initialY)
+            end
+
+            isEscaping = true
+            safeTimer = 0
+            tweenReturnColor(YELLOW)
+
+            root.CFrame += Vector3.new(0, 200, 0)
+        else
+            if isEscaping then
+                safeTimer += dt
+                if safeTimer >= 1 then
+                    isEscaping = false
+                end
+            end
+
+            if not isEscaping then
+                tweenReturnColor(GREEN)
+            end
+        end
+    end)
+end
