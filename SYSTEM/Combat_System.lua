@@ -3,7 +3,6 @@
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
-    local TweenService = game:GetService("TweenService")
 
     local player = Players.LocalPlayer
 
@@ -35,37 +34,15 @@ do
     if not followBtn then warn("Không tìm thấy FollowPlayerButton") return end
     if not nameBox then warn("Không tìm thấy FollowPlayerBox") return end
 
-    -- ==== cấu hình mặc định / state nội bộ ====
-    local followEnabled = false
+    -- INTERNAL STATE
+    local followEnabled = false          -- state quản lý hành vi
     local targetPlayer = nil
     local disabledDueLowHP = false
+    local isFollowCoroutineRunning = false
 
-    -- helper lấy UIStroke nếu có
-    local function getUIStroke(inst)
-        if not inst then return nil end
-        for _,c in ipairs(inst:GetChildren()) do
-            if c:IsA("UIStroke") then return c end
-        end
-        return inst:FindFirstChildOfClass("UIStroke")
-    end
-
-    -- ===== helper: detect toggle state via color (pattern cũ) =====
-    local function inferToggleOn(btn)
-        local ok, bg = pcall(function() return btn.BackgroundColor3 end)
-        if not ok or not bg then return false end
-        return bg.G > bg.R and bg.G > bg.B
-    end
-
-    local function syncFromButtonColor()
-        followEnabled = inferToggleOn(followBtn)
-    end
-
-    followBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        task.delay(0.05, syncFromButtonColor)
-    end)
-    task.delay(0.05, syncFromButtonColor)
-
-    -- ===== TELEPORT POINTS (giữ nguyên) =====
+    -----------------------------------------------------
+    -- TELEPORT POINTS (giữ nguyên)
+    -----------------------------------------------------
     local teleportPoints = {
         Vector3.new(-12463.61, 374.91, -7549.53),
         Vector3.new(-5073.83, 314.51, -3152.52),
@@ -73,7 +50,9 @@ do
         Vector3.new(28286.36, 14896.56, 102.62)
     }
 
-    -- ===== Utility =====
+    -----------------------------------------------------
+    -- Utility (giữ nguyên)
+    -----------------------------------------------------
     local function safeHRP()
         local char = player.Character
         if not char then return end
@@ -115,11 +94,10 @@ do
         return best, bestDist
     end
 
-    -- Movement params
+    -----------------------------------------------------
+    -- Movement params (giữ nguyên)
+    -----------------------------------------------------
     local STOP_DIST = 4
-    local BASE_SPEED = 240
-    local MAX_SPEED = 700
-    local DIST_MULT = 4
     local HEIGHT_OFFSET = 6
 
     local function resetMovement()
@@ -149,7 +127,9 @@ do
         hrp.CFrame += Vector3.new(0,3,0)
     end
 
-    -- SmoothFlyTo: giữ nguyên logic
+    -----------------------------------------------------
+    -- SmoothFlyTo: giữ nguyên logic gốc
+    -----------------------------------------------------
     local function SmoothFlyTo(targetPos)
         local hrp = safeHRP()
         local myHum = safeHumanoid()
@@ -200,8 +180,13 @@ do
         end
     end
 
-    -- FOLLOW LOOP (giữ logic, nhưng không update UI Text/Color vĩnh viễn)
+    -----------------------------------------------------
+    -- FOLLOW LOOP (đảm bảo chỉ chạy 1 coroutine)
+    -----------------------------------------------------
     local function followLoop()
+        if isFollowCoroutineRunning then return end
+        isFollowCoroutineRunning = true
+
         local hum = safeHumanoid()
         if hum then
             hum.PlatformStand = true
@@ -214,9 +199,12 @@ do
             local thum = safeTargetHumanoid()
             local myHum = safeHumanoid()
 
-            if not hrp or not thrp or not thum then break end
+            -- nếu bất kỳ thứ cần thiết mất => dừng (sạch)
+            if not hrp or not thrp or not thum or not myHum then
+                break
+            end
 
-            -- CHECK HP
+            -- CHECK HP (ưu tiên)
             if myHum and myHum.Health / myHum.MaxHealth * 100 < 25 then
                 local cur = hrp.Position
                 instantTeleport(Vector3.new(cur.X, cur.Y + 5000, cur.Z))
@@ -225,36 +213,42 @@ do
                 disabledDueLowHP = true
                 targetPlayer = nil
 
-                -- yêu cầu Toggle UI tắt (đúng pattern)
+                -- yêu cầu UI tắt
                 pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
                 break
             end
 
-            if thum.Health <= 0 then break end
+            if thum.Health <= 0 then
+                -- mục tiêu chết -> dừng follow
+                followEnabled = false
+                targetPlayer = nil
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                break
+            end
 
-            -- FOLLOW NORMAL
-            local targetPos = thrp.Position + Vector3.new(0,HEIGHT_OFFSET,0)
+            -- tính vị trí mục tiêu
+            local targetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
             local myPos = hrp.Position
             local dist = distance(myPos, targetPos)
 
-            -- NEAR TELEPORT POINT
+            -- NEAR TELEPORT POINT (nếu rút ngắn đường)
             local nearest, ndist = findNearestTP(targetPos)
             if nearest then
                 local d_tp_to_target = distance(nearest, targetPos)
                 local d_direct = distance(myPos, targetPos)
 
                 if d_tp_to_target < d_direct then
-                    local hrp = safeHRP()
-                    if hrp then
+                    local hrp_inner = safeHRP()
+                    if hrp_inner then
                         for i = 1, 20 do
-                            hrp.CFrame = CFrame.new(nearest + Vector3.new(0,60,0))
-                            hrp.AssemblyLinearVelocity = Vector3.zero
-                            hrp.AssemblyAngularVelocity = Vector3.zero
+                            hrp_inner.CFrame = CFrame.new(nearest + Vector3.new(0,60,0))
+                            hrp_inner.AssemblyLinearVelocity = Vector3.zero
+                            hrp_inner.AssemblyAngularVelocity = Vector3.zero
                             RunService.Heartbeat:Wait()
                         end
 
-                        hrp.CFrame = hrp.CFrame + Vector3.new(0, 100, 0)
+                        hrp_inner.CFrame = hrp_inner.CFrame + Vector3.new(0, 100, 0)
                         RunService.Heartbeat:Wait()
                     end
 
@@ -263,31 +257,34 @@ do
                 end
             end
 
-            -- SUPER-STICK MODE
+            -- SUPER-STICK MODE (<100m)
             if dist < 100 then
                 while followEnabled do
-                    local hrp = safeHRP()
-                    local thrp = safeTargetHRP()
-                    local thum = safeTargetHumanoid()
-                    local myHum = safeHumanoid()
-                    if not hrp or not thrp or not thum or not myHum then break end
+                    local hrp_inner = safeHRP()
+                    local thrp_inner = safeTargetHRP()
+                    local thum_inner = safeTargetHumanoid()
+                    local myHum_inner = safeHumanoid()
+                    if not hrp_inner or not thrp_inner or not thum_inner or not myHum_inner then break end
 
-                    if myHum.Health / myHum.MaxHealth * 100 < 20 then
-                        local c = hrp.Position
+                    if myHum_inner.Health / myHum_inner.MaxHealth * 100 < 20 then
+                        local c = hrp_inner.Position
                         instantTeleport(Vector3.new(c.X, c.Y+5000, c.Z))
                         followEnabled = false
                         disabledDueLowHP = true
                         targetPlayer = nil
 
                         pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-
                         break
                     end
 
-                    if thum.Health <= 0 then break end
+                    if thum_inner.Health <= 0 then
+                        followEnabled = false
+                        targetPlayer = nil
+                        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                        break
+                    end
 
-                    hrp.CFrame = thrp.CFrame * CFrame.new(0,0,1)
-
+                    hrp_inner.CFrame = thrp_inner.CFrame * CFrame.new(0,0,1)
                     RunService.Heartbeat:Wait()
                 end
 
@@ -295,97 +292,83 @@ do
                 continue
             end
 
-            -- NORMAL FOLLOW
+            -- NORMAL FOLLOW MOVEMENT
             SmoothFlyTo(targetPos)
         end
 
         resetMovement()
+        isFollowCoroutineRunning = false
+
+        -- nếu loop kết thúc mà followEnabled vẫn true (do điều kiện bất thường), đảm bảo tắt cả state và UI
+        if followEnabled then
+            followEnabled = false
+            targetPlayer = nil
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        end
     end
 
+    -----------------------------------------------------
+    -- PICK TARGET: yêu cầu chính xác theo 3 ký tự đầu
+    -----------------------------------------------------
     local function pickTargetFromName(txt)
         if not txt then return nil end
-
         txt = txt:lower()
+        if #txt < 3 then return nil end
+        local prefix = txt:sub(1,3)
 
-        if #txt < 3 then
-            return nil
-        end
-
-        for _, pl in pairs(Players:GetPlayers()) do
+        for _,pl in pairs(Players:GetPlayers()) do
             if pl ~= player then
                 local name = pl.Name:lower()
-
-                local head = name:sub(1, 3)
-
-                if txt:sub(1, 3) == head then
+                local head = name:sub(1,3)
+                if head == prefix then
                     return pl
                 end
             end
         end
-
         return nil
     end
 
-    -- ===== Tween feedback when invalid (yellow -> wait -> red) =====
+    -----------------------------------------------------
+    -- Feedback invalid: (vẫn giữ cơ chế tween nếu cần)
+    -- (Có thể giữ/tắt tùy bạn; tôi giữ minimal: gọi ToggleUI.Set(false) và return)
+    -----------------------------------------------------
     local function invalidFeedback()
-        local stroke = getUIStroke(followBtn)
-        local yellow = Color3.fromRGB(255,255,0)
-        local red = Color3.fromRGB(255,0,0)
-
-        local info = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        pcall(function()
-            local t1 = TweenService:Create(followBtn, info, {BackgroundColor3 = yellow})
-            t1:Play()
-            if stroke then
-                local t1s = TweenService:Create(stroke, info, {Color = yellow})
-                t1s:Play()
-            end
-        end)
-
-        task.delay(1, function()
-            pcall(function()
-                local t2 = TweenService:Create(followBtn, info, {BackgroundColor3 = red})
-                t2:Play()
-                if stroke then
-                    local t2s = TweenService:Create(stroke, info, {Color = red})
-                    t2s:Play()
-                end
-            end)
-        end)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
     end
 
-    -- ===== Button activation handler (khi người dùng click) =====
+    -----------------------------------------------------
+    -- Button click: QUẢN LÝ NỘI BỘ, KHÔNG DỰA VÀO MÀU
+    -----------------------------------------------------
     local function onButtonActivated()
-        local cur = inferToggleOn(followBtn)
-
-        -- if currently on -> request off
-        if cur then
-            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-            -- internal state will sync via color changed listener
-            return
-        end
-
-        -- try enabling: validate name exists
         if disabledDueLowHP then return end
 
-        local txt = nameBox.Text
-        if not txt or txt == "" then
-            -- feedback
-            invalidFeedback()
-            -- ensure toggle stays off
+        -- nếu đang follow -> tắt
+        if followEnabled then
+            followEnabled = false
+            targetPlayer = nil
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
             return
         end
 
+        -- cố bật: validate HP và tên
+        local hum = safeHumanoid()
+        if hum and hum.Health / hum.MaxHealth * 100 < 20 then
+            disabledDueLowHP = true
+            return
+        end
+
+        local txt = nameBox.Text
         local t = pickTargetFromName(txt)
         if not t then
             invalidFeedback()
-            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
             return
         end
 
-        -- request enable (system is expected to update visuals)
+        -- bật theo internal state, yêu cầu UI cập nhật, start loop
+        targetPlayer = t
+        followEnabled = true
         pcall(function() ToggleUI.Set(BUTTON_NAME, true) end)
+        coroutine.wrap(followLoop)()
     end
 
     if followBtn.Activated then
@@ -394,43 +377,12 @@ do
         followBtn.MouseButton1Click:Connect(onButtonActivated)
     end
 
-    -- ===== React when Toggle color/state changes =====
-    local function onToggleStateChanged()
-        local isOn = inferToggleOn(followBtn)
-
-        if isOn then
-            -- try to start following, validate target exists now
-            local t = pickTargetFromName(nameBox.Text)
-            if not t then
-                -- invalid: feedback then force toggle off
-                invalidFeedback()
-                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-                return
-            end
-
-            -- set target and start loop
-            targetPlayer = t
-            followEnabled = true
-            coroutine.wrap(followLoop)()
-        else
-            -- turned off: clear state
-            followEnabled = false
-            targetPlayer = nil
-            -- do not modify visual properties (system will handle)
-        end
-    end
-
-    followBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        -- small delay to let system update visuals before reading
-        task.delay(0.05, onToggleStateChanged)
-    end)
-
-    -- ===== NameBox: khi thay đổi tên trong lúc follow =====
+    -----------------------------------------------------
+    -- Khi đổi tên trong TextBox (FocusLost): xử lý chuyển mục tiêu hoặc tự tắt
+    -----------------------------------------------------
     nameBox.FocusLost:Connect(function(enterPressed)
-        -- khi người dùng sửa xong tên:
         local txt = nameBox.Text
         if not txt or txt == "" then
-            -- nếu đang follow và đổi thành rỗng -> tắt
             if followEnabled then
                 followEnabled = false
                 targetPlayer = nil
@@ -442,30 +394,27 @@ do
         local newTarget = pickTargetFromName(txt)
         if followEnabled then
             if newTarget then
-                -- đổi mục tiêu sang target mới
+                -- đổi mục tiêu ngay (an toàn)
                 targetPlayer = newTarget
             else
-                -- không tìm thấy -> auto tắt toggle
+                -- không tìm thấy -> auto tắt
                 followEnabled = false
                 targetPlayer = nil
                 pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
             end
         else
-            -- nếu chưa follow, không tự mở; chỉ chuẩn bị sẵn tên
+            -- chưa follow => không auto bật; chỉ chuẩn bị tên
+        end
+
+        -- nếu nhấn Enter và toggle đang off => thử bật (giống hành vi trước)
+        if enterPressed and not followEnabled then
+            onButtonActivated()
         end
     end)
 
-    -- optional: support pressing Enter (Return) to attempt toggle on
-    nameBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            -- nếu người nhấn Enter và toggle đang off -> trigger click
-            if not inferToggleOn(followBtn) then
-                onButtonActivated()
-            end
-        end
-    end)
-
-    -- ===== CLEAR LOW-HP LOCK WHEN HEALED (giữ logic) =====
+    -----------------------------------------------------
+    -- CLEAR LOW-HP LOCK WHEN HEALED (giữ logic)
+    -----------------------------------------------------
     spawn(function()
         while true do
             local hum = safeHumanoid()
