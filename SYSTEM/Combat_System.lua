@@ -335,14 +335,10 @@ do
         return nil
     end
 
-    -----------------------------------------------------
-    -- Feedback invalid: tween yellow -> wait 1s -> tween red
-    -----------------------------------------------------
     local function invalidFeedback()
         -- tránh chạy chồng
         if invalidTweenRunning then
-            -- vẫn đảm bảo toggle off
-            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+            -- vẫn đảm bảo toggle off (trường hợp bất thường) nhưng không làm ngay nếu đang tween
             return
         end
         invalidTweenRunning = true
@@ -353,6 +349,7 @@ do
 
         local info = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
+        -- tween sang vàng (feedback)
         pcall(function()
             local t1 = TweenService:Create(followBtn, info, {BackgroundColor3 = yellow})
             t1:Play()
@@ -362,9 +359,7 @@ do
             end
         end)
 
-        -- đảm bảo toggle bị off
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-
+        -- Sau 1s -> tween về đỏ, rồi mới yêu cầu ToggleUI tắt (để tránh ghi đè tween)
         task.delay(1, function()
             pcall(function()
                 local t2 = TweenService:Create(followBtn, info, {BackgroundColor3 = red})
@@ -374,8 +369,12 @@ do
                     t2s:Play()
                 end
             end)
-            -- nhỏ delay để tween kết thúc trước khi cho phép next feedback
-            task.delay(0.25, function() invalidTweenRunning = false end)
+
+            -- đợi tween trả về đỏ hoàn tất trước khi cho phép feedback tiếp theo và tắt toggle UI
+            task.delay(0.25, function()
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                invalidTweenRunning = false
+            end)
         end)
     end
 
