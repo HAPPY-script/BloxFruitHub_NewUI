@@ -207,13 +207,13 @@ do
         listenToken = token
 
         local conn
+        -- NOTE: purposely DO NOT ignore gameProcessed here so we can capture keys that other scripts or the game handled
         conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
             if not listeningForKey then return end
 
             local inputName = nil
             if input.UserInputType == Enum.UserInputType.Keyboard then
-                inputName = input.KeyCode.Name
+                inputName = input.KeyCode and input.KeyCode.Name
             elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
                 inputName = "MouseButton1"
             elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -222,7 +222,7 @@ do
                 inputName = "MouseButton3"
             end
 
-            if inputName then
+            if inputName and inputName ~= "" then
                 selectedKeyName = inputName
                 -- apply selected visuals (green + text)
                 setKeyBtnState("selected", selectedKeyName)
@@ -267,14 +267,13 @@ do
     -- Input handlers to set 'isKeyHeld' for aiming — compare against selectedKeyName
     local isKeyHeld = false
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        -- if we're listening for key selection, don't let other handlers interfere (startListening installed its own InputBegan)
+        -- we intentionally process regardless of gameProcessed so keys captured elsewhere are still usable
         if listeningForKey then return end
         if not selectedKeyName then return end
 
         local inputName = nil
         if input.UserInputType == Enum.UserInputType.Keyboard then
-            inputName = input.KeyCode.Name
+            inputName = input.KeyCode and input.KeyCode.Name
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             inputName = "MouseButton1"
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -288,11 +287,12 @@ do
         end
     end)
 
-    UserInputService.InputEnded:Connect(function(input)
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        -- same: process regardless of gameProcessed
         if not selectedKeyName then return end
         local inputName = nil
         if input.UserInputType == Enum.UserInputType.Keyboard then
-            inputName = input.KeyCode.Name
+            inputName = input.KeyCode and input.KeyCode.Name
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             inputName = "MouseButton1"
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
