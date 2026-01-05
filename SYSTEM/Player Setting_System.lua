@@ -378,7 +378,7 @@ do
         toggleBtn.MouseButton1Click:Connect(requestToggle)
     end
 
-    -- Listening logic
+    -- Listening logic (CHANGED: during listening we DO NOT ignore gameProcessed so keys already handled elsewhere are still captured)
     local function startListening()
         if listeningForKey then return end
         listeningForKey = true
@@ -389,11 +389,12 @@ do
 
         local conn
         conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
+            -- deliberately do NOT bail out on gameProcessed here; allows capturing keys that other scripts/games processed
             if not listeningForKey then return end
+
             local inputName = nil
             if input.UserInputType == Enum.UserInputType.Keyboard then
-                inputName = input.KeyCode.Name
+                inputName = input.KeyCode and input.KeyCode.Name
             elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
                 inputName = "MouseButton1"
             elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -402,7 +403,7 @@ do
                 inputName = "MouseButton3"
             end
 
-            if inputName then
+            if inputName and inputName ~= "" then
                 selectedKey = inputName
                 setSelectAppearance("selected", selectedKey)
                 listeningForKey = false
@@ -492,14 +493,14 @@ do
 
     -- Input handler for performing teleport when toggle ON
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
+        -- NOTE: deliberately do NOT return on gameProcessed; this lets the teleport trigger even if another handler consumed the input.
         if listeningForKey then return end
         if not teleportEnabled then return end
         if not selectedKey then return end
 
         local inputName = nil
         if input.UserInputType == Enum.UserInputType.Keyboard then
-            inputName = input.KeyCode.Name
+            inputName = input.KeyCode and input.KeyCode.Name
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             inputName = "MouseButton1"
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
