@@ -350,6 +350,102 @@ OffIcon3.Transparency = 1
 OffIcon3.Image = "rbxassetid://109833067427302"
 OffIcon3.Parent = Dot3
 
+local BringModTitle = Instance.new("TextLabel")
+BringModTitle.Name = "BringModTitle"
+BringModTitle.Position = UDim2.new(0.375, 0, 0.18, 0)
+BringModTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+BringModTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+BringModTitle.BorderSizePixel = 0
+BringModTitle.BorderColor3 = Color3.new(0, 0, 0)
+BringModTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+BringModTitle.Text = "Bring mod"
+BringModTitle.TextColor3 = Color3.new(1, 1, 1)
+BringModTitle.TextSize = 14
+BringModTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+BringModTitle.TextScaled = true
+BringModTitle.TextWrapped = true
+BringModTitle.Parent = Main
+
+local UIStroke9 = Instance.new("UIStroke")
+UIStroke9.Name = "UIStroke"
+UIStroke9.Color = Color3.new(1, 1, 1)
+UIStroke9.Thickness = 2
+UIStroke9.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke9.Parent = BringModTitle
+
+local BringModButton = Instance.new("TextButton")
+BringModButton.Name = "BringModButton"
+BringModButton.Position = UDim2.new(0.85, 0, 0.18, 0)
+BringModButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+BringModButton.BackgroundColor3 = Color3.new(1, 0, 0)
+BringModButton.BackgroundTransparency = 0.75
+BringModButton.BorderSizePixel = 0
+BringModButton.BorderColor3 = Color3.new(0, 0, 0)
+BringModButton.AnchorPoint = Vector2.new(0.5, 0.5)
+BringModButton.Transparency = 0.75
+BringModButton.Text = ""
+BringModButton.TextColor3 = Color3.new(0, 0, 0)
+BringModButton.TextSize = 14
+BringModButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+BringModButton.Parent = Main
+
+local UICorner7 = Instance.new("UICorner")
+UICorner7.Name = "UICorner"
+UICorner7.CornerRadius = UDim.new(1, 0)
+UICorner7.Parent = BringModButton
+
+local UIStroke10 = Instance.new("UIStroke")
+UIStroke10.Name = "UIStroke"
+UIStroke10.Color = Color3.new(1, 0, 0)
+UIStroke10.Thickness = 2
+UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke10.Parent = BringModButton
+
+local Dot4 = Instance.new("Frame")
+Dot4.Name = "Dot"
+Dot4.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot4.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot4.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot4.BackgroundTransparency = 1
+Dot4.BorderSizePixel = 0
+Dot4.BorderColor3 = Color3.new(0, 0, 0)
+Dot4.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot4.Transparency = 1
+Dot4.Parent = BringModButton
+
+local UIAspectRatioConstraint4 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint4.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint4.Parent = Dot4
+
+local UICorner8 = Instance.new("UICorner")
+UICorner8.Name = "UICorner"
+UICorner8.CornerRadius = UDim.new(1, 0)
+UICorner8.Parent = Dot4
+
+local OnIcon4 = Instance.new("ImageLabel")
+OnIcon4.Name = "OnIcon"
+OnIcon4.Size = UDim2.new(1, 0, 1, 0)
+OnIcon4.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon4.BackgroundTransparency = 1
+OnIcon4.BorderSizePixel = 0
+OnIcon4.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon4.Transparency = 1
+OnIcon4.Image = "rbxassetid://133446041443660"
+OnIcon4.ImageTransparency = 1
+OnIcon4.Parent = Dot4
+
+local OffIcon4 = Instance.new("ImageLabel")
+OffIcon4.Name = "OffIcon"
+OffIcon4.Size = UDim2.new(1, 0, 1, 0)
+OffIcon4.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon4.BackgroundTransparency = 1
+OffIcon4.BorderSizePixel = 0
+OffIcon4.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon4.Transparency = 1
+OffIcon4.Image = "rbxassetid://109833067427302"
+OffIcon4.Parent = Dot4
+
 local Frame = Main
 if not Frame then return end
 task.spawn(function()
