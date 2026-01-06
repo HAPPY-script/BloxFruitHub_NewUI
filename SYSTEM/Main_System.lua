@@ -343,6 +343,7 @@ do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     local player = Players.LocalPlayer
+    local camera = workspace.CurrentCamera
 
     -- CHỈNH Ở ĐÂY: tên button UI (khớp với tên trong GUI của bạn)
     local BUTTON_NAME = "AutoFarmLvlButton"
@@ -1364,23 +1365,69 @@ local FarmZones = {
         return closest
     end
 
+    -- Camera state management: save/restore safely
+    local originalCameraState = {
+        Type = camera.CameraType,
+        Subject = camera.CameraSubject
+    }
+    local savedCameraState = nil
+
+    local function saveCameraState()
+        -- only save if not already saved, to allow nested calls not to overwrite original saved state
+        if not savedCameraState then
+            savedCameraState = {
+                Type = camera.CameraType,
+                Subject = camera.CameraSubject
+            }
+        end
+    end
+
+    local function restoreCameraToPlayer()
+        -- Prefer Humanoid as CameraSubject (this is what Roblox uses by default)
+        if player and player.Character and player.Character.Parent then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                camera.CameraType = Enum.CameraType.Custom
+                camera.CameraSubject = hum
+                return
+            end
+        end
+        -- Fallback to original camera state
+        camera.CameraType = originalCameraState.Type or Enum.CameraType.Custom
+        camera.CameraSubject = originalCameraState.Subject
+    end
+
+    local function restoreCameraState()
+        if savedCameraState then
+            camera.CameraType = savedCameraState.Type or Enum.CameraType.Custom
+            camera.CameraSubject = savedCameraState.Subject or (player.Character and player.Character:FindFirstChildOfClass("Humanoid")) or originalCameraState.Subject
+            savedCameraState = nil
+            return
+        end
+        restoreCameraToPlayer()
+    end
+
     -- Theo quái (giữ logic cũ; dừng nếu running = false)
     local function followMob(mob)
         if not mob then return end
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
-        local camera = workspace.CurrentCamera
+        local cameraLocal = workspace.CurrentCamera
 
+        -- create anchor
         local anchor = Instance.new("Part")
         anchor.Anchored = true
         anchor.CanCollide = false
         anchor.Transparency = 1
         anchor.Size = Vector3.new(1, 1, 1)
         anchor.CFrame = hrp.CFrame
+        anchor.Name = "AutoFarmAnchor"
         anchor.Parent = workspace
 
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anchor
+        -- save camera state then attach camera to anchor
+        saveCameraState()
+        cameraLocal.CameraType = Enum.CameraType.Custom
+        cameraLocal.CameraSubject = anchor
 
         local anchorY = mob.HumanoidRootPart.Position.Y + 25
         local lastUpdate = tick()
@@ -1407,10 +1454,7 @@ local FarmZones = {
         end
 
         -- restore camera and cleanup
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hrp
-        end
+        restoreCameraState() -- prefers saved state or humanoid -> original fallback
         if anchor and anchor.Parent then
             anchor:Destroy()
         end
@@ -1466,10 +1510,16 @@ local FarmZones = {
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
+            -- save current camera state so we can restore it later
+            saveCameraState()
+
         elseif not on and running then
             running = false
 
             _G.BringMobGate2 = false
+
+            -- restore camera when stopping
+            restoreCameraState()
         end
     end
 
@@ -1501,6 +1551,10 @@ local FarmZones = {
         if ToggleUI and ToggleUI.Set then
             pcall(ToggleUI.Set, BUTTON_NAME, false)
         end
+        -- restore camera to player on death
+        restoreCameraToPlayer()
+        -- clear any savedCameraState so future toggles behave normally
+        savedCameraState = nil
     end
 
     -- Kết nối sự kiện chết cho mỗi character
@@ -1513,6 +1567,9 @@ local FarmZones = {
             end)
         end
         -- KHÔNG tự động khởi động lại khi respawn (theo yêu cầu)
+
+        -- restore camera to player on respawn (prefer humanoid)
+        restoreCameraToPlayer()
     end)
 
     -- Nếu đã có character lúc chạy script, cũng cần gắn listener
