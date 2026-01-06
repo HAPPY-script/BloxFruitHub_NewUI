@@ -1452,19 +1452,24 @@ local FarmZones = {
         end
     end)
 
-    -- sync trạng thái 'running' theo màu của button UI
     local function setRunningFromButtonColor()
         local on = isButtonOn()
+
         if on and not running then
             running = true
+
+            _G.BringModGate2 = true
+
             lastLevel = getLevel()
-            -- bật các attribute cần thiết khi start
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
+
         elseif not on and running then
             running = false
+
+            _G.BringModGate2 = false
         end
     end
 
@@ -1833,29 +1838,39 @@ do
         end
     end
 
-    -- Sync running state from button color changes (ToggleUI will change color)
     local function setRunningFromButtonColor()
         if not autoBtn then return end
+
         local bg = autoBtn.BackgroundColor3
         local isOn = (bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5)
+
         if isOn and not running then
             running = true
-            -- ensure FastAttackEnemy turned on when starting (only set true)
+
+            _G.BringModGate2 = true
+
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
-            -- create farmPoint at current hrp position
-            if hrp then createFarmPoint(hrp.Position) end
+
+            if hrp then
+                createFarmPoint(hrp.Position)
+            end
+
         elseif not isOn and running then
             running = false
-            -- stop and cleanup
+
+            _G.BringModGate2 = false
+
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hrp
             destroyFarmPoint()
-            if anchor and anchor.Parent then anchor:Destroy() end
+
+            if anchor and anchor.Parent then
+                anchor:Destroy()
+            end
             anchor = nil
-            -- (We DO NOT set FastAttackEnemy = false here — keep non-destructive behavior)
         end
     end
 
