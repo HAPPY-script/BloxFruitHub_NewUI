@@ -1989,8 +1989,19 @@ do
     end
 
     -- ===== SET DEFAULT: GATE 1 = TRUE =====
-    pcall(function()
-        ToggleUI.Set("BringModButton", true)
+    task.defer(function()
+        -- đợi UI hoàn thiện nội bộ
+        for i = 1, 10 do
+            if ToggleBtn and ToggleBtn.Parent then
+                break
+            end
+            task.wait(0.05)
+        end
+
+        -- set default ON sau khi UI ổn
+        pcall(function()
+            ToggleUI.Set("BringModButton", true)
+        end)
     end)
 
     -- ===== TOGGLE BUTTON CLICK =====
