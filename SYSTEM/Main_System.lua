@@ -2069,7 +2069,7 @@ do
 
                 for _, mob in ipairs(mobGroup) do
                     local originPos = InitialPositions[mob]
-                    if originPos and (centerPos - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
+                    if originPos and (hrp.Position - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
                         table.insert(finalGroup, mob)
                     end
                 end
