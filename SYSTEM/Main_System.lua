@@ -1959,6 +1959,7 @@ do
 
     local Workspace = game:GetService("Workspace")
     local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
 
     local Enemies = Workspace:WaitForChild("Enemies")
     local LocalPlayer = Players.LocalPlayer
@@ -1968,7 +1969,7 @@ do
     local ToggleUI = _G.ToggleUI
     pcall(function() ToggleUI.Refresh() end)
 
-    -- ===== UI ROOT =====
+    -- ===== UI ROOT (CỐ ĐỊNH) =====
     local ScrollingTab = LocalPlayer.PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
@@ -1980,23 +1981,35 @@ do
     local ToggleBtn = Frame:FindFirstChild("BringModButton", true)
     if not ToggleBtn then return warn("Không tìm thấy BringModButton") end
 
-    -- ===== GATE 1 (qua màu) =====
     local gate1 = false
 
     local function updateGate1()
         local bg = ToggleBtn.BackgroundColor3
-        gate1 = bg and bg.G > bg.R and bg.G > bg.B
+        gate1 = (bg and bg.G and bg.G > bg.R and bg.G > bg.B) or false
     end
 
+    -- init once
     updateGate1()
+
+    -- listen for future color changes (debounced)
     ToggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
         task.delay(0.05, updateGate1)
     end)
 
-    -- Toggle click
+    -- ===== GATE 2 (EXTERNAL CONTROL) =====
+    _G.BringMobGate2 = false -- MẶC ĐỊNH
+
+    -- ===== GATE 1: TOGGLE STATE (qua màu) =====
+    local function isGate1On()
+        local bg = ToggleBtn.BackgroundColor3
+        return bg.G > bg.R and bg.G > bg.B
+    end
+
+    -- ===== TOGGLE BUTTON CLICK =====
     local function onToggleActivated()
+        local cur = isGate1On()
         pcall(function()
-            ToggleUI.Set("BringModButton", not gate1)
+            ToggleUI.Set("BringModButton", not cur)
         end)
     end
 
@@ -2017,15 +2030,25 @@ do
         return model and model:FindFirstChild("HumanoidRootPart")
     end
 
-    -- Lưu vị trí ban đầu
+    -- 🔹 Lưu vị trí ban đầu của từng enemy
     local InitialPositions = {}
 
     -- ===== MAIN LOOP =====
     task.spawn(function()
         while true do
+
+            --[[ diagnostic (tạm thời) DEBUG
+            local g1 = isGate1On()
+            local g2 = _G.BringMobGate2
+            if g1 and g2 then
+                print("[BringMob] DEBUG: both gates ON -> should run")
+            else
+                print(string.format("[BringMob] DEBUG: gate1=%s, gate2=%s", tostring(g1), tostring(g2)))
+            end ]]-- end
+
             task.wait(LOOP_DELAY)
 
-            -- CHECK GATES
+            -- 🚪 CHECK 2 CỔNG
             if not (gate1 and _G.BringMobGate2) then
                 continue
             end
@@ -2036,8 +2059,7 @@ do
                 continue
             end
 
-            -- ✅ RESET GROUP MỖI VÒNG (QUAN TRỌNG)
-            local mobGroup = {}
+            local mobGroups = {}
 
             for _, mob in ipairs(Enemies:GetChildren()) do
                 if IGNORED_ENEMIES[mob.Name] then
@@ -2053,52 +2075,54 @@ do
                     end
 
                     if (hrp.Position - playerRoot.Position).Magnitude <= MAX_DISTANCE then
-                        table.insert(mobGroup, mob)
+                        mobGroups[mob.Name] = mobGroups[mob.Name] or {}
+                        table.insert(mobGroups[mob.Name], mob)
                     end
                 end
             end
 
-            if #mobGroup >= 2 then
-                local sumPos = Vector3.zero
-                for _, mob in ipairs(mobGroup) do
-                    sumPos += mob.HumanoidRootPart.Position
-                end
-                local centerPos = sumPos / #mobGroup
-
-                local finalGroup = {}
-
-                for _, mob in ipairs(mobGroup) do
-                    local originPos = InitialPositions[mob]
-                    if originPos and (centerPos - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
-                        table.insert(finalGroup, mob)
+            for _, group in pairs(mobGroups) do
+                if #group >= 2 then
+                    local sumPos = Vector3.zero
+                    for _, mob in ipairs(group) do
+                        sumPos += mob.HumanoidRootPart.Position
                     end
-                end
+                    local centerPos = sumPos / #group
 
-                if #finalGroup >= 2 then
-                    local finalSum = Vector3.zero
-                    for _, mob in ipairs(finalGroup) do
-                        finalSum += mob.HumanoidRootPart.Position
+                    local finalGroup = {}
+
+                    for _, mob in ipairs(group) do
+                        local originPos = InitialPositions[mob]
+                        if originPos and (centerPos - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
+                            table.insert(finalGroup, mob)
+                        end
                     end
-                    local centerCFrame = CFrame.new(finalSum / #finalGroup)
 
-                    for _, mob in ipairs(finalGroup) do
-                        local hrp = mob.HumanoidRootPart
-                        local hum = mob.Humanoid
+                    if #finalGroup >= 2 then
+                        local finalSum = Vector3.zero
+                        for _, mob in ipairs(finalGroup) do
+                            finalSum += mob.HumanoidRootPart.Position
+                        end
+                        local centerCFrame = CFrame.new(finalSum / #finalGroup)
 
-                        hrp.CFrame = centerCFrame
-                        hrp.Size = HITBOX_SIZE
-                        hrp.Transparency = 1
-                        hrp.CanCollide = false
+                        for _, mob in ipairs(finalGroup) do
+                            local hrp = mob.HumanoidRootPart
+                            local hum = mob.Humanoid
 
-                        hum.WalkSpeed = 0
-                        hum.JumpPower = 0
+                            hrp.CFrame = centerCFrame
+                            hrp.Size = HITBOX_SIZE
+                            hrp.Transparency = 1
+                            hrp.CanCollide = false
+
+                            hum.WalkSpeed = 0
+                            hum.JumpPower = 0
+                        end
                     end
                 end
             end
         end
     end)
 end
-
 --[[ HOOK
 _G.BringMobGate2 = true   -- ON
 _G.BringMobGate2 = false  -- OFF
