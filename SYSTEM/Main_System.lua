@@ -1925,3 +1925,168 @@ do
         end
     end)
 end
+
+--=== BRING MOD =====================================================================================================--
+
+do
+    -- ========= SETTINGS =========
+    local HITBOX_SIZE = Vector3.new(60, 60, 60)
+    local MAX_DISTANCE = 1000
+    local MAX_MOVE_FROM_ORIGIN = 200
+    local LOOP_DELAY = 0.15
+    local IGNORED_ENEMIES = {
+        ["Blank Buddy"] = true,
+        ["PropHitboxPlaceholder"] = true
+    }
+    -- ============================
+
+    local Workspace = game:GetService("Workspace")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+
+    local Enemies = Workspace:WaitForChild("Enemies")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- ===== ToggleUI =====
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() ToggleUI.Refresh() end)
+
+    -- ===== UI ROOT (CỐ ĐỊNH) =====
+    local ScrollingTab = LocalPlayer.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local Frame = ScrollingTab:FindFirstChild("Main", true)
+    if not Frame then return warn("Không tìm thấy Frame Main") end
+
+    local ToggleBtn = Frame:FindFirstChild("BringModButton", true)
+    if not ToggleBtn then return warn("Không tìm thấy BringModButton") end
+
+    -- ===== GATE 2 (EXTERNAL CONTROL) =====
+    _G.BringMobGate2 = false -- MẶC ĐỊNH
+
+    -- ===== GATE 1: TOGGLE STATE (qua màu) =====
+    local function isGate1On()
+        local bg = ToggleBtn.BackgroundColor3
+        return bg.G > bg.R and bg.G > bg.B
+    end
+
+    -- ===== SET DEFAULT: GATE 1 = TRUE =====
+    pcall(function()
+        ToggleUI.Set("BringModButton", true)
+    end)
+
+    -- ===== TOGGLE BUTTON CLICK =====
+    local function onToggleActivated()
+        local cur = isGate1On()
+        pcall(function()
+            ToggleUI.Set("BringModButton", not cur)
+        end)
+    end
+
+    if ToggleBtn.Activated then
+        ToggleBtn.Activated:Connect(onToggleActivated)
+    else
+        ToggleBtn.MouseButton1Click:Connect(onToggleActivated)
+    end
+
+    -- ===== SIMULATION RADIUS =====
+    if sethiddenproperty then
+        pcall(function()
+            sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+        end)
+    end
+
+    local function getRoot(model)
+        return model and model:FindFirstChild("HumanoidRootPart")
+    end
+
+    -- 🔹 Lưu vị trí ban đầu của từng enemy
+    local InitialPositions = {}
+
+    -- ===== MAIN LOOP =====
+    task.spawn(function()
+        while true do
+            task.wait(LOOP_DELAY)
+
+            -- 🚪 CHECK 2 CỔNG
+            if not (isGate1On() and _G.BringMobGate2) then
+                continue
+            end
+
+            local char = LocalPlayer.Character
+            local playerRoot = getRoot(char)
+            if not playerRoot then
+                continue
+            end
+
+            local mobGroups = {}
+
+            for _, mob in ipairs(Enemies:GetChildren()) do
+                if IGNORED_ENEMIES[mob.Name] then
+                    continue
+                end
+
+                local hrp = getRoot(mob)
+                local hum = mob:FindFirstChild("Humanoid")
+
+                if hrp and hum then
+                    if not InitialPositions[mob] then
+                        InitialPositions[mob] = hrp.Position
+                    end
+
+                    if (hrp.Position - playerRoot.Position).Magnitude <= MAX_DISTANCE then
+                        mobGroups[mob.Name] = mobGroups[mob.Name] or {}
+                        table.insert(mobGroups[mob.Name], mob)
+                    end
+                end
+            end
+
+            for _, group in pairs(mobGroups) do
+                if #group >= 2 then
+                    local sumPos = Vector3.zero
+                    for _, mob in ipairs(group) do
+                        sumPos += mob.HumanoidRootPart.Position
+                    end
+                    local centerPos = sumPos / #group
+
+                    local finalGroup = {}
+
+                    for _, mob in ipairs(group) do
+                        local originPos = InitialPositions[mob]
+                        if originPos and (centerPos - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
+                            table.insert(finalGroup, mob)
+                        end
+                    end
+
+                    if #finalGroup >= 2 then
+                        local finalSum = Vector3.zero
+                        for _, mob in ipairs(finalGroup) do
+                            finalSum += mob.HumanoidRootPart.Position
+                        end
+                        local centerCFrame = CFrame.new(finalSum / #finalGroup)
+
+                        for _, mob in ipairs(finalGroup) do
+                            local hrp = mob.HumanoidRootPart
+                            local hum = mob.Humanoid
+
+                            hrp.CFrame = centerCFrame
+                            hrp.Size = HITBOX_SIZE
+                            hrp.Transparency = 1
+                            hrp.CanCollide = false
+
+                            hum.WalkSpeed = 0
+                            hum.JumpPower = 0
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+--[[ HOOK
+_G.BringMobGate2 = true   -- ON
+_G.BringMobGate2 = false  -- OFF
+]]
