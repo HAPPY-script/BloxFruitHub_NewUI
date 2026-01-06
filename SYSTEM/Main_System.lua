@@ -1458,7 +1458,7 @@ local FarmZones = {
         if on and not running then
             running = true
 
-            _G.BringModGate2 = true
+            _G.BringMobGate2 = true
 
             lastLevel = getLevel()
             pcall(function()
@@ -1469,7 +1469,7 @@ local FarmZones = {
         elseif not on and running then
             running = false
 
-            _G.BringModGate2 = false
+            _G.BringMobGate2 = false
         end
     end
 
@@ -1847,7 +1847,7 @@ do
         if isOn and not running then
             running = true
 
-            _G.BringModGate2 = true
+            _G.BringMobGate2 = true
 
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
@@ -1861,7 +1861,7 @@ do
         elseif not isOn and running then
             running = false
 
-            _G.BringModGate2 = false
+            _G.BringMobGate2 = false
 
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hrp
