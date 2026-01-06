@@ -1,77 +1,3 @@
---=== LOAD UI AUTO ESCAPE =========================================================================================--
-
-local HPEspaceScreen = Instance.new("ScreenGui")
-HPEspaceScreen.Name = "HPEspaceScreen"
-HPEspaceScreen.ResetOnSpawn = false
-HPEspaceScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-HPEspaceScreen.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-
-local Frame = Instance.new("Frame")
-Frame.Name = "Frame"
-Frame.Position = UDim2.new(0.5, 0, -0, 0)
-Frame.Size = UDim2.new(0.13, 0, 0.13, 0)
-Frame.BackgroundColor3 = Color3.new(0.117647, 0, 0.223529)
-Frame.BorderSizePixel = 0
-Frame.BorderColor3 = Color3.new(0, 0, 0)
-Frame.Visible = false
-Frame.AnchorPoint = Vector2.new(0.5, 0)
-Frame.Parent = HPEspaceScreen
-
-local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint.Name = "UIAspectRatioConstraint"
-UIAspectRatioConstraint.AspectRatio = 4
-UIAspectRatioConstraint.Parent = Frame
-
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Name = "UIStroke"
-UIStroke.Color = Color3.new(0.8, 0, 1)
-UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke.Parent = Frame
-
-local a = Instance.new("TextLabel")
-a.Name = "%"
-a.Position = UDim2.new(0.875, 0, 0.5, 0)
-a.Size = UDim2.new(0.25, 0, 0.55, 0)
-a.BackgroundColor3 = Color3.new(1, 1, 1)
-a.BackgroundTransparency = 1
-a.BorderSizePixel = 0
-a.BorderColor3 = Color3.new(0, 0, 0)
-a.AnchorPoint = Vector2.new(0.5, 0.5)
-a.TextTransparency = 0
-a.Text = "100%"
-a.TextColor3 = Color3.new(1, 0, 1)
-a.TextSize = 14
-a.FontFace = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-a.TextScaled = true
-a.TextWrapped = true
-a.Parent = Frame
-
-local HPFrame = Instance.new("Frame")
-HPFrame.Name = "HPFrame"
-HPFrame.Position = UDim2.new(0.375, 0, 0.5, 0)
-HPFrame.Size = UDim2.new(0.675, 0, 0.3, 0)
-HPFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-HPFrame.BackgroundTransparency = 0.5
-HPFrame.BorderSizePixel = 0
-HPFrame.BorderColor3 = Color3.new(0, 0, 0)
-HPFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-HPFrame.Transparency = 0.5
-HPFrame.Parent = Frame
-
-local UIStroke2 = Instance.new("UIStroke")
-UIStroke2.Name = "UIStroke"
-UIStroke2.Color = Color3.new(1, 1, 1)
-UIStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke2.Parent = HPFrame
-
-local Load = Instance.new("Frame")
-Load.Name = "Load"
-Load.Size = UDim2.new(1, 0, 1, 0)
-Load.BackgroundColor3 = Color3.new(0.196078, 1, 0.196078)
-Load.BorderSizePixel = 0
-Load.BorderColor3 = Color3.new(0, 0, 0)
-Load.Parent = HPFrame
-
 --=== FOLLOW PLAYER =========================================================================================--
 
 do
@@ -119,14 +45,63 @@ do
     local invalidTweenRunning = false
 
     -----------------------------------------------------
-    -- TELEPORT POINTS (giữ nguyên)
+    -- TELEPORT POINTS
     -----------------------------------------------------
-    local teleportPoints = {
-        Vector3.new(-12463.61, 374.91, -7549.53),
-        Vector3.new(-5073.83, 314.51, -3152.52),
-        Vector3.new(5661.53, 1013.04, -334.96),
-        Vector3.new(28286.36, 14896.56, 102.62)
+    local PLACES = {
+        Sea1 = {
+            ids = { 85211729168715, 2753915549 },
+            points = {
+                Vector3.new(-7894.62, 5545.49, -380.29),
+                Vector3.new(-4607.82, 872.54, -1667.56),
+                Vector3.new(61163.85, 5.30, 1819.78),
+                Vector3.new(3864.69, 5.37, -1926.21)
+            }
+        },
+
+        Sea2 = {
+            ids = { 79091703265657, 4442272183 },
+            points = {
+                Vector3.new(-286.99, 306.18, 597.75),
+                Vector3.new(-6508.56, 83.24, -132.84),
+                Vector3.new(923.21, 125.11, 32852.83),
+                Vector3.new(2284.91, 15.20, 905.62)
+            }
+        },
+
+        Sea3 = {
+            ids = { 7449423635, 100117331123089 },
+            points = {
+                Vector3.new(-12463.61, 374.91, -7549.53),
+                Vector3.new(-5073.83, 314.51, -3152.52),
+                Vector3.new(5661.53, 1013.04, -334.96),
+                Vector3.new(28286.36, 14896.56, 102.62)
+            }
+        },
+
+        Dungeon = {
+            ids = { 73902483975735 },
+            points = {
+                Vector3.new(0, 100000, 0)
+            }
+        }
     }
+
+    local teleportPoints = {}
+
+    do
+        local placeId = game.PlaceId
+
+        for _, data in pairs(PLACES) do
+            if table.find(data.ids, placeId) then
+                teleportPoints = data.points
+                break
+            end
+        end
+
+        if #teleportPoints == 0 then
+            warn("PlaceID không thuộc Sea1 / Sea2 / Sea3 / Dungeon")
+        end
+    end
 
     -----------------------------------------------------
     -- Utility (giữ nguyên + helper UIStroke)
