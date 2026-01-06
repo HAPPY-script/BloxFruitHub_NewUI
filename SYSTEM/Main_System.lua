@@ -1531,6 +1531,45 @@ do
     local player = Players.LocalPlayer
     local camera = workspace.CurrentCamera
 
+    -- lưu trạng thái camera ban đầu để fallback
+    local originalCameraState = {
+        Type = camera.CameraType,
+        Subject = camera.CameraSubject
+    }
+    local savedCameraState = nil
+
+    local function saveCameraState()
+        savedCameraState = {
+            Type = camera.CameraType,
+            Subject = camera.CameraSubject
+        }
+    end
+
+    local function restoreCameraToPlayer()
+        -- Ưu tiên dùng Humanoid của nhân vật nếu có
+        if player and player.Character and player.Character.Parent then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                camera.CameraType = Enum.CameraType.Custom
+                camera.CameraSubject = hum
+                return
+            end
+        end
+        -- fallback về trạng thái ban đầu
+        camera.CameraType = originalCameraState.Type or Enum.CameraType.Custom
+        camera.CameraSubject = originalCameraState.Subject
+    end
+
+    local function restoreCameraState()
+        if savedCameraState then
+            camera.CameraType = savedCameraState.Type or Enum.CameraType.Custom
+            camera.CameraSubject = savedCameraState.Subject or player.Character and player.Character:FindFirstChildOfClass("Humanoid") or originalCameraState.Subject
+            savedCameraState = nil
+        else
+            restoreCameraToPlayer()
+        end
+    end
+
     -- chờ ToggleUI helper (theo mẫu của bạn)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
@@ -1597,8 +1636,8 @@ do
     		end)
 
     		-- cleanup an toàn
-    		camera.CameraType = Enum.CameraType.Custom
-    		camera.CameraSubject = hrp
+    		-- phục hồi camera về player (Humanoid / trạng thái ban đầu)
+    		restoreCameraState()
     		destroyFarmPoint()
 
     		if anchor and anchor.Parent then
@@ -1717,6 +1756,7 @@ do
             lastAnchorUpdate = tick()
         end
 
+        -- camera sẽ follow anchorLocal (Part) để tiện điều chỉnh
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = anchorLocal
 
@@ -1814,8 +1854,8 @@ do
     	anchor = nil
     	destroyFarmPoint()
 
-    	camera.CameraType = Enum.CameraType.Custom
-    	camera.CameraSubject = hrp
+    	-- restore camera to player (Humanoid) on respawn
+    	restoreCameraToPlayer()
 
     	-- reconnect died event
     	humanoid.Died:Connect(onCharacterDied)
@@ -1854,6 +1894,9 @@ do
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
+            -- save current camera state so we can restore it later
+            saveCameraState()
+
             if hrp then
                 createFarmPoint(hrp.Position)
             end
@@ -1863,8 +1906,8 @@ do
 
             _G.BringMobGate2 = false
 
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hrp
+            -- restore camera to previous state (or player default)
+            restoreCameraState()
             destroyFarmPoint()
 
             if anchor and anchor.Parent then
