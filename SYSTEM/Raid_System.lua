@@ -957,6 +957,8 @@ do
         if on == autoDungeon then return end
         autoDungeon = on
 
+        _G.BringModGate2 = autoDungeon
+
         if autoDungeon then
             -- when turned on: hook and set attributes (non-destructive)
             hookToolTracking(character)
