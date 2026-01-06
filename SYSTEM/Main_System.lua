@@ -1955,6 +1955,8 @@ do
     }
     -- ============================
 
+    _G.BringMobGate2 = _G.BringMobGate2 or false
+
     local Workspace = game:GetService("Workspace")
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1978,6 +1980,21 @@ do
 
     local ToggleBtn = Frame:FindFirstChild("BringModButton", true)
     if not ToggleBtn then return warn("Không tìm thấy BringModButton") end
+
+    local gate1 = false
+
+    local function updateGate1()
+        local bg = ToggleBtn.BackgroundColor3
+        gate1 = (bg and bg.G and bg.G > bg.R and bg.G > bg.B) or false
+    end
+
+    -- init once
+    updateGate1()
+
+    -- listen for future color changes (debounced)
+    ToggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, updateGate1)
+    end)
 
     -- ===== GATE 2 (EXTERNAL CONTROL) =====
     _G.BringMobGate2 = false -- MẶC ĐỊNH
@@ -2019,10 +2036,20 @@ do
     -- ===== MAIN LOOP =====
     task.spawn(function()
         while true do
+
+            -- diagnostic (tạm thời)
+            local g1 = isGate1On()
+            local g2 = _G.BringMobGate2
+            if g1 and g2 then
+                print("[BringMob] DEBUG: both gates ON -> should run")
+            else
+                print(string.format("[BringMob] DEBUG: gate1=%s, gate2=%s", tostring(g1), tostring(g2)))
+            end -- end
+
             task.wait(LOOP_DELAY)
 
             -- 🚪 CHECK 2 CỔNG
-            if not (isGate1On() and _G.BringMobGate2) then
+            if not (gate1 and _G.BringMobGate2) then
                 continue
             end
 
