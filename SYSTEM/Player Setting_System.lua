@@ -521,13 +521,6 @@ do
     else
         setSelectAppearance("none")
     end
-
-    -- ensure toggle off on respawn for safety (also keep selectedKey)
-    local function onCharacterAdded(char)
-        pcall(function() ToggleUI.Set(TOGGLE_NAME, false) end)
-    end
-    if player.Character then onCharacterAdded(player.Character) end
-    player.CharacterAdded:Connect(onCharacterAdded)
 end
 
 --=== IFN JUMP =======================================================================================================--
@@ -600,17 +593,6 @@ do
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         end
     end)
-
-    -- ===== reset on respawn =====
-    local function onCharacterAdded()
-        infiniteJumpEnabled = false
-        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-    end
-
-    if player.Character then
-        onCharacterAdded()
-    end
-    player.CharacterAdded:Connect(onCharacterAdded)
 
     -- initial sync
     task.delay(0.05, syncFromButton)
