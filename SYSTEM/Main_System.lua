@@ -2037,14 +2037,14 @@ do
     task.spawn(function()
         while true do
 
-            -- diagnostic (tạm thời)
+            --[[ diagnostic (tạm thời) DEBUG
             local g1 = isGate1On()
             local g2 = _G.BringMobGate2
             if g1 and g2 then
                 print("[BringMob] DEBUG: both gates ON -> should run")
             else
                 print(string.format("[BringMob] DEBUG: gate1=%s, gate2=%s", tostring(g1), tostring(g2)))
-            end -- end
+            end ]]-- end
 
             task.wait(LOOP_DELAY)
 
