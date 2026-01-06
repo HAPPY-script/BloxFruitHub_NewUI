@@ -1947,7 +1947,7 @@ do
     -- ========= SETTINGS =========
     local HITBOX_SIZE = Vector3.new(60, 60, 60)
     local MAX_DISTANCE = 1000
-    local MAX_MOVE_FROM_ORIGIN = 225
+    local MAX_MOVE_FROM_ORIGIN = 200
     local LOOP_DELAY = 0.15
     local IGNORED_ENEMIES = {
         ["Blank Buddy"] = true,
