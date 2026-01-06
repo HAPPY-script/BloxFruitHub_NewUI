@@ -49,6 +49,7 @@ do
     -- trạng thái nội bộ
     local running = false
     local autoClicking = false
+    _G.BringMobGate2 = false
 
     -- khóa/guard để chống spam
     local clickLock = false
@@ -161,6 +162,7 @@ do
     local function resetRaidButton()
         running = false
         autoClicking = false
+        _G.BringMobGate2 = false
         pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
     end
 
@@ -210,6 +212,9 @@ do
         pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
         running = requested
         autoClicking = running
+
+        -- ===== Gate 2 control =====
+        _G.BringMobGate2 = running
 
         if running then
             -- same attribute behavior as trước
@@ -957,7 +962,7 @@ do
         if on == autoDungeon then return end
         autoDungeon = on
 
-        _G.BringModGate2 = autoDungeon
+        _G.BringMobGate2 = autoDungeon
 
         if autoDungeon then
             -- when turned on: hook and set attributes (non-destructive)
