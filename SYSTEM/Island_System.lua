@@ -1,118 +1,42 @@
--- BringMob UI + Movement integration
--- Yêu cầu: PlayerGui > BloxFruitHubGui > Main > ScrollingTab > Island (Frame)
--- Trong Island: Folder Sea1, Sea2, Sea3, AnimationUI
--- Mỗi Sea* chứa Button (mỗi Button có child Frame "Effect" chứa Loading/LoadFrame/CancelButton/Name/Ratio/UIGradient)
--- AnimationUI chứa Animation1..Animation5 (ImageLabel hoặc Frame)
+-- UI + Movement integrated controller
+-- Đặt file này vào nơi chạy client; yêu cầu GUI cấu trúc theo mô tả:
+-- PlayerGui > BloxFruitHubGui > Main > ScrollingTab > Island
+-- Trong Island: Folder Sea1, Sea2, Sea3, AnimationUI( chứa Animation1..5 image labels )
+-- Trong mỗi SeaX folder: nhiều Button; mỗi Button có child "Effect" theo mô tả
 
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- ================= SETTINGS =================
+-- ================= SETTINGS (chỉnh ở đây) =================
 local LUNGE_SPEED = 300
 local TELEPORT_HEIGHT = 100
 local TELEPORT_SPAM_COUNT = 10
 local TELEPORT_SPAM_TIME = 1.5
-local ANIM_FPS = 7
-local LOADFRAME_FULL = UDim2.new(1,0,1,0)
-local LOADFRAME_ZERO = UDim2.new(0,0,1,0)
--- ============================================
+local ANIMATION_FPS = 7               -- 7 animation changes / second
+local LOADFRAME_FULL_SIZE = UDim2.new(1,0,1,0)
+local LOADFRAME_EMPTY_SIZE = UDim2.new(0,0,1,0)
 
--- ======= PLACE / TELEPORT DATA: bạn gắn tên Button -> vị trí ở đây =======
-local TARGET_POSITIONS = {
-    -- ["ButtonName"] = Vector3.new(x,y,z),
-    -- ví dụ:
-    -- ["TurtleIslandBtn"] = Vector3.new(-4992.52, 357.78, -3051.24),
+-- Map ButtonName -> target Vector3 (bạn sửa/ thêm ở đây)
+local BUTTON_TARGETS = {
+    ["ButtonA"] = Vector3.new(-4992.52, 357.78, -3051.24),
+    -- ["YourButtonName"] = Vector3.new(x,y,z),
 }
--- ========================================================================
 
--- wait for GUI
-local function waitGui(...)
-    local root = player:WaitForChild("PlayerGui")
-    local gui = root:WaitForChild(...)
-    return gui
-end
+-- Place -> points (giữ nguyên hoặc sửa)
+local PLACES = {
+    Sea1 = { ids = {85211729168715,2753915549}, points = { } },
+    Sea2 = { ids = {79091703265657,4442272183}, points = { } },
+    Sea3 = { ids = {7449423635,100117331123089}, points = { } },
+    Dungeon = { ids = {73902483975735}, points = { } },
+}
+-- ================= end settings =================
 
-local ok, scrollingTab = pcall(function()
-    local pg = player:WaitForChild("PlayerGui")
-    local bf = pg:WaitForChild("BloxFruitHubGui")
-    local main = bf:WaitForChild("Main")
-    return main:WaitForChild("ScrollingTab")
-end)
-if not ok or not scrollingTab then
-    warn("[BringUI] Không tìm thấy ScrollingTab")
-    return
-end
-
-local islandFrame = scrollingTab:FindFirstChild("Island", true) or scrollingTab:FindFirstChild("Island")
-if not islandFrame then
-    warn("[BringUI] Không tìm thấy Frame 'Island' trong ScrollingTab")
-    return
-end
-
-local animationFolder = islandFrame:FindFirstChild("AnimationUI", true) or islandFrame:FindFirstChild("AnimationUI")
-if not animationFolder then
-    warn("[BringUI] Không tìm thấy AnimationUI")
-    return
-end
-
--- detect which Sea folder matches placeId
-local function getActiveSeaFolder()
-    local placeId = game.PlaceId
-    for _, sea in ipairs({"Sea1","Sea2","Sea3"}) do
-        local folder = islandFrame:FindFirstChild(sea, true) or islandFrame:FindFirstChild(sea)
-        if folder then
-            -- assume folder contains Buttons (we accept this folder)
-            -- but we must check if placeId matches name: in your description you said system checks placeId to choose Sea folder
-            -- so we expect folder has an Attribute or you map place->sea externally
-            -- to keep flexible: try to match via attribute "PlaceIds" (comma sep) or fallback to plain names
-            -- For simplicity: if folder.Name == SeaX and game.PlaceId in PLACES mapping (provided by caller) then return
-        end
-    end
-    -- fallback: try names directly: Sea1/2/3 mapped earlier in PLACES data used outside this script
-    -- We'll try a simpler approach: look up place->sea via global table if present
-    if _G.PlaceToSea and type(_G.PlaceToSea) == "table" then
-        local g = _G.PlaceToSea[game.PlaceId]
-        if g then
-            local folder = islandFrame:FindFirstChild(g, true) or islandFrame:FindFirstChild(g)
-            if folder then return folder end
-        end
-    end
-
-    -- last resort: choose first Sea that exists
-    for _, sea in ipairs({"Sea1","Sea2","Sea3"}) do
-        local folder = islandFrame:FindFirstChild(sea, true) or islandFrame:FindFirstChild(sea)
-        if folder then return folder end
-    end
-
-    return nil
-end
-
-local activeSeaFolder = getActiveSeaFolder()
-if not activeSeaFolder then
-    warn("[BringUI] Không tìm thấy folder Sea phù hợp")
-    return
-end
-
--- collect buttons (children that are TextButton/ImageButton/etc)
-local function isButtonInst(inst)
-    return inst:IsA("TextButton") or inst:IsA("ImageButton") or inst:IsA("TextLabel") -- allow labels if used as button
-end
-
-local buttons = {}
-for _, child in ipairs(activeSeaFolder:GetChildren()) do
-    if isButtonInst(child) and child.Name ~= "Effect" then
-        table.insert(buttons, child)
-    end
-end
-
--- helper movement functions (reused from prior code)
+-- movement token để hủy mọi tiến trình
 local movementToken = 0
-local function stopMovement()
-    movementToken = movementToken + 1
-end
 
+-- ---------- helpers movement (tái sử dụng từ module trước) ----------
 local function getHRP()
     local char = player.Character or player.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart")
@@ -120,422 +44,443 @@ end
 
 local function distance(a,b) return (a-b).Magnitude end
 
--- teleport spam function (Cancelable)
-local function teleportSpam(pos, count, totalTime)
-    count = count or TELEPORT_SPAM_COUNT
-    totalTime = totalTime or TELEPORT_SPAM_TIME
+-- teleport spam (cancellable)
+local function teleportSpam(pos)
     local hrp = getHRP()
     local myToken = movementToken
 
-    local interval = totalTime / math.max(1, count)
+    local count = 0
+    local interval = TELEPORT_SPAM_TIME / math.max(1, TELEPORT_SPAM_COUNT)
     local elapsed = 0
-    local performed = 0
     local done = false
 
     local conn
     conn = RunService.Heartbeat:Connect(function(dt)
-        if myToken ~= movementToken then
-            conn:Disconnect()
-            done = true
-            return
-        end
-
-        elapsed = elapsed + dt
+        if myToken ~= movementToken then conn:Disconnect(); done = true; return end
+        elapsed += dt
         if elapsed >= interval then
             elapsed = elapsed - interval
-            performed = performed + 1
+            count += 1
             hrp.CFrame = CFrame.new(pos)
-            if performed >= count then
-                conn:Disconnect()
-                done = true
-            end
+            if count >= TELEPORT_SPAM_COUNT then conn:Disconnect(); done = true; end
         end
     end)
 
-    -- wait until done or canceled
-    while not done and myToken == movementToken do
-        task.wait()
-    end
-
+    -- wait for completion or cancellation
+    while not done and myToken == movementToken do task.wait() end
     return myToken == movementToken
 end
 
--- lunge thẳng theo quỹ đạo cố định (Cancelable)
-local function lungeStraightTo(targetPos)
+-- teleport instant
+local function teleport(pos)
+    getHRP().CFrame = CFrame.new(pos)
+end
+
+-- lunge straight (fixed direction from start), cancellable
+local function lungeTo(targetPos)
     local hrp = getHRP()
     local myToken = movementToken
 
     local startPos = hrp.Position
     local delta = targetPos - startPos
-    local totalDist = delta.Magnitude
-    if totalDist < 1 then return true end
+    local dist = delta.Magnitude
+    if dist <= 1 then return true end
 
-    local direction = delta.Unit
-    local duration = totalDist / LUNGE_SPEED
+    local dir = delta.Unit
+    local duration = dist / LUNGE_SPEED
+    if duration <= 0 then return true end
+
     local elapsed = 0
-
     local conn
     conn = RunService.Heartbeat:Connect(function(dt)
-        if myToken ~= movementToken then
-            conn:Disconnect()
-            return
-        end
-
-        elapsed = elapsed + dt
+        if myToken ~= movementToken then conn:Disconnect(); return end
+        elapsed += dt
         local alpha = math.clamp(elapsed / duration, 0, 1)
-        local newPos = startPos + direction * (totalDist * alpha)
-        hrp.CFrame = CFrame.new(newPos)
-
-        if alpha >= 1 then
-            conn:Disconnect()
-        end
+        hrp.CFrame = CFrame.new(startPos + dir * (dist * alpha))
+        if alpha >= 1 then conn:Disconnect() end
     end)
 
-    -- wait until finished or canceled
-    while movementToken == myToken and elapsed < duration do
-        task.wait()
-    end
-    return movementToken == myToken
+    -- wait until finish or canceled
+    while conn.Connected and myToken == movementToken do task.wait() end
+    return myToken == movementToken
 end
 
--- ========== UI helpers & states ==========
-local TweenInfoShort = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local TweenInfoFast = TweenInfo.new(0.12, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+local function stopMovement()
+    movementToken = movementToken + 1
+end
 
--- store per-button hover connections to disable later
-local hoverConns = {}
-local inputConns = {}
+-- ---------- UI helpers ----------
+local function findDescendantByName(parent, name)
+    for _,v in ipairs(parent:GetDescendants()) do
+        if v.Name == name then return v end
+    end
+    return nil
+end
 
-local function setDefaultEffectState(effect)
-    -- effect: Frame "Effect" under a button
+local function tween(obj, props, t, style, dir)
+    local info = TweenService:Create(obj, TweenInfo.new(t or 0.25, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+    info:Play()
+    return info
+end
+
+-- ---------- locate GUI ----------
+local ok, islandRoot = pcall(function()
+    return player.PlayerGui:WaitForChild("BloxFruitHubGui",5):WaitForChild("Main",5):WaitForChild("ScrollingTab",5):WaitForChild("Island",1)
+end)
+if not ok or not islandRoot then
+    warn("Không tìm thấy Island Frame trong GUI")
+    return
+end
+
+local animationFolder = islandRoot:FindFirstChild("AnimationUI", true)
+local seaFolders = {}
+for _,name in ipairs({"Sea1","Sea2","Sea3"}) do
+    local f = islandRoot:FindFirstChild(name, true)
+    if f then seaFolders[name] = f end
+end
+
+-- map PlaceId -> active folder (Sea1/2/3)
+local function getActiveSeaFolder()
+    local pid = game.PlaceId
+    for name, data in pairs(PLACES) do
+        for _, id in ipairs(data.ids) do
+            if id == pid then
+                return seaFolders[name], name
+            end
+        end
+    end
+    -- fallback: pick first existing Sea folder
+    for name,f in pairs(seaFolders) do return f, name end
+    return nil, nil
+end
+
+local activeFolder, activeGroupName = getActiveSeaFolder()
+if not activeFolder then warn("Không tìm thấy Sea folder tương ứng") end
+
+-- Build a map of button -> target pos
+local BUTTON_TARGETS = {} -- will be filled by user targets merged with defaults
+for btnName, pos in pairs(BUTTON_TARGETS) do -- keep user-provided (if any)
+    BUTTON_TARGETS[btnName] = pos
+end
+-- We also allow the earlier global BUTTON_TARGETS (from settings) — if user filled both, they can adjust.
+
+-- collect buttons in activeFolder
+local buttons = {}
+for _, child in ipairs(activeFolder:GetDescendants()) do
+    if child:IsA("TextButton") or child:IsA("ImageButton") then
+        table.insert(buttons, child)
+    end
+end
+
+-- default-initialize each button's effect children
+local hoverConnections = {} -- store connections for possible disconnect
+local function setDefaultsForButton(btn)
+    local effect = btn:FindFirstChild("Effect")
     if not effect then return end
+
     local uiGrad = effect:FindFirstChildOfClass("UIGradient")
+    local loading = effect:FindFirstChild("Loading")
     local cancelBtn = effect:FindFirstChild("CancelButton")
     local nameLbl = effect:FindFirstChild("Name")
     local ratioLbl = effect:FindFirstChild("Ratio")
-    local loading = effect:FindFirstChild("Loading")
     local loadFrame = loading and loading:FindFirstChild("LoadFrame")
 
-    if uiGrad then
-        -- try set Offset to NumberRange(0,1) if property exists
-        pcall(function() uiGrad.Offset = NumberRange.new(0,1) end)
-    end
+    -- default states requested
+    if uiGrad then uiGrad.Offset = NumberRange.new(0,1) end
     if cancelBtn then cancelBtn.Visible = false end
     if nameLbl then nameLbl.TextTransparency = 1 end
     if ratioLbl then ratioLbl.Visible = false; ratioLbl.TextTransparency = 0 end
     if loading then loading.Visible = false end
-    if loadFrame then loadFrame.Size = LOADFRAME_ZERO end
+    if loadFrame then loadFrame.Size = LOADFRAME_EMPTY_SIZE end
 end
 
-local function tweenGradientOffset(uiGrad, fromLow, fromHigh, toLow, toHigh, time)
-    if not uiGrad then return end
-    local ok, _ = pcall(function()
-        -- attempt to tween Offset as NumberRange property
-        TweenService:Create(uiGrad, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Offset = NumberRange.new(toLow, toHigh) }):Play()
-    end)
-    if not ok then
-        -- fallback: try tweening Rotation slightly to simulate effect
-        pcall(function()
-            TweenService:Create(uiGrad, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Rotation = (toLow - toHigh) * 180 }):Play()
-        end)
+for _,b in ipairs(buttons) do setDefaultsForButton(b) end
+
+-- helper to clone animation content into a container (deep clone of ImageLabel and its children)
+local function cloneAnimation(label)
+    if not label then return nil end
+    local copy = label:Clone()
+    copy.Parent = nil
+    -- ensure it's clean sized to fit
+    copy.Size = UDim2.new(1,0,1,0)
+    copy.Position = UDim2.new(0,0,0,0)
+    return copy
+end
+
+-- load animation references (Animation1..5 ImageLabels)
+local animationTemplates = {}
+if animationFolder then
+    for i=1,5 do
+        local name = "Animation"..tostring(i)
+        local template = animationFolder:FindFirstChild(name, true) or animationFolder:FindFirstChild(name)
+        if template and template:IsA("ImageLabel") then
+            animationTemplates[#animationTemplates+1] = template
+        end
     end
 end
 
--- enable hover for a button (mouse enter/leave + touch)
-local function enableHover(button, effect)
-    if not button or not effect then return end
+-- hover behavior (supports mouse + touch via InputBegan/Ended)
+local function attachHoverHandlers(btn)
+    local effect = btn:FindFirstChild("Effect")
+    if not effect then return end
     local uiGrad = effect:FindFirstChildOfClass("UIGradient")
     local nameLbl = effect:FindFirstChild("Name")
-    local active = true
+
+    local active = true -- allow disabling hover during click
+    local c1, c2
 
     local function onEnter()
         if not active then return end
-        tweenGradientOffset(uiGrad, 0,1, 0,0, 0.18)
-        if nameLbl then TweenService:Create(nameLbl, TweenInfoShort, { TextTransparency = 0 }):Play() end
+        if uiGrad then tween(uiGrad, { Offset = NumberRange.new(0,0) }, 0.18) end
+        if nameLbl then tween(nameLbl, { TextTransparency = 0 }, 0.18) end
     end
     local function onLeave()
         if not active then return end
-        tweenGradientOffset(uiGrad, 0,0, 0,1, 0.18)
-        if nameLbl then TweenService:Create(nameLbl, TweenInfoShort, { TextTransparency = 1 }):Play() end
+        if uiGrad then tween(uiGrad, { Offset = NumberRange.new(0,1) }, 0.18) end
+        if nameLbl then tween(nameLbl, { TextTransparency = 1 }, 0.18) end
     end
 
-    -- MouseEnter / MouseLeave (desktop)
-    local enterConn, leaveConn = nil, nil
-    if button.MouseEnter then
-        enterConn = button.MouseEnter:Connect(onEnter)
-        leaveConn = button.MouseLeave:Connect(onLeave)
-    end
-
-    -- Touch / Input (mobile)
-    local ibegin, iend
-    ibegin = button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    -- InputBegan/Ended covers mouse and touch (touch InputBegan = Touch)
+    c1 = btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             onEnter()
         end
     end)
-    iend = button.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    c2 = btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             onLeave()
         end
     end)
 
-    hoverConns[button] = { enterConn, leaveConn }
-    inputConns[button] = { ibegin, iend }
+    hoverConnections[btn] = { enter = c1, leave = c2, disable = function() active = false end, enable = function() active = true end }
+end
 
-    -- return a function to disable hover for this button
-    return function()
-        active = false
-        if enterConn then enterConn:Disconnect() end
-        if leaveConn then leaveConn:Disconnect() end
-        if ibegin then ibegin:Disconnect() end
-        if iend then iend:Disconnect() end
+for _,b in ipairs(buttons) do attachHoverHandlers(b) end
+
+-- cleanup animation children in loadFrame
+local function clearLoadFrame(loadFrame)
+    if not loadFrame then return end
+    for _,c in ipairs(loadFrame:GetChildren()) do
+        c:Destroy()
     end
 end
 
--- reset all buttons to default and (re)enable hover
-local hoverDisablers = {}
-local function resetAllButtons()
-    -- clear previous disablers
-    for _, d in pairs(hoverDisablers) do if type(d) == "function" then d() end end
-    hoverDisablers = {}
+-- animate load + progress + animation cycling; cancellable via movementToken
+-- returns true if completed (not canceled), false if canceled
+local function runLoadingSequence(effect, startDist, targetPos)
+    if not effect then return false end
+    local loading = effect:FindFirstChild("Loading")
+    local loadFrame = loading and loading:FindFirstChild("LoadFrame")
+    local ratioLbl = effect:FindFirstChild("Ratio")
+    local cancelBtn = effect:FindFirstChild("CancelButton")
+    local uiGrad = effect:FindFirstChildOfClass("UIGradient")
+    local nameLbl = effect:FindFirstChild("Name")
 
-    for _, btn in ipairs(buttons) do
-        local effect = btn:FindFirstChild("Effect")
-        setDefaultEffectState(effect)
-        local dis = enableHover(btn, effect)
-        table.insert(hoverDisablers, dis)
+    if not loading or not loadFrame or not ratioLbl or not cancelBtn then return false end
+
+    -- show UI elements
+    loading.Visible = true
+    cancelBtn.Visible = true
+    ratioLbl.Visible = true
+    if uiGrad then tween(uiGrad, { Offset = NumberRange.new(0,-1) }, 0.25) end
+    if nameLbl then tween(nameLbl, { TextTransparency = 0 }, 0.25) end
+
+    -- animation cycling: clone templates into loadFrame one at a time at ANIMATION_FPS
+    local animInterval = 1 / ANIMATION_FPS
+    local animIndex = 1
+    local animCount = #animationTemplates
+
+    -- prepare timing for progress calculation
+    local hrp = getHRP()
+    local myToken = movementToken
+    local initDist = startDist
+    if initDist <= 0 then initDist = 1 end
+
+    -- start a heartbeat loop to update progress and swap animations
+    local done = false
+    local canceled = false
+    local animElapsed = 0
+    local elapsed = 0
+
+    -- ensure loadFrame empty initially
+    clearLoadFrame(loadFrame)
+    loadFrame.Size = LOADFRAME_EMPTY_SIZE
+
+    -- show first animation immediately if exists
+    if animCount > 0 then
+        local tpl = animationTemplates[animIndex]
+        local add = cloneAnimation(tpl)
+        add.Parent = loadFrame
     end
-end
-
--- call once to init states
-resetAllButtons()
-
--- ========== Animation cycling helper ==========
-local function playAnimationCycle(loadFrame, animFolder, stopSignal)
-    -- loadFrame: destination (Frame)
-    -- animFolder: folder containing Animation1..Animation5 children (ImageLabel or Frame)
-    -- stopSignal: function() -> boolean (true when should stop)
-    local anims = {}
-    for i=1,999 do
-        local name = "Animation"..i
-        local a = animFolder:FindFirstChild(name)
-        if not a then break end
-        table.insert(anims, a)
-    end
-    if #anims == 0 then return end
-
-    local idx = 1
-    local interval = 1 / ANIM_FPS
-    local running = true
 
     local conn
     conn = RunService.Heartbeat:Connect(function(dt)
-        if stopSignal() then
+        if myToken ~= movementToken then
+            canceled = true
+            conn:Disconnect()
+            return
+        end
+
+        -- update animation swap
+        animElapsed += dt
+        if animElapsed >= animInterval and animCount > 0 then
+            animElapsed = animElapsed - animInterval
+            animIndex = animIndex + 1
+            if animIndex > animCount then animIndex = 1 end
+            clearLoadFrame(loadFrame)
+            local add = cloneAnimation(animationTemplates[animIndex])
+            if add then add.Parent = loadFrame end
+        end
+
+        -- update progress ratio based on remaining distance to target
+        local curDist = distance(hrp.Position, targetPos)
+        local ratio = math.clamp(1 - (curDist / initDist), 0, 1)
+        if ratioLbl then ratioLbl.Text = tostring(math.floor(ratio * 100)) .. "%" end
+
+        -- tween loadFrame size smoothly toward ratio
+        local targetSize = UDim2.new(ratio, 0, 1, 0)
+        -- do a short tween every frame for smoothness (or set LERP)
+        loadFrame.Size = loadFrame.Size:Lerp(targetSize, math.clamp(dt * 10, 0, 1))
+
+        -- finish condition: near target
+        if curDist <= 2 then
+            done = true
             conn:Disconnect()
             return
         end
     end)
 
-    -- main cycle (use task.spawn to control creation timing)
-    task.spawn(function()
-        while not stopSignal() do
-            -- clear previous children
-            for _, c in ipairs(loadFrame:GetChildren()) do
-                c:Destroy()
-            end
-            -- clone current anim element into loadFrame
-            local src = anims[idx]
-            if src then
-                local clone = src:Clone()
-                clone.Parent = loadFrame
-                clone.AnchorPoint = Vector2.new(0.5,0.5)
-                clone.Position = UDim2.new(0.5,0.5,0.5,0)
-                clone.Size = UDim2.new(1,0,1,0)
-            end
+    -- wait until done or canceled
+    while not done and not canceled and myToken == movementToken do
+        task.wait()
+    end
 
-            task.wait(interval)
-            idx = idx + 1
-            if idx > #anims then idx = 1 end
-        end
-        -- cleanup
-        for _, c in ipairs(loadFrame:GetChildren()) do c:Destroy() end
-    end)
+    -- cleanup
+    clearLoadFrame(loadFrame)
+    loading.Visible = false
+    cancelBtn.Visible = false
+    ratioLbl.Visible = false
+    -- restore gradient and name
+    if uiGrad then tween(uiGrad, { Offset = NumberRange.new(0,1) }, 0.18) end
+    if nameLbl then tween(nameLbl, { TextTransparency = 1 }, 0.18) end
+
+    return not canceled
 end
 
--- ========== Core click handler ==========
-local function handleButtonClick(button)
-    -- disable all hovers
-    for _, dis in ipairs(hoverDisablers) do if type(dis) == "function" then dis() end end
-    hoverDisablers = {}
-
-    -- find effect elements
-    local effect = button:FindFirstChild("Effect")
-    if not effect then
-        warn("Button thiếu Effect:", button.Name)
-        resetAllButtons()
-        return
-    end
+-- When click a button: run full process for its target
+local function onButtonActivated(btn)
+    -- find effect and children
+    local effect = btn:FindFirstChild("Effect")
+    if not effect then return end
     local cancelBtn = effect:FindFirstChild("CancelButton")
-    local nameLbl = effect:FindFirstChild("Name")
     local ratioLbl = effect:FindFirstChild("Ratio")
     local loading = effect:FindFirstChild("Loading")
-    local loadFrame = loading and loading:FindFirstChild("LoadFrame")
-    local uiGrad = effect:FindFirstChildOfClass("UIGradient")
 
-    -- pick target from mapping
-    local target = TARGET_POSITIONS[button.Name]
-    if not target then
-        warn("Chưa định nghĩa TARGET_POSITION cho button:", button.Name)
-        resetAllButtons()
+    -- get target pos from mapping (user must add to BUTTON_TARGETS)
+    local targetPos = BUTTON_TARGETS[btn.Name]
+    if not targetPos then
+        warn("No target assigned for button:", btn.Name)
         return
     end
 
-    -- prepare UI: set gradient to out-of-view (Offset -> 0,-1), show Ratio, Cancel, Loading visible
-    pcall(function()
-        tweenGradientOffset(uiGrad, 0,0, 0,-1, 0.18)
-        if nameLbl then TweenService:Create(nameLbl, TweenInfoShort, { TextTransparency = 0 }):Play() end
-        if ratioLbl then ratioLbl.Visible = true end
-        if cancelBtn then cancelBtn.Visible = true end
-        if loading then loading.Visible = true end
-    end)
+    -- disable hover for this button while active
+    local h = hoverConnections[btn]
+    if h and h.disable then h.disable() end
 
-    -- ensure loadFrame start at zero
-    if loadFrame then loadFrame.Size = LOADFRAME_ZERO end
+    -- stop previous movements
+    stopMovement()
 
-    -- cancel handler
-    local cancelled = false
-    local function doCancel()
-        cancelled = true
-        stopMovement()
+    -- compute start distance
+    local hrp = getHRP()
+    local startDist = distance(hrp.Position, targetPos)
+
+    -- pick best teleport (reuse TELEPORT_POINTS selection)
+    -- simple heuristic: find teleport nearest to target from TELEPORT_POINTS (if any)
+    local bestTeleport = nil
+    local bestDist = math.huge
+    if PLACES and type(PLACES) == "table" then
+        -- find active place's teleport list (we used earlier TELEPORT_POINTS concept)
+        -- here we search islandRoot folders for points not defined; for simplicity assume global TELEPORT_POINTS not used
+        -- So we fallback to no teleport if none provided
     end
+    -- You can populate TELEPORT_POINTS table in settings scope if you want teleport support here.
+    -- For now we only perform lunge if no teleport chosen.
+
+    -- If there's a teleport system available (global TELEPORT_POINTS), pick best:
+    if rawget(_G, "TELEPORT_POINTS") and type(_G.TELEPORT_POINTS) == "table" and #_G.TELEPORT_POINTS > 0 then
+        for _,p in ipairs(_G.TELEPORT_POINTS) do
+            local d = distance(p, targetPos)
+            if d < bestDist then bestDist = d; bestTeleport = p end
+        end
+        if bestTeleport and distance(hrp.Position, targetPos) <= bestDist then
+            bestTeleport = nil
+        end
+    end
+
+    -- If user wants the built-in behavior where TELEPORT_POINTS local variable used:
+    if bestTeleport == nil and _G and rawget(_G, "TELEPORT_POINTS_LOCAL") then
+        local tpts = _G.TELEPORT_POINTS_LOCAL
+        if type(tpts) == "table" and #tpts>0 then
+            for _,p in ipairs(tpts) do
+                local d = distance(p, targetPos)
+                if d < bestDist then bestDist = d; bestTeleport = p end
+            end
+            if bestTeleport and distance(hrp.Position, targetPos) <= bestDist then bestTeleport = nil end
+        end
+    end
+
+    -- If found teleport, perform teleport spam then teleport up
+    if bestTeleport then
+        local ok = teleportSpam(bestTeleport)
+        if not ok then
+            -- canceled
+            if h and h.enable then h.enable() end
+            return
+        end
+        teleport(bestTeleport + Vector3.new(0, TELEPORT_HEIGHT, 0))
+        task.wait(0.05)
+    end
+
+    -- Now run loading sequence which shows progress and animations and also watches for cancel
+    -- Hook CancelButton
+    local cancelConn
+    local userCanceled = false
     if cancelBtn then
-        local conn
-        conn = cancelBtn.Activated:Connect(function()
-            doCancel()
-            if conn then conn:Disconnect() end
+        cancelConn = cancelBtn.Activated:Connect(function()
+            userCanceled = true
+            stopMovement()
         end)
     end
 
-    -- movement + progress logic
-    stopMovement()
-    local hrp = getHRP()
-    local startPos = hrp.Position
-    local totalDist = math.max(0.0001, distance(startPos, target))
+    local finished = runLoadingSequence(effect, startDist, targetPos)
 
-    -- decide teleport
-    local bestTeleport = nil
-    if TELEPORT_POINTS and #TELEPORT_POINTS > 0 then
-        -- choose best teleport point (reuse earlier logic)
-        local bestDist, bestP = math.huge, nil
-        for _, p in ipairs(TELEPORT_POINTS) do
-            local d = distance(p, target)
-            if d < bestDist then bestDist = d; bestP = p end
-        end
-        if bestP and distance(startPos, target) > bestDist then
-            bestTeleport = bestP
-        end
+    if cancelConn then
+        cancelConn:Disconnect()
     end
 
-    local token = movementToken
-
-    -- function to update progress UI given progress in [0,1]
-    local function updateProgress(alpha)
-        if loadFrame then
-            local size = UDim2.new(alpha,0,1,0)
-            TweenService:Create(loadFrame, TweenInfo.new(0.08, Enum.EasingStyle.Linear), { Size = size }):Play()
-        end
-        if ratioLbl then
-            local pct = math.floor(alpha * 100 + 0.5)
-            ratioLbl.Text = tostring(pct).."%"
-        end
-    end
-
-    -- run animation cycling concurrently; stopSignal checks cancelled or movementToken changed
-    local function stopSignal()
-        return cancelled or movementToken ~= token
-    end
-    if loading and loadFrame then
-        -- start animation cycle
-        playAnimationCycle(loadFrame, animationFolder, stopSignal)
-    end
-
-    -- if have teleport, do teleportSpam; each teleport spam step may change remaining distance -> update progress accordingly
-    if bestTeleport and not cancelled then
-        -- teleport spam
-        local succeeded = teleportSpam(bestTeleport, TELEPORT_SPAM_COUNT, TELEPORT_SPAM_TIME)
-        if not succeeded then
-            -- cancelled during teleport
-            cancelled = true
-        else
-            -- after spam, teleport above
-            if not cancelled then
-                getHRP().CFrame = CFrame.new(bestTeleport + Vector3.new(0, TELEPORT_HEIGHT, 0))
-            end
-        end
-    end
-
-    -- update baseline after any teleport
-    if cancelled then
-        -- restore UI and return
-        stopMovement()
-        task.delay(0.05, resetAllButtons)
+    if not finished then
+        -- canceled
+        if h and h.enable then h.enable() end
         return
     end
 
-    -- start lunge but while lunge runs update progress based on remaining distance
-    -- We'll run lunge in a cancellable manner and concurrently update progress in RenderStepped
-    stopMovement() -- ensure clear
-    token = movementToken
-    local hr = getHRP()
-    local startPos2 = hr.Position
-    local initialDist = math.max(0.0001, distance(startPos2, target))
-
-    -- spawn progress updater
-    local progressConn
-    progressConn = RunService.RenderStepped:Connect(function()
-        if movementToken ~= token then
-            progressConn:Disconnect()
-            return
-        end
-        local rem = distance(hr.Position, target)
-        local alpha = math.clamp(1 - (rem / initialDist), 0, 1)
-        updateProgress(alpha)
-    end)
-
-    -- perform lunge (blocking until done or cancelled)
-    local lungeOk = lungeStraightTo(target)
-    -- ensure progress final
-    updateProgress(1)
-
-    if progressConn and progressConn.Connected then progressConn:Disconnect() end
-
-    -- done or cancelled -> cleanup and restore UI
-    task.delay(0.05, function()
-        -- stop animation (playAnimationCycle checks movementToken)
-        stopMovement() -- bump token to ensure anim stops
-        -- small delay to allow animation loop cleanup
-        task.wait(0.05)
-        -- restore UI state for this button
-        setDefaultEffectState(effect)
-        -- re-enable hovers for all buttons
-        resetAllButtons()
-    end)
+    -- finally perform lunge (cancellable)
+    local ok = lungeTo(targetPos)
+    -- restore hover
+    if h and h.enable then h.enable() end
+    return ok
 end
 
--- attach click handlers to all buttons
-for _, btn in ipairs(buttons) do
-    -- ensure effect exists and default state
-    local effect = btn:FindFirstChild("Effect")
-    setDefaultEffectState(effect)
-    -- enable hover
-    local dis = enableHover(btn, effect)
-    table.insert(hoverDisablers, dis)
+-- wire button Activated handlers
+for _,btn in ipairs(buttons) do
+    -- ensure default
+    setDefaultsForButton(btn)
 
-    -- click
+    -- connect click
     btn.Activated:Connect(function()
-        handleButtonClick(btn)
+        -- guard: if already in progress for this button, ignore (optional)
+        onButtonActivated(btn)
     end)
 end
 
--- done
-print("[BringUI] Ready. Buttons count:", #buttons)
+-- END OF SCRIPT
