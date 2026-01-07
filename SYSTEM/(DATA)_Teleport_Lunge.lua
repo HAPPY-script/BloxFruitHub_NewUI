@@ -106,10 +106,18 @@ local function teleport(pos)
     getHRP().CFrame = CFrame.new(pos)
 end
 
--- 🔹 Lướt có thể ngắt
 local function lungeTo(targetPos)
     local hrp = getHRP()
     local myToken = movementToken
+
+    local startPos = hrp.Position
+    local delta = targetPos - startPos
+    local distance = delta.Magnitude
+    if distance < 1 then return end
+
+    local direction = delta.Unit
+    local duration = distance / LUNGE_SPEED
+    local elapsed = 0
 
     local conn
     conn = RunService.Heartbeat:Connect(function(dt)
@@ -118,15 +126,15 @@ local function lungeTo(targetPos)
             return
         end
 
-        local dir = targetPos - hrp.Position
-        local dist = dir.Magnitude
+        elapsed += dt
+        local alpha = math.clamp(elapsed / duration, 0, 1)
 
-        if dist < 2 then
+        -- 🔒 vị trí lướt tuyệt đối, không physics
+        hrp.CFrame = CFrame.new(startPos + direction * (distance * alpha))
+
+        if alpha >= 1 then
             conn:Disconnect()
-            return
         end
-
-        hrp.CFrame += dir.Unit * math.min(LUNGE_SPEED * dt, dist)
     end)
 end
 
