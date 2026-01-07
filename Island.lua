@@ -1914,7 +1914,7 @@ task.spawn(function()
 	while true do
 		local allOk = true
 		for _, obj in ipairs(Frame:GetDescendants()) do
-			if obj:IsA("TextLabel") then
+			if obj:IsA("TextButton") then
 				if obj.TextTransparency ~= 0 then
 					obj.TextTransparency = 0
 					allOk = false
