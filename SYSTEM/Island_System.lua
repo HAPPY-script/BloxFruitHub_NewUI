@@ -305,57 +305,61 @@ local function getEffectParts(btn)
     }
 end
 
+local function colorFromProgress(p)
+    return Color3.fromRGB(
+        math.floor(255 * (1 - p)),
+        math.floor(255 * p),
+        0
+    )
+end
+
 -- ============== Animation loader inside LoadFrame ===========================
 local function playAnimationsInLoadFrame(loadFrame, stopFlag)
     if not ANIMATION_UI_FOLDER or not loadFrame then return end
-    local animCount = 0
-    for i = 1,5 do
-        if ANIMATION_UI_FOLDER:FindFirstChild("Animation"..i) then animCount = animCount + 1 end
+
+    local animations = {}
+    for i = 1, 5 do
+        local anim = ANIMATION_UI_FOLDER:FindFirstChild("Animation"..i)
+        if anim then
+            table.insert(animations, anim)
+        end
     end
-    if animCount == 0 then return end
+    if #animations == 0 then return end
 
     local interval = 1 / ANIM_FPS
     local running = true
 
-    for _,c in ipairs(loadFrame:GetChildren()) do
-        if not c:IsA("UIAspectRatioConstraint") then
-            c:Destroy()
-        end
+    -- clear loadFrame (giữ constraint của chính LoadFrame nếu có)
+    for _, c in ipairs(loadFrame:GetChildren()) do
+        c:Destroy()
     end
 
-    spawn(function()
+    task.spawn(function()
         local idx = 1
         while running and not stopFlag.cancelled do
-            local src = ANIMATION_UI_FOLDER:FindFirstChild("Animation"..idx)
-            if src then
-                for _,c in ipairs(loadFrame:GetChildren()) do
-                    if not c:IsA("UIAspectRatioConstraint") then
-                        c:Destroy()
-                    end
-                end
-                local clone = src:Clone()
-                clone.Parent = loadFrame
-                if clone:IsA("GuiObject") then
-                    clone.AnchorPoint = Vector2.new(0.5, 0.5)
-                    clone.Position = UDim2.new(0.5, 0.5)
-                    clone.Size = UDim2.new(1,0,1,0)
-                end
+            -- clear frame
+            for _, c in ipairs(loadFrame:GetChildren()) do
+                c:Destroy()
             end
 
-            idx = idx + 1
-            if idx > animCount then idx = 1 end
-            local waited = 0
-            while waited < interval do
+            local src = animations[idx]
+            local clone = src:Clone()
+            clone.Parent = loadFrame
+
+            idx += 1
+            if idx > #animations then idx = 1 end
+
+            local t = 0
+            while t < interval do
                 if stopFlag.cancelled then break end
                 task.wait(0.01)
-                waited = waited + 0.01
+                t += 0.01
             end
         end
 
-        for _,c in ipairs(loadFrame:GetChildren()) do
-            if not c:IsA("UIAspectRatioConstraint") then
-                c:Destroy()
-            end
+        -- cleanup
+        for _, c in ipairs(loadFrame:GetChildren()) do
+            c:Destroy()
         end
     end)
 
@@ -477,7 +481,19 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
             local prog = 1 - (vecDistance(curPos, target) / totalDist)
             prog = math.clamp(prog, 0, 1)
             local pct = math.floor(prog * 100)
-            if parts.Ratio then parts.Ratio.Text = tostring(pct).."%"; parts.Ratio.Visible = true end
+                    
+            if parts.Ratio then
+                parts.Ratio.Visible = true
+                parts.Ratio.Text = pct .. "%"
+
+                local targetColor = colorFromProgress(prog)
+                TweenService:Create(
+                    parts.Ratio,
+                    TweenInfo.new(0.15, Enum.EasingStyle.Linear),
+                    { TextColor3 = targetColor }
+                ):Play()
+            end
+                    
             if parts.LoadFrame then
                 pcall(function()
                     tween(parts.LoadFrame, {Size = UDim2.new(prog,0,1,0)}, TweenInfo.new(0.12)):Play()
@@ -534,7 +550,15 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
 
         task.wait(0.08)
 
-        if parts.Ratio then parts.Ratio.Text = "100%" end
+        if parts.Ratio then
+            parts.Ratio.Text = "100%"
+            TweenService:Create(
+                parts.Ratio,
+                TweenInfo.new(0.15),
+                { TextColor3 = Color3.fromRGB(0,255,0) }
+            ):Play()
+        end
+
         if parts.LoadFrame then
             tween(parts.LoadFrame, {Size = UDim2.new(1,0,1,0)}, TweenInfo.new(0.12)):Play()
         end
