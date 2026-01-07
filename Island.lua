@@ -146,24 +146,6 @@ UICorner3.Name = "UICorner"
 UICorner3.CornerRadius = UDim.new(1, 0)
 UICorner3.Parent = LoadFrame
 
-local Animation1 = Instance.new("ImageLabel")
-Animation1.Name = "Animation1"
-Animation1.Position = UDim2.new(1, 0, -1, 0)
-Animation1.Size = UDim2.new(3, 0, 3, 0)
-Animation1.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation1.BackgroundTransparency = 1
-Animation1.BorderSizePixel = 0
-Animation1.BorderColor3 = Color3.new(0, 0, 0)
-Animation1.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation1.Transparency = 1
-Animation1.Image = "rbxassetid://129177850900145"
-Animation1.Parent = LoadFrame
-
-local UIAspectRatioConstraint2 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint2.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint2.Parent = Animation1
-
 local Port_Town = Instance.new("ImageButton")
 Port_Town.Name = "Port Town"
 Port_Town.Position = UDim2.new(0.2, 0, 0.06, 0)
@@ -177,10 +159,10 @@ Port_Town.Transparency = 0.75
 Port_Town.Image = "rbxassetid://90119384527680"
 Port_Town.Parent = Sea3
 
-local UIAspectRatioConstraint3 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint3.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint2 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint2.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint3.Parent = Port_Town
+UIAspectRatioConstraint2.Parent = Port_Town
 
 local UICorner4 = Instance.new("UICorner")
 UICorner4.Name = "UICorner"
@@ -295,24 +277,6 @@ UICorner6.Name = "UICorner"
 UICorner6.CornerRadius = UDim.new(1, 0)
 UICorner6.Parent = LoadFrame2
 
-local Animation12 = Instance.new("ImageLabel")
-Animation12.Name = "Animation1"
-Animation12.Position = UDim2.new(1, 0, -1, 0)
-Animation12.Size = UDim2.new(3, 0, 3, 0)
-Animation12.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation12.BackgroundTransparency = 1
-Animation12.BorderSizePixel = 0
-Animation12.BorderColor3 = Color3.new(0, 0, 0)
-Animation12.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation12.Transparency = 1
-Animation12.Image = "rbxassetid://129177850900145"
-Animation12.Parent = LoadFrame2
-
-local UIAspectRatioConstraint4 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint4.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint4.Parent = Animation12
-
 local Great_Tree = Instance.new("ImageButton")
 Great_Tree.Name = "Great Tree"
 Great_Tree.Position = UDim2.new(0.8, 0, 0.06, 0)
@@ -326,10 +290,10 @@ Great_Tree.Transparency = 0.75
 Great_Tree.Image = "rbxassetid://106689913445825"
 Great_Tree.Parent = Sea3
 
-local UIAspectRatioConstraint5 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint5.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint3 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint3.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint5.Parent = Great_Tree
+UIAspectRatioConstraint3.Parent = Great_Tree
 
 local UICorner7 = Instance.new("UICorner")
 UICorner7.Name = "UICorner"
@@ -444,24 +408,6 @@ UICorner9.Name = "UICorner"
 UICorner9.CornerRadius = UDim.new(1, 0)
 UICorner9.Parent = LoadFrame3
 
-local Animation13 = Instance.new("ImageLabel")
-Animation13.Name = "Animation1"
-Animation13.Position = UDim2.new(1, 0, -1, 0)
-Animation13.Size = UDim2.new(3, 0, 3, 0)
-Animation13.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation13.BackgroundTransparency = 1
-Animation13.BorderSizePixel = 0
-Animation13.BorderColor3 = Color3.new(0, 0, 0)
-Animation13.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation13.Transparency = 1
-Animation13.Image = "rbxassetid://129177850900145"
-Animation13.Parent = LoadFrame3
-
-local UIAspectRatioConstraint6 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint6.Parent = Animation13
-
 local Mansion = Instance.new("ImageButton")
 Mansion.Name = "Mansion"
 Mansion.Position = UDim2.new(0.2, 0, 0.165, 0)
@@ -475,10 +421,10 @@ Mansion.Transparency = 0.75
 Mansion.Image = "rbxassetid://115057737431641"
 Mansion.Parent = Sea3
 
-local UIAspectRatioConstraint7 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint7.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint4 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint4.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint7.Parent = Mansion
+UIAspectRatioConstraint4.Parent = Mansion
 
 local UICorner10 = Instance.new("UICorner")
 UICorner10.Name = "UICorner"
@@ -593,24 +539,6 @@ UICorner12.Name = "UICorner"
 UICorner12.CornerRadius = UDim.new(1, 0)
 UICorner12.Parent = LoadFrame4
 
-local Animation14 = Instance.new("ImageLabel")
-Animation14.Name = "Animation1"
-Animation14.Position = UDim2.new(1, 0, -1, 0)
-Animation14.Size = UDim2.new(3, 0, 3, 0)
-Animation14.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation14.BackgroundTransparency = 1
-Animation14.BorderSizePixel = 0
-Animation14.BorderColor3 = Color3.new(0, 0, 0)
-Animation14.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation14.Transparency = 1
-Animation14.Image = "rbxassetid://129177850900145"
-Animation14.Parent = LoadFrame4
-
-local UIAspectRatioConstraint8 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint8.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint8.Parent = Animation14
-
 local Haunted_Castle = Instance.new("ImageButton")
 Haunted_Castle.Name = "Haunted Castle"
 Haunted_Castle.Position = UDim2.new(0.5, 0, 0.165, 0)
@@ -624,10 +552,10 @@ Haunted_Castle.Transparency = 0.75
 Haunted_Castle.Image = "rbxassetid://89367301681698"
 Haunted_Castle.Parent = Sea3
 
-local UIAspectRatioConstraint9 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint9.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint5 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint5.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint9.Parent = Haunted_Castle
+UIAspectRatioConstraint5.Parent = Haunted_Castle
 
 local UICorner13 = Instance.new("UICorner")
 UICorner13.Name = "UICorner"
@@ -742,24 +670,6 @@ UICorner15.Name = "UICorner"
 UICorner15.CornerRadius = UDim.new(1, 0)
 UICorner15.Parent = LoadFrame5
 
-local Animation15 = Instance.new("ImageLabel")
-Animation15.Name = "Animation1"
-Animation15.Position = UDim2.new(1, 0, -1, 0)
-Animation15.Size = UDim2.new(3, 0, 3, 0)
-Animation15.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation15.BackgroundTransparency = 1
-Animation15.BorderSizePixel = 0
-Animation15.BorderColor3 = Color3.new(0, 0, 0)
-Animation15.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation15.Transparency = 1
-Animation15.Image = "rbxassetid://129177850900145"
-Animation15.Parent = LoadFrame5
-
-local UIAspectRatioConstraint10 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint10.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint10.Parent = Animation15
-
 local IcecreamLand = Instance.new("ImageButton")
 IcecreamLand.Name = "IcecreamLand"
 IcecreamLand.Position = UDim2.new(0.8, 0, 0.165, 0)
@@ -773,10 +683,10 @@ IcecreamLand.Transparency = 0.75
 IcecreamLand.Image = "rbxassetid://84425292949709"
 IcecreamLand.Parent = Sea3
 
-local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint6 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint11.Parent = IcecreamLand
+UIAspectRatioConstraint6.Parent = IcecreamLand
 
 local UICorner16 = Instance.new("UICorner")
 UICorner16.Name = "UICorner"
@@ -891,24 +801,6 @@ UICorner18.Name = "UICorner"
 UICorner18.CornerRadius = UDim.new(1, 0)
 UICorner18.Parent = LoadFrame6
 
-local Animation16 = Instance.new("ImageLabel")
-Animation16.Name = "Animation1"
-Animation16.Position = UDim2.new(1, 0, -1, 0)
-Animation16.Size = UDim2.new(3, 0, 3, 0)
-Animation16.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation16.BackgroundTransparency = 1
-Animation16.BorderSizePixel = 0
-Animation16.BorderColor3 = Color3.new(0, 0, 0)
-Animation16.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation16.Transparency = 1
-Animation16.Image = "rbxassetid://129177850900145"
-Animation16.Parent = LoadFrame6
-
-local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint12.Parent = Animation16
-
 local CakeLand = Instance.new("ImageButton")
 CakeLand.Name = "CakeLand"
 CakeLand.Position = UDim2.new(0.2, 0, 0.27, 0)
@@ -922,10 +814,10 @@ CakeLand.Transparency = 0.75
 CakeLand.Image = "rbxassetid://108327090167582"
 CakeLand.Parent = Sea3
 
-local UIAspectRatioConstraint13 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint13.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint7 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint7.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint13.Parent = CakeLand
+UIAspectRatioConstraint7.Parent = CakeLand
 
 local UICorner19 = Instance.new("UICorner")
 UICorner19.Name = "UICorner"
@@ -1040,24 +932,6 @@ UICorner21.Name = "UICorner"
 UICorner21.CornerRadius = UDim.new(1, 0)
 UICorner21.Parent = LoadFrame7
 
-local Animation17 = Instance.new("ImageLabel")
-Animation17.Name = "Animation1"
-Animation17.Position = UDim2.new(1, 0, -1, 0)
-Animation17.Size = UDim2.new(3, 0, 3, 0)
-Animation17.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation17.BackgroundTransparency = 1
-Animation17.BorderSizePixel = 0
-Animation17.BorderColor3 = Color3.new(0, 0, 0)
-Animation17.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation17.Transparency = 1
-Animation17.Image = "rbxassetid://129177850900145"
-Animation17.Parent = LoadFrame7
-
-local UIAspectRatioConstraint14 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint14.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint14.Parent = Animation17
-
 local CandyLand = Instance.new("ImageButton")
 CandyLand.Name = "CandyLand"
 CandyLand.Position = UDim2.new(0.5, 0, 0.27, 0)
@@ -1071,10 +945,10 @@ CandyLand.Transparency = 0.75
 CandyLand.Image = "rbxassetid://116318136345685"
 CandyLand.Parent = Sea3
 
-local UIAspectRatioConstraint15 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint15.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint8 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint8.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint15.Parent = CandyLand
+UIAspectRatioConstraint8.Parent = CandyLand
 
 local UICorner22 = Instance.new("UICorner")
 UICorner22.Name = "UICorner"
@@ -1189,24 +1063,6 @@ UICorner24.Name = "UICorner"
 UICorner24.CornerRadius = UDim.new(1, 0)
 UICorner24.Parent = LoadFrame8
 
-local Animation18 = Instance.new("ImageLabel")
-Animation18.Name = "Animation1"
-Animation18.Position = UDim2.new(1, 0, -1, 0)
-Animation18.Size = UDim2.new(3, 0, 3, 0)
-Animation18.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation18.BackgroundTransparency = 1
-Animation18.BorderSizePixel = 0
-Animation18.BorderColor3 = Color3.new(0, 0, 0)
-Animation18.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation18.Transparency = 1
-Animation18.Image = "rbxassetid://129177850900145"
-Animation18.Parent = LoadFrame8
-
-local UIAspectRatioConstraint16 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint16.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint16.Parent = Animation18
-
 local Tiki_Outpost = Instance.new("ImageButton")
 Tiki_Outpost.Name = "Tiki Outpost"
 Tiki_Outpost.Position = UDim2.new(0.8, 0, 0.27, 0)
@@ -1220,10 +1076,10 @@ Tiki_Outpost.Transparency = 0.75
 Tiki_Outpost.Image = "rbxassetid://90999317136742"
 Tiki_Outpost.Parent = Sea3
 
-local UIAspectRatioConstraint17 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint17.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint9 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint9.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint17.Parent = Tiki_Outpost
+UIAspectRatioConstraint9.Parent = Tiki_Outpost
 
 local UICorner25 = Instance.new("UICorner")
 UICorner25.Name = "UICorner"
@@ -1338,24 +1194,6 @@ UICorner27.Name = "UICorner"
 UICorner27.CornerRadius = UDim.new(1, 0)
 UICorner27.Parent = LoadFrame9
 
-local Animation19 = Instance.new("ImageLabel")
-Animation19.Name = "Animation1"
-Animation19.Position = UDim2.new(1, 0, -1, 0)
-Animation19.Size = UDim2.new(3, 0, 3, 0)
-Animation19.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation19.BackgroundTransparency = 1
-Animation19.BorderSizePixel = 0
-Animation19.BorderColor3 = Color3.new(0, 0, 0)
-Animation19.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation19.Transparency = 1
-Animation19.Image = "rbxassetid://129177850900145"
-Animation19.Parent = LoadFrame9
-
-local UIAspectRatioConstraint18 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint18.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint18.Parent = Animation19
-
 local Submerged_Island = Instance.new("ImageButton")
 Submerged_Island.Name = "Submerged Island"
 Submerged_Island.Position = UDim2.new(0.2, 0, 0.375, 0)
@@ -1369,10 +1207,10 @@ Submerged_Island.Transparency = 0.75
 Submerged_Island.Image = "rbxassetid://110386080961147"
 Submerged_Island.Parent = Sea3
 
-local UIAspectRatioConstraint19 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint19.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint10 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint10.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint19.Parent = Submerged_Island
+UIAspectRatioConstraint10.Parent = Submerged_Island
 
 local UICorner28 = Instance.new("UICorner")
 UICorner28.Name = "UICorner"
@@ -1487,24 +1325,6 @@ UICorner30.Name = "UICorner"
 UICorner30.CornerRadius = UDim.new(1, 0)
 UICorner30.Parent = LoadFrame10
 
-local Animation110 = Instance.new("ImageLabel")
-Animation110.Name = "Animation1"
-Animation110.Position = UDim2.new(1, 0, -1, 0)
-Animation110.Size = UDim2.new(3, 0, 3, 0)
-Animation110.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation110.BackgroundTransparency = 1
-Animation110.BorderSizePixel = 0
-Animation110.BorderColor3 = Color3.new(0, 0, 0)
-Animation110.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation110.Transparency = 1
-Animation110.Image = "rbxassetid://129177850900145"
-Animation110.Parent = LoadFrame10
-
-local UIAspectRatioConstraint20 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint20.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint20.Parent = Animation110
-
 local Temple_of_Time = Instance.new("ImageButton")
 Temple_of_Time.Name = "Temple of Time"
 Temple_of_Time.Position = UDim2.new(0.5, 0, 0.375, 0)
@@ -1518,10 +1338,10 @@ Temple_of_Time.Transparency = 0.75
 Temple_of_Time.Image = "rbxassetid://104655232452107"
 Temple_of_Time.Parent = Sea3
 
-local UIAspectRatioConstraint21 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint21.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint21.Parent = Temple_of_Time
+UIAspectRatioConstraint11.Parent = Temple_of_Time
 
 local UICorner31 = Instance.new("UICorner")
 UICorner31.Name = "UICorner"
@@ -1636,24 +1456,6 @@ UICorner33.Name = "UICorner"
 UICorner33.CornerRadius = UDim.new(1, 0)
 UICorner33.Parent = LoadFrame11
 
-local Animation111 = Instance.new("ImageLabel")
-Animation111.Name = "Animation1"
-Animation111.Position = UDim2.new(1, 0, -1, 0)
-Animation111.Size = UDim2.new(3, 0, 3, 0)
-Animation111.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation111.BackgroundTransparency = 1
-Animation111.BorderSizePixel = 0
-Animation111.BorderColor3 = Color3.new(0, 0, 0)
-Animation111.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation111.Transparency = 1
-Animation111.Image = "rbxassetid://129177850900145"
-Animation111.Parent = LoadFrame11
-
-local UIAspectRatioConstraint22 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint22.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint22.Parent = Animation111
-
 local Dojo = Instance.new("ImageButton")
 Dojo.Name = "Dojo"
 Dojo.Position = UDim2.new(0.8, 0, 0.375, 0)
@@ -1667,10 +1469,10 @@ Dojo.Transparency = 0.75
 Dojo.Image = "rbxassetid://138249981711954"
 Dojo.Parent = Sea3
 
-local UIAspectRatioConstraint23 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint23.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint23.Parent = Dojo
+UIAspectRatioConstraint12.Parent = Dojo
 
 local UICorner34 = Instance.new("UICorner")
 UICorner34.Name = "UICorner"
@@ -1785,46 +1587,159 @@ UICorner36.Name = "UICorner"
 UICorner36.CornerRadius = UDim.new(1, 0)
 UICorner36.Parent = LoadFrame12
 
-local Animation112 = Instance.new("ImageLabel")
-Animation112.Name = "Animation1"
-Animation112.Position = UDim2.new(1, 0, -1, 0)
-Animation112.Size = UDim2.new(3, 0, 3, 0)
-Animation112.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation112.BackgroundTransparency = 1
-Animation112.BorderSizePixel = 0
-Animation112.BorderColor3 = Color3.new(0, 0, 0)
-Animation112.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation112.Transparency = 1
-Animation112.Image = "rbxassetid://129177850900145"
-Animation112.Parent = LoadFrame12
+local Castle_on_the_Sea = Instance.new("ImageButton")
+Castle_on_the_Sea.Name = "Castle on the Sea"
+Castle_on_the_Sea.Position = UDim2.new(0.2, 0, 0.48, 0)
+Castle_on_the_Sea.Size = UDim2.new(0.25, 0, 0.25, 0)
+Castle_on_the_Sea.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Castle_on_the_Sea.BackgroundTransparency = 0.75
+Castle_on_the_Sea.BorderSizePixel = 0
+Castle_on_the_Sea.BorderColor3 = Color3.new(0, 0, 0)
+Castle_on_the_Sea.AnchorPoint = Vector2.new(0.5, 0.5)
+Castle_on_the_Sea.Transparency = 0.75
+Castle_on_the_Sea.Image = "rbxassetid://97420848058237"
+Castle_on_the_Sea.Parent = Sea3
 
-local UIAspectRatioConstraint24 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint24.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint13 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint13.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint24.Parent = Animation112
+UIAspectRatioConstraint13.Parent = Castle_on_the_Sea
+
+local UICorner37 = Instance.new("UICorner")
+UICorner37.Name = "UICorner"
+UICorner37.CornerRadius = UDim.new(0.15, 0)
+UICorner37.Parent = Castle_on_the_Sea
+
+local Effect13 = Instance.new("Frame")
+Effect13.Name = "Effect"
+Effect13.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect13.Size = UDim2.new(1, 0, 1, 0)
+Effect13.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect13.BackgroundTransparency = 0.15000000596046448
+Effect13.BorderSizePixel = 0
+Effect13.BorderColor3 = Color3.new(0, 0, 0)
+Effect13.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect13.Transparency = 0.15000000596046448
+Effect13.Parent = Castle_on_the_Sea
+
+local UICorner38 = Instance.new("UICorner")
+UICorner38.Name = "UICorner"
+UICorner38.CornerRadius = UDim.new(0.15, 0)
+UICorner38.Parent = Effect13
+
+local UIGradient13 = Instance.new("UIGradient")
+UIGradient13.Name = "UIGradient"
+UIGradient13.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient13.Rotation = -90
+UIGradient13.Offset = Vector2.new(0, 1)
+UIGradient13.Parent = Effect13
+
+local Name13 = Instance.new("TextLabel")
+Name13.Name = "Name"
+Name13.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name13.Size = UDim2.new(1, 0, 0.375, 0)
+Name13.BackgroundColor3 = Color3.new(1, 1, 1)
+Name13.BackgroundTransparency = 1
+Name13.BorderSizePixel = 0
+Name13.BorderColor3 = Color3.new(0, 0, 0)
+Name13.AnchorPoint = Vector2.new(0.5, 0.5)
+Name13.Transparency = 1
+Name13.Text = "Castle on the Sea"
+Name13.TextColor3 = Color3.new(1, 1, 1)
+Name13.TextSize = 14
+Name13.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name13.TextScaled = true
+Name13.TextWrapped = true
+Name13.Parent = Effect13
+
+local CancelButton13 = Instance.new("TextButton")
+CancelButton13.Name = "CancelButton"
+CancelButton13.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton13.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton13.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton13.BorderSizePixel = 0
+CancelButton13.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton13.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton13.Text = "Cancel"
+CancelButton13.TextColor3 = Color3.new(1, 1, 1)
+CancelButton13.TextSize = 14
+CancelButton13.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton13.TextScaled = true
+CancelButton13.TextWrapped = true
+CancelButton13.Parent = Effect13
+
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(1, 1, 1)
+UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke13.Parent = CancelButton13
+
+local Ratio13 = Instance.new("TextLabel")
+Ratio13.Name = "Ratio"
+Ratio13.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio13.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio13.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio13.BackgroundTransparency = 1
+Ratio13.BorderSizePixel = 0
+Ratio13.BorderColor3 = Color3.new(0, 0, 0)
+Ratio13.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio13.Transparency = 1
+Ratio13.Text = "0%"
+Ratio13.TextColor3 = Color3.new(1, 0, 0)
+Ratio13.TextSize = 14
+Ratio13.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio13.TextScaled = true
+Ratio13.TextWrapped = true
+Ratio13.Parent = Effect13
+
+local Loading13 = Instance.new("Frame")
+Loading13.Name = "Loading"
+Loading13.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading13.Size = UDim2.new(1, 0, 0.1, 0)
+Loading13.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading13.BackgroundTransparency = 1
+Loading13.BorderSizePixel = 0
+Loading13.BorderColor3 = Color3.new(0, 0, 0)
+Loading13.ZIndex = 2
+Loading13.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading13.Transparency = 1
+Loading13.Parent = Effect13
+
+local LoadFrame13 = Instance.new("Frame")
+LoadFrame13.Name = "LoadFrame"
+LoadFrame13.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame13.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame13.BorderSizePixel = 0
+LoadFrame13.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame13.Parent = Loading13
+
+local UICorner39 = Instance.new("UICorner")
+UICorner39.Name = "UICorner"
+UICorner39.CornerRadius = UDim.new(1, 0)
+UICorner39.Parent = LoadFrame13
 
 local AnimationUI = Instance.new("Folder")
 AnimationUI.Name = "AnimationUI"
 
 AnimationUI.Parent = Island
 
-local Animation113 = Instance.new("ImageLabel")
-Animation113.Name = "Animation1"
-Animation113.Position = UDim2.new(1, 0, -1, 0)
-Animation113.Size = UDim2.new(3, 0, 3, 0)
-Animation113.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation113.BackgroundTransparency = 1
-Animation113.BorderSizePixel = 0
-Animation113.BorderColor3 = Color3.new(0, 0, 0)
-Animation113.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation113.Transparency = 1
-Animation113.Image = "rbxassetid://129177850900145"
-Animation113.Parent = AnimationUI
+local Animation1 = Instance.new("ImageLabel")
+Animation1.Name = "Animation1"
+Animation1.Position = UDim2.new(1, 0, -1, 0)
+Animation1.Size = UDim2.new(3, 0, 3, 0)
+Animation1.BackgroundColor3 = Color3.new(1, 1, 1)
+Animation1.BackgroundTransparency = 1
+Animation1.BorderSizePixel = 0
+Animation1.BorderColor3 = Color3.new(0, 0, 0)
+Animation1.AnchorPoint = Vector2.new(0.5, 0.5)
+Animation1.Transparency = 1
+Animation1.Image = "rbxassetid://129177850900145"
+Animation1.Parent = AnimationUI
 
-local UIAspectRatioConstraint25 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint25.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint14 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint14.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint25.Parent = Animation113
+UIAspectRatioConstraint14.Parent = Animation1
 
 local Animation2 = Instance.new("ImageLabel")
 Animation2.Name = "Animation2"
@@ -1839,10 +1754,10 @@ Animation2.Transparency = 1
 Animation2.Image = "rbxassetid://136264391077433"
 Animation2.Parent = AnimationUI
 
-local UIAspectRatioConstraint26 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint26.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint15 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint15.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint26.Parent = Animation2
+UIAspectRatioConstraint15.Parent = Animation2
 
 local Animation3 = Instance.new("ImageLabel")
 Animation3.Name = "Animation3"
@@ -1857,10 +1772,10 @@ Animation3.Transparency = 1
 Animation3.Image = "rbxassetid://83842772196587"
 Animation3.Parent = AnimationUI
 
-local UIAspectRatioConstraint27 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint27.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint16 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint16.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint27.Parent = Animation3
+UIAspectRatioConstraint16.Parent = Animation3
 
 local Animation4 = Instance.new("ImageLabel")
 Animation4.Name = "Animation4"
@@ -1875,10 +1790,10 @@ Animation4.Transparency = 1
 Animation4.Image = "rbxassetid://122646000251611"
 Animation4.Parent = AnimationUI
 
-local UIAspectRatioConstraint28 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint28.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint17 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint17.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint28.Parent = Animation4
+UIAspectRatioConstraint17.Parent = Animation4
 
 local Animation5 = Instance.new("ImageLabel")
 Animation5.Name = "Animation5"
@@ -1893,10 +1808,10 @@ Animation5.Transparency = 1
 Animation5.Image = "rbxassetid://106237063049048"
 Animation5.Parent = AnimationUI
 
-local UIAspectRatioConstraint29 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint29.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint18 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint18.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint29.Parent = Animation5
+UIAspectRatioConstraint18.Parent = Animation5
 
 local Sea1 = Instance.new("Folder")
 Sea1.Name = "Sea1"
