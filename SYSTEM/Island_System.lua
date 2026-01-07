@@ -5,7 +5,14 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
-local ROOT = script.Parent -- Island Frame
+-- ===== GET UI ROOT SAFELY (StarterPlayerScripts safe) =====
+local playerGui = player:WaitForChild("PlayerGui")
+
+local ROOT = playerGui
+    :WaitForChild("BloxFruitHubGui")
+    :WaitForChild("Main")
+    :WaitForChild("ScrollingTab")
+    :WaitForChild("Island")
 
 -- ============== SETTINGS (tùy chỉnh) =================
 local LUNGE_SPEED = 300
