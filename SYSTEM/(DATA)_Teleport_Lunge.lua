@@ -6,16 +6,69 @@ local player = Players.LocalPlayer
 local LUNGE_SPEED = 300
 local TELEPORT_HEIGHT = 100
 
-local TELEPORT_POINTS = {
-    Vector3.new(-5073.83, 314.51, -3152.52),
-    Vector3.new(-4607.82, 872.54, -1667.56),
-    Vector3.new(-286.99, 306.18, 597.75)
-}
-
 local TARGET_POSITION = Vector3.new(-4992.52, 357.78, -3051.24)
 -- ============================================
 
-local movementToken = 0 -- dùng để hủy chuyển động
+-- ================= PLACE DATA =================
+local PLACES = {
+    Sea1 = {
+        ids = { 85211729168715, 2753915549 },
+        points = {
+            Vector3.new(-7894.62, 5545.49, -380.29),
+            Vector3.new(-4607.82, 872.54, -1667.56),
+            Vector3.new(61163.85, 5.30, 1819.78),
+            Vector3.new(3864.69, 5.37, -1926.21)
+        }
+    },
+
+    Sea2 = {
+        ids = { 79091703265657, 4442272183 },
+        points = {
+            Vector3.new(-286.99, 306.18, 597.75),
+            Vector3.new(-6508.56, 83.24, -132.84),
+            Vector3.new(923.21, 125.11, 32852.83),
+            Vector3.new(2284.91, 15.20, 905.62)
+        }
+    },
+
+    Sea3 = {
+        ids = { 7449423635, 100117331123089 },
+        points = {
+            Vector3.new(-12463.61, 374.91, -7549.53),
+            Vector3.new(-5073.83, 314.51, -3152.52),
+            Vector3.new(5661.53, 1013.04, -334.96),
+            Vector3.new(28286.36, 14896.56, 102.62)
+        }
+    },
+
+    Dungeon = {
+        ids = { 73902483975735 },
+        points = {
+            Vector3.new(0, 100000, 0)
+        }
+    }
+}
+
+-- 🔹 Lấy teleportPoints theo PlaceId
+local TELEPORT_POINTS = {}
+
+do
+    local placeId = game.PlaceId
+
+    for _, data in pairs(PLACES) do
+        if table.find(data.ids, placeId) then
+            TELEPORT_POINTS = data.points
+            break
+        end
+    end
+
+    if #TELEPORT_POINTS == 0 then
+        warn("PlaceID không thuộc Sea1 / Sea2 / Sea3 / Dungeon")
+    end
+end
+-- ============================================
+
+local movementToken = 0
 
 local function getHRP()
     local char = player.Character or player.CharacterAdded:Wait()
@@ -26,7 +79,7 @@ local function distance(a, b)
     return (a - b).Magnitude
 end
 
--- 🔹 Chọn teleport point tốt nhất
+-- 🔹 Chọn teleport point tối ưu
 local function getBestTeleportPoint(fromPos, targetPos)
     local bestPoint, bestDist = nil, math.huge
 
@@ -39,8 +92,6 @@ local function getBestTeleportPoint(fromPos, targetPos)
     end
 
     if not bestPoint then return nil end
-
-    -- nếu teleport không lợi hơn đứng tại chỗ → bỏ
     if distance(fromPos, targetPos) <= bestDist then
         return nil
     end
@@ -48,13 +99,11 @@ local function getBestTeleportPoint(fromPos, targetPos)
     return bestPoint
 end
 
--- 🔹 Teleport tức thì
 local function teleport(pos)
-    local hrp = getHRP()
-    hrp.CFrame = CFrame.new(pos)
+    getHRP().CFrame = CFrame.new(pos)
 end
 
--- 🔹 Lướt – có thể hủy
+-- 🔹 Lướt có thể ngắt
 local function lungeTo(targetPos)
     local hrp = getHRP()
     local myToken = movementToken
@@ -78,19 +127,16 @@ local function lungeTo(targetPos)
     end)
 end
 
--- 🔹 Stop toàn bộ di chuyển
 local function stopMovement()
     movementToken += 1
 end
 
--- ================= MAIN LOGIC =================
+-- ================= MAIN =================
 local function executeMovement()
-    stopMovement() -- hủy mọi chuyển động cũ
+    stopMovement()
 
     local hrp = getHRP()
-    local currentPos = hrp.Position
-
-    local bestTeleport = getBestTeleportPoint(currentPos, TARGET_POSITION)
+    local bestTeleport = getBestTeleportPoint(hrp.Position, TARGET_POSITION)
 
     if bestTeleport then
         teleport(bestTeleport)
@@ -104,5 +150,5 @@ end
 -- Chạy
 executeMovement()
 
--- Ví dụ ngưng giữa chừng:
+-- Có thể gọi ngưng bất cứ lúc nào:
 -- stopMovement()
