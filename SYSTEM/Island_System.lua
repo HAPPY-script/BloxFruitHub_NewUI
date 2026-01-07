@@ -111,7 +111,11 @@ end
 -- ============== MAPPING BUTTON NAME ==========
 local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
-    -- ["ButtonName2"] = Vector3.new(...),
+    ["IcecreamLand"] = Vector3.new(-740.71, 212.90, -10947.48),
+    ["Great Tree"] = Vector3.new(2850.98, 513.49, -7228.15),
+    ["Mansion"] = Vector3.new(-12540.31, 381.95, -7516.82),
+    ["Port Town"] = Vector3.new(-444.92, 108.57, 5926.82),
+
 }
 -- ==========================================================================
 
