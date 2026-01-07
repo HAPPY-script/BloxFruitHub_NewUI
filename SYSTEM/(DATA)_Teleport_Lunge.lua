@@ -7,6 +7,9 @@ local LUNGE_SPEED = 300
 local TELEPORT_HEIGHT = 100
 
 local TARGET_POSITION = Vector3.new(-4992.52, 357.78, -3051.24)
+
+local TELEPORT_SPAM_COUNT = 10
+local TELEPORT_SPAM_TIME = 1.5
 -- ============================================
 
 -- ================= PLACE DATA =================
@@ -131,6 +134,44 @@ local function stopMovement()
     movementToken += 1
 end
 
+local function teleportSpam(pos)
+    local hrp = getHRP()
+    local myToken = movementToken
+
+    local done = false
+    local count = 0
+    local interval = TELEPORT_SPAM_TIME / TELEPORT_SPAM_COUNT
+    local elapsed = 0
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function(dt)
+        if myToken ~= movementToken then
+            conn:Disconnect()
+            done = true
+            return
+        end
+
+        elapsed += dt
+        if elapsed >= interval then
+            elapsed = 0
+            count += 1
+            hrp.CFrame = CFrame.new(pos)
+
+            if count >= TELEPORT_SPAM_COUNT then
+                conn:Disconnect()
+                done = true
+            end
+        end
+    end)
+
+    -- chờ teleport spam xong hoặc bị hủy
+    while not done and myToken == movementToken do
+        task.wait()
+    end
+
+    return myToken == movementToken
+end
+
 -- ================= MAIN =================
 local function executeMovement()
     stopMovement()
@@ -139,7 +180,9 @@ local function executeMovement()
     local bestTeleport = getBestTeleportPoint(hrp.Position, TARGET_POSITION)
 
     if bestTeleport then
-        teleport(bestTeleport)
+        local ok = teleportSpam(bestTeleport)
+        if not ok then return end
+
         teleport(bestTeleport + Vector3.new(0, TELEPORT_HEIGHT, 0))
         task.wait(0.05)
     end
@@ -150,5 +193,5 @@ end
 -- Chạy
 executeMovement()
 
--- Có thể gọi ngưng bất cứ lúc nào:
+-- Có thể gọi bất cứ lúc nào:
 -- stopMovement()
