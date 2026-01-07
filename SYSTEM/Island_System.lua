@@ -433,6 +433,10 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
         if interactionLocked then return end
         interactionLocked = true
 
+        if parts.Name then
+            parts.Name.TextTransparency = 1
+        end
+
         local target = BUTTON_TARGETS[btn.Name]
         if not target then
             warn("TARGET not set for button:", btn.Name)
