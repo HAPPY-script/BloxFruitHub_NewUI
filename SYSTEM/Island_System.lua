@@ -196,14 +196,28 @@ local function teleportSpam(pos)
     return myToken == movementToken
 end
 
+local function toXZ(pos, fixedY)
+    return Vector3.new(pos.X, fixedY, pos.Z)
+end
+
+local function xzDistance(a, b)
+    return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
+end
+
 -- lungeTo that yields until finished or cancelled (giữ như cũ)
 local function lungeTo(targetPos)
     local hrp = getHRP()
     local myToken = movementToken
 
-    local startPos = hrp.Position
-    local delta = targetPos - startPos
-    local distance = delta.Magnitude
+    -- FIX Y ngay lập tức
+    local fixedY = targetPos.Y
+    local startPos = toXZ(hrp.Position, fixedY)
+    local endPos = toXZ(targetPos, fixedY)
+
+    hrp.CFrame = CFrame.new(startPos)
+
+    local delta = endPos - startPos
+    local distance = xzDistance(startPos, endPos)
     if distance < 1 then return true end
 
     local direction = delta.Unit
@@ -219,9 +233,11 @@ local function lungeTo(targetPos)
             return
         end
 
-        elapsed = elapsed + dt
+        elapsed += dt
         local alpha = math.clamp(elapsed / duration, 0, 1)
-        hrp.CFrame = CFrame.new(startPos + direction * (distance * alpha))
+
+        local pos = startPos + direction * (distance * alpha)
+        hrp.CFrame = CFrame.new(pos)
 
         if alpha >= 1 then
             conn:Disconnect()
@@ -229,7 +245,7 @@ local function lungeTo(targetPos)
         end
     end)
 
-    while (not finished) and myToken == movementToken do
+    while not finished and myToken == movementToken do
         task.wait()
     end
 
@@ -483,7 +499,12 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
         local myToken = movementToken + 1
         movementToken = myToken
 
-        local totalDist = math.max(0.0001, vecDistance(getHRP().Position, target))
+        local fixedY = target.Y
+        local startXZ = toXZ(getHRP().Position, fixedY)
+        local targetXZ = toXZ(target, fixedY)
+
+        local totalDist = math.max(0.0001, xzDistance(startXZ, targetXZ))
+
 
         local progressConn
         progressConn = RunService.Heartbeat:Connect(function()
@@ -491,8 +512,8 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
                 progressConn:Disconnect()
                 return
             end
-            local curPos = getHRP().Position
-            local prog = 1 - (vecDistance(curPos, target) / totalDist)
+            local curXZ = toXZ(getHRP().Position, fixedY)
+            local prog = 1 - (xzDistance(curXZ, targetXZ) / totalDist)
             prog = math.clamp(prog, 0, 1)
             local pct = math.floor(prog * 100)
                     
