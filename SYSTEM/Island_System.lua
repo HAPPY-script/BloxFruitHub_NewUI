@@ -1,4 +1,3 @@
--- IslandController (LocalScript) - put in StarterPlayerScripts
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -110,12 +109,19 @@ end
 
 -- ============== MAPPING BUTTON NAME ==========
 local BUTTON_TARGETS = {
-    ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
-    ["IcecreamLand"] = Vector3.new(-740.71, 212.90, -10947.48),
+    ["Port Town"] = Vector3.new(-444.92, 108.57, 5926.82),
+    ["Hydra Island"] = Vector3.new(5293.66, 1032.16, 368.10),
     ["Great Tree"] = Vector3.new(2850.98, 513.49, -7228.15),
     ["Mansion"] = Vector3.new(-12540.31, 381.95, -7516.82),
-    ["Port Town"] = Vector3.new(-444.92, 108.57, 5926.82),
-
+    ["Haunted Castle"] = Vector3.new(-9516.39, 153.77, 5510.51),
+    ["IcecreamLand"] = Vector3.new(-740.71, 212.90, -10947.48),
+    ["CakeLand"] = Vector3.new(-2101.58, 69.98, -12113.61),
+    ["CandyLand"] = Vector3.new(-1093.69, 62.86, -14508.86),
+    ["Tiki Outpost"] = Vector3.new(-16230.67, 10, 436.11),
+    ["Submerged Island"] = Vector3.new(11520.80, -2125.80, 9829.51),
+    ["Temple of Time"] = Vector3.new(28388.48, 14903.01, 104.86),
+    ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
+    ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 }
 -- ==========================================================================
 
