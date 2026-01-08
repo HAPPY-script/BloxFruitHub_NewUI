@@ -94,7 +94,6 @@ end
 
 local PLACE_KEY = detectPlaceKey()
 
--- Nếu PLACE_KEY nil -> không xóa gì
 if PLACE_KEY then
     local toRemove = {}
 
@@ -108,11 +107,23 @@ if PLACE_KEY then
         toRemove = { "Sea1", "Sea2", "Sea3" }
     end
 
+    -- Destroy folders that are not relevant
     for _, name in ipairs(toRemove) do
         local f = ROOT:FindFirstChild(name)
         if f and f.Parent then
-            -- pcall để tránh lỗi nếu bị thay đổi trong runtime
             pcall(function() f:Destroy() end)
+        end
+    end
+
+    -- If the detected place has a folder (and is not Dungeon), ensure all direct-button children are visible.
+    if PLACE_KEY ~= "Dungeon" then
+        local activeFolder = ROOT:FindFirstChild(PLACE_KEY)
+        if activeFolder then
+            for _, child in ipairs(activeFolder:GetChildren()) do
+                if child:IsA("GuiButton") or child:IsA("ImageButton") or child:IsA("TextButton") then
+                    pcall(function() child.Visible = true end)
+                end
+            end
         end
     end
 end
