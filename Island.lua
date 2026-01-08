@@ -23,6 +23,7 @@ Hydra_Island.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Hydra_Island.BackgroundTransparency = 0.75
 Hydra_Island.BorderSizePixel = 0
 Hydra_Island.BorderColor3 = Color3.new(0, 0, 0)
+Hydra_Island.Visible = false
 Hydra_Island.AnchorPoint = Vector2.new(0.5, 0.5)
 Hydra_Island.Transparency = 0.75
 Hydra_Island.Image = "rbxassetid://117924666879793"
@@ -154,6 +155,7 @@ Port_Town.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Port_Town.BackgroundTransparency = 0.75
 Port_Town.BorderSizePixel = 0
 Port_Town.BorderColor3 = Color3.new(0, 0, 0)
+Port_Town.Visible = false
 Port_Town.AnchorPoint = Vector2.new(0.5, 0.5)
 Port_Town.Transparency = 0.75
 Port_Town.Image = "rbxassetid://90119384527680"
@@ -285,6 +287,7 @@ Great_Tree.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Great_Tree.BackgroundTransparency = 0.75
 Great_Tree.BorderSizePixel = 0
 Great_Tree.BorderColor3 = Color3.new(0, 0, 0)
+Great_Tree.Visible = false
 Great_Tree.AnchorPoint = Vector2.new(0.5, 0.5)
 Great_Tree.Transparency = 0.75
 Great_Tree.Image = "rbxassetid://106689913445825"
@@ -416,6 +419,7 @@ Mansion.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Mansion.BackgroundTransparency = 0.75
 Mansion.BorderSizePixel = 0
 Mansion.BorderColor3 = Color3.new(0, 0, 0)
+Mansion.Visible = false
 Mansion.AnchorPoint = Vector2.new(0.5, 0.5)
 Mansion.Transparency = 0.75
 Mansion.Image = "rbxassetid://115057737431641"
@@ -547,6 +551,7 @@ Haunted_Castle.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Haunted_Castle.BackgroundTransparency = 0.75
 Haunted_Castle.BorderSizePixel = 0
 Haunted_Castle.BorderColor3 = Color3.new(0, 0, 0)
+Haunted_Castle.Visible = false
 Haunted_Castle.AnchorPoint = Vector2.new(0.5, 0.5)
 Haunted_Castle.Transparency = 0.75
 Haunted_Castle.Image = "rbxassetid://89367301681698"
@@ -678,6 +683,7 @@ IcecreamLand.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 IcecreamLand.BackgroundTransparency = 0.75
 IcecreamLand.BorderSizePixel = 0
 IcecreamLand.BorderColor3 = Color3.new(0, 0, 0)
+IcecreamLand.Visible = false
 IcecreamLand.AnchorPoint = Vector2.new(0.5, 0.5)
 IcecreamLand.Transparency = 0.75
 IcecreamLand.Image = "rbxassetid://84425292949709"
@@ -809,6 +815,7 @@ CakeLand.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 CakeLand.BackgroundTransparency = 0.75
 CakeLand.BorderSizePixel = 0
 CakeLand.BorderColor3 = Color3.new(0, 0, 0)
+CakeLand.Visible = false
 CakeLand.AnchorPoint = Vector2.new(0.5, 0.5)
 CakeLand.Transparency = 0.75
 CakeLand.Image = "rbxassetid://108327090167582"
@@ -940,6 +947,7 @@ CandyLand.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 CandyLand.BackgroundTransparency = 0.75
 CandyLand.BorderSizePixel = 0
 CandyLand.BorderColor3 = Color3.new(0, 0, 0)
+CandyLand.Visible = false
 CandyLand.AnchorPoint = Vector2.new(0.5, 0.5)
 CandyLand.Transparency = 0.75
 CandyLand.Image = "rbxassetid://116318136345685"
@@ -1071,6 +1079,7 @@ Tiki_Outpost.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Tiki_Outpost.BackgroundTransparency = 0.75
 Tiki_Outpost.BorderSizePixel = 0
 Tiki_Outpost.BorderColor3 = Color3.new(0, 0, 0)
+Tiki_Outpost.Visible = false
 Tiki_Outpost.AnchorPoint = Vector2.new(0.5, 0.5)
 Tiki_Outpost.Transparency = 0.75
 Tiki_Outpost.Image = "rbxassetid://90999317136742"
@@ -1202,6 +1211,7 @@ Submerged_Island.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Submerged_Island.BackgroundTransparency = 0.75
 Submerged_Island.BorderSizePixel = 0
 Submerged_Island.BorderColor3 = Color3.new(0, 0, 0)
+Submerged_Island.Visible = false
 Submerged_Island.AnchorPoint = Vector2.new(0.5, 0.5)
 Submerged_Island.Transparency = 0.75
 Submerged_Island.Image = "rbxassetid://110386080961147"
@@ -1333,6 +1343,7 @@ Temple_of_Time.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Temple_of_Time.BackgroundTransparency = 0.75
 Temple_of_Time.BorderSizePixel = 0
 Temple_of_Time.BorderColor3 = Color3.new(0, 0, 0)
+Temple_of_Time.Visible = false
 Temple_of_Time.AnchorPoint = Vector2.new(0.5, 0.5)
 Temple_of_Time.Transparency = 0.75
 Temple_of_Time.Image = "rbxassetid://104655232452107"
@@ -1464,6 +1475,7 @@ Dojo.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Dojo.BackgroundTransparency = 0.75
 Dojo.BorderSizePixel = 0
 Dojo.BorderColor3 = Color3.new(0, 0, 0)
+Dojo.Visible = false
 Dojo.AnchorPoint = Vector2.new(0.5, 0.5)
 Dojo.Transparency = 0.75
 Dojo.Image = "rbxassetid://138249981711954"
@@ -1595,6 +1607,7 @@ Castle_on_the_Sea.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
 Castle_on_the_Sea.BackgroundTransparency = 0.75
 Castle_on_the_Sea.BorderSizePixel = 0
 Castle_on_the_Sea.BorderColor3 = Color3.new(0, 0, 0)
+Castle_on_the_Sea.Visible = false
 Castle_on_the_Sea.AnchorPoint = Vector2.new(0.5, 0.5)
 Castle_on_the_Sea.Transparency = 0.75
 Castle_on_the_Sea.Image = "rbxassetid://97420848058237"
@@ -1723,24 +1736,6 @@ AnimationUI.Name = "AnimationUI"
 
 AnimationUI.Parent = Island
 
-local Animation1 = Instance.new("ImageLabel")
-Animation1.Name = "Animation1"
-Animation1.Position = UDim2.new(1, 0, -1, 0)
-Animation1.Size = UDim2.new(3, 0, 3, 0)
-Animation1.BackgroundColor3 = Color3.new(1, 1, 1)
-Animation1.BackgroundTransparency = 1
-Animation1.BorderSizePixel = 0
-Animation1.BorderColor3 = Color3.new(0, 0, 0)
-Animation1.AnchorPoint = Vector2.new(0.5, 0.5)
-Animation1.Transparency = 1
-Animation1.Image = "rbxassetid://129177850900145"
-Animation1.Parent = AnimationUI
-
-local UIAspectRatioConstraint14 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint14.Name = "UIAspectRatioConstraint"
-
-UIAspectRatioConstraint14.Parent = Animation1
-
 local Animation2 = Instance.new("ImageLabel")
 Animation2.Name = "Animation2"
 Animation2.Position = UDim2.new(1, 0, -1, 0)
@@ -1754,10 +1749,10 @@ Animation2.Transparency = 1
 Animation2.Image = "rbxassetid://136264391077433"
 Animation2.Parent = AnimationUI
 
-local UIAspectRatioConstraint15 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint15.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint14 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint14.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint15.Parent = Animation2
+UIAspectRatioConstraint14.Parent = Animation2
 
 local Animation3 = Instance.new("ImageLabel")
 Animation3.Name = "Animation3"
@@ -1772,10 +1767,10 @@ Animation3.Transparency = 1
 Animation3.Image = "rbxassetid://83842772196587"
 Animation3.Parent = AnimationUI
 
-local UIAspectRatioConstraint16 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint16.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint15 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint15.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint16.Parent = Animation3
+UIAspectRatioConstraint15.Parent = Animation3
 
 local Animation4 = Instance.new("ImageLabel")
 Animation4.Name = "Animation4"
@@ -1790,10 +1785,10 @@ Animation4.Transparency = 1
 Animation4.Image = "rbxassetid://122646000251611"
 Animation4.Parent = AnimationUI
 
-local UIAspectRatioConstraint17 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint17.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint16 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint16.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint17.Parent = Animation4
+UIAspectRatioConstraint16.Parent = Animation4
 
 local Animation5 = Instance.new("ImageLabel")
 Animation5.Name = "Animation5"
@@ -1808,10 +1803,28 @@ Animation5.Transparency = 1
 Animation5.Image = "rbxassetid://106237063049048"
 Animation5.Parent = AnimationUI
 
+local UIAspectRatioConstraint17 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint17.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint17.Parent = Animation5
+
+local Animation1 = Instance.new("ImageLabel")
+Animation1.Name = "Animation1"
+Animation1.Position = UDim2.new(1, 0, -1, 0)
+Animation1.Size = UDim2.new(3, 0, 3, 0)
+Animation1.BackgroundColor3 = Color3.new(1, 1, 1)
+Animation1.BackgroundTransparency = 1
+Animation1.BorderSizePixel = 0
+Animation1.BorderColor3 = Color3.new(0, 0, 0)
+Animation1.AnchorPoint = Vector2.new(0.5, 0.5)
+Animation1.Transparency = 1
+Animation1.Image = "rbxassetid://129177850900145"
+Animation1.Parent = AnimationUI
+
 local UIAspectRatioConstraint18 = Instance.new("UIAspectRatioConstraint")
 UIAspectRatioConstraint18.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint18.Parent = Animation5
+UIAspectRatioConstraint18.Parent = Animation1
 
 local Sea1 = Instance.new("Folder")
 Sea1.Name = "Sea1"
@@ -1822,6 +1835,1447 @@ local Sea2 = Instance.new("Folder")
 Sea2.Name = "Sea2"
 
 Sea2.Parent = Island
+
+local Cafe = Instance.new("ImageButton")
+Cafe.Name = "Cafe"
+Cafe.Position = UDim2.new(0.2, 0, 0.06, 0)
+Cafe.Size = UDim2.new(0.25, 0, 0.25, 0)
+Cafe.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Cafe.BackgroundTransparency = 0.75
+Cafe.BorderSizePixel = 0
+Cafe.BorderColor3 = Color3.new(0, 0, 0)
+Cafe.AnchorPoint = Vector2.new(0.5, 0.5)
+Cafe.Transparency = 0.75
+Cafe.Image = "rbxassetid://130347540308634"
+Cafe.Parent = Sea2
+
+local UIAspectRatioConstraint19 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint19.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint19.Parent = Cafe
+
+local UICorner40 = Instance.new("UICorner")
+UICorner40.Name = "UICorner"
+UICorner40.CornerRadius = UDim.new(0.15, 0)
+UICorner40.Parent = Cafe
+
+local Effect14 = Instance.new("Frame")
+Effect14.Name = "Effect"
+Effect14.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect14.Size = UDim2.new(1, 0, 1, 0)
+Effect14.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect14.BackgroundTransparency = 0.15000000596046448
+Effect14.BorderSizePixel = 0
+Effect14.BorderColor3 = Color3.new(0, 0, 0)
+Effect14.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect14.Transparency = 0.15000000596046448
+Effect14.Parent = Cafe
+
+local UICorner41 = Instance.new("UICorner")
+UICorner41.Name = "UICorner"
+UICorner41.CornerRadius = UDim.new(0.15, 0)
+UICorner41.Parent = Effect14
+
+local UIGradient14 = Instance.new("UIGradient")
+UIGradient14.Name = "UIGradient"
+UIGradient14.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient14.Rotation = -90
+UIGradient14.Offset = Vector2.new(0, 1)
+UIGradient14.Parent = Effect14
+
+local Name14 = Instance.new("TextLabel")
+Name14.Name = "Name"
+Name14.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name14.Size = UDim2.new(1, 0, 0.375, 0)
+Name14.BackgroundColor3 = Color3.new(1, 1, 1)
+Name14.BackgroundTransparency = 1
+Name14.BorderSizePixel = 0
+Name14.BorderColor3 = Color3.new(0, 0, 0)
+Name14.AnchorPoint = Vector2.new(0.5, 0.5)
+Name14.Transparency = 1
+Name14.Text = "Cafe"
+Name14.TextColor3 = Color3.new(1, 1, 1)
+Name14.TextSize = 14
+Name14.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name14.TextScaled = true
+Name14.TextWrapped = true
+Name14.Parent = Effect14
+
+local CancelButton14 = Instance.new("TextButton")
+CancelButton14.Name = "CancelButton"
+CancelButton14.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton14.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton14.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton14.BorderSizePixel = 0
+CancelButton14.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton14.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton14.Text = "Cancel"
+CancelButton14.TextColor3 = Color3.new(1, 1, 1)
+CancelButton14.TextSize = 14
+CancelButton14.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton14.TextScaled = true
+CancelButton14.TextWrapped = true
+CancelButton14.Parent = Effect14
+
+local UIStroke14 = Instance.new("UIStroke")
+UIStroke14.Name = "UIStroke"
+UIStroke14.Color = Color3.new(1, 1, 1)
+UIStroke14.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke14.Parent = CancelButton14
+
+local Ratio14 = Instance.new("TextLabel")
+Ratio14.Name = "Ratio"
+Ratio14.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio14.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio14.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio14.BackgroundTransparency = 1
+Ratio14.BorderSizePixel = 0
+Ratio14.BorderColor3 = Color3.new(0, 0, 0)
+Ratio14.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio14.Transparency = 1
+Ratio14.Text = "0%"
+Ratio14.TextColor3 = Color3.new(1, 0, 0)
+Ratio14.TextSize = 14
+Ratio14.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio14.TextScaled = true
+Ratio14.TextWrapped = true
+Ratio14.Parent = Effect14
+
+local Loading14 = Instance.new("Frame")
+Loading14.Name = "Loading"
+Loading14.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading14.Size = UDim2.new(1, 0, 0.1, 0)
+Loading14.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading14.BackgroundTransparency = 1
+Loading14.BorderSizePixel = 0
+Loading14.BorderColor3 = Color3.new(0, 0, 0)
+Loading14.ZIndex = 2
+Loading14.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading14.Transparency = 1
+Loading14.Parent = Effect14
+
+local LoadFrame14 = Instance.new("Frame")
+LoadFrame14.Name = "LoadFrame"
+LoadFrame14.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame14.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame14.BorderSizePixel = 0
+LoadFrame14.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame14.Parent = Loading14
+
+local UICorner42 = Instance.new("UICorner")
+UICorner42.Name = "UICorner"
+UICorner42.CornerRadius = UDim.new(1, 0)
+UICorner42.Parent = LoadFrame14
+
+local Factory = Instance.new("ImageButton")
+Factory.Name = "Factory"
+Factory.Position = UDim2.new(0.5, 0, 0.06, 0)
+Factory.Size = UDim2.new(0.25, 0, 0.25, 0)
+Factory.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Factory.BackgroundTransparency = 0.75
+Factory.BorderSizePixel = 0
+Factory.BorderColor3 = Color3.new(0, 0, 0)
+Factory.AnchorPoint = Vector2.new(0.5, 0.5)
+Factory.Transparency = 0.75
+Factory.Image = "rbxassetid://110936326414018"
+Factory.Parent = Sea2
+
+local UIAspectRatioConstraint20 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint20.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint20.Parent = Factory
+
+local UICorner43 = Instance.new("UICorner")
+UICorner43.Name = "UICorner"
+UICorner43.CornerRadius = UDim.new(0.15, 0)
+UICorner43.Parent = Factory
+
+local Effect15 = Instance.new("Frame")
+Effect15.Name = "Effect"
+Effect15.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect15.Size = UDim2.new(1, 0, 1, 0)
+Effect15.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect15.BackgroundTransparency = 0.15000000596046448
+Effect15.BorderSizePixel = 0
+Effect15.BorderColor3 = Color3.new(0, 0, 0)
+Effect15.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect15.Transparency = 0.15000000596046448
+Effect15.Parent = Factory
+
+local UICorner44 = Instance.new("UICorner")
+UICorner44.Name = "UICorner"
+UICorner44.CornerRadius = UDim.new(0.15, 0)
+UICorner44.Parent = Effect15
+
+local UIGradient15 = Instance.new("UIGradient")
+UIGradient15.Name = "UIGradient"
+UIGradient15.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient15.Rotation = -90
+UIGradient15.Offset = Vector2.new(0, 1)
+UIGradient15.Parent = Effect15
+
+local Name15 = Instance.new("TextLabel")
+Name15.Name = "Name"
+Name15.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name15.Size = UDim2.new(1, 0, 0.375, 0)
+Name15.BackgroundColor3 = Color3.new(1, 1, 1)
+Name15.BackgroundTransparency = 1
+Name15.BorderSizePixel = 0
+Name15.BorderColor3 = Color3.new(0, 0, 0)
+Name15.AnchorPoint = Vector2.new(0.5, 0.5)
+Name15.Transparency = 1
+Name15.Text = "Factory"
+Name15.TextColor3 = Color3.new(1, 1, 1)
+Name15.TextSize = 14
+Name15.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name15.TextScaled = true
+Name15.TextWrapped = true
+Name15.Parent = Effect15
+
+local CancelButton15 = Instance.new("TextButton")
+CancelButton15.Name = "CancelButton"
+CancelButton15.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton15.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton15.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton15.BorderSizePixel = 0
+CancelButton15.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton15.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton15.Text = "Cancel"
+CancelButton15.TextColor3 = Color3.new(1, 1, 1)
+CancelButton15.TextSize = 14
+CancelButton15.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton15.TextScaled = true
+CancelButton15.TextWrapped = true
+CancelButton15.Parent = Effect15
+
+local UIStroke15 = Instance.new("UIStroke")
+UIStroke15.Name = "UIStroke"
+UIStroke15.Color = Color3.new(1, 1, 1)
+UIStroke15.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke15.Parent = CancelButton15
+
+local Ratio15 = Instance.new("TextLabel")
+Ratio15.Name = "Ratio"
+Ratio15.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio15.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio15.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio15.BackgroundTransparency = 1
+Ratio15.BorderSizePixel = 0
+Ratio15.BorderColor3 = Color3.new(0, 0, 0)
+Ratio15.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio15.Transparency = 1
+Ratio15.Text = "0%"
+Ratio15.TextColor3 = Color3.new(1, 0, 0)
+Ratio15.TextSize = 14
+Ratio15.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio15.TextScaled = true
+Ratio15.TextWrapped = true
+Ratio15.Parent = Effect15
+
+local Loading15 = Instance.new("Frame")
+Loading15.Name = "Loading"
+Loading15.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading15.Size = UDim2.new(1, 0, 0.1, 0)
+Loading15.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading15.BackgroundTransparency = 1
+Loading15.BorderSizePixel = 0
+Loading15.BorderColor3 = Color3.new(0, 0, 0)
+Loading15.ZIndex = 2
+Loading15.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading15.Transparency = 1
+Loading15.Parent = Effect15
+
+local LoadFrame15 = Instance.new("Frame")
+LoadFrame15.Name = "LoadFrame"
+LoadFrame15.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame15.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame15.BorderSizePixel = 0
+LoadFrame15.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame15.Parent = Loading15
+
+local UICorner45 = Instance.new("UICorner")
+UICorner45.Name = "UICorner"
+UICorner45.CornerRadius = UDim.new(1, 0)
+UICorner45.Parent = LoadFrame15
+
+local Swan_Room = Instance.new("ImageButton")
+Swan_Room.Name = "Swan Room"
+Swan_Room.Position = UDim2.new(0.8, 0, 0.06, 0)
+Swan_Room.Size = UDim2.new(0.25, 0, 0.25, 0)
+Swan_Room.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Swan_Room.BackgroundTransparency = 0.75
+Swan_Room.BorderSizePixel = 0
+Swan_Room.BorderColor3 = Color3.new(0, 0, 0)
+Swan_Room.AnchorPoint = Vector2.new(0.5, 0.5)
+Swan_Room.Transparency = 0.75
+Swan_Room.Image = "rbxassetid://114497290613799"
+Swan_Room.Parent = Sea2
+
+local UIAspectRatioConstraint21 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint21.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint21.Parent = Swan_Room
+
+local UICorner46 = Instance.new("UICorner")
+UICorner46.Name = "UICorner"
+UICorner46.CornerRadius = UDim.new(0.15, 0)
+UICorner46.Parent = Swan_Room
+
+local Effect16 = Instance.new("Frame")
+Effect16.Name = "Effect"
+Effect16.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect16.Size = UDim2.new(1, 0, 1, 0)
+Effect16.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect16.BackgroundTransparency = 0.15000000596046448
+Effect16.BorderSizePixel = 0
+Effect16.BorderColor3 = Color3.new(0, 0, 0)
+Effect16.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect16.Transparency = 0.15000000596046448
+Effect16.Parent = Swan_Room
+
+local UICorner47 = Instance.new("UICorner")
+UICorner47.Name = "UICorner"
+UICorner47.CornerRadius = UDim.new(0.15, 0)
+UICorner47.Parent = Effect16
+
+local UIGradient16 = Instance.new("UIGradient")
+UIGradient16.Name = "UIGradient"
+UIGradient16.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient16.Rotation = -90
+UIGradient16.Offset = Vector2.new(0, 1)
+UIGradient16.Parent = Effect16
+
+local Name16 = Instance.new("TextLabel")
+Name16.Name = "Name"
+Name16.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name16.Size = UDim2.new(1, 0, 0.375, 0)
+Name16.BackgroundColor3 = Color3.new(1, 1, 1)
+Name16.BackgroundTransparency = 1
+Name16.BorderSizePixel = 0
+Name16.BorderColor3 = Color3.new(0, 0, 0)
+Name16.AnchorPoint = Vector2.new(0.5, 0.5)
+Name16.Transparency = 1
+Name16.Text = "Swan Room"
+Name16.TextColor3 = Color3.new(1, 1, 1)
+Name16.TextSize = 14
+Name16.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name16.TextScaled = true
+Name16.TextWrapped = true
+Name16.Parent = Effect16
+
+local CancelButton16 = Instance.new("TextButton")
+CancelButton16.Name = "CancelButton"
+CancelButton16.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton16.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton16.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton16.BorderSizePixel = 0
+CancelButton16.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton16.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton16.Text = "Cancel"
+CancelButton16.TextColor3 = Color3.new(1, 1, 1)
+CancelButton16.TextSize = 14
+CancelButton16.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton16.TextScaled = true
+CancelButton16.TextWrapped = true
+CancelButton16.Parent = Effect16
+
+local UIStroke16 = Instance.new("UIStroke")
+UIStroke16.Name = "UIStroke"
+UIStroke16.Color = Color3.new(1, 1, 1)
+UIStroke16.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke16.Parent = CancelButton16
+
+local Ratio16 = Instance.new("TextLabel")
+Ratio16.Name = "Ratio"
+Ratio16.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio16.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio16.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio16.BackgroundTransparency = 1
+Ratio16.BorderSizePixel = 0
+Ratio16.BorderColor3 = Color3.new(0, 0, 0)
+Ratio16.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio16.Transparency = 1
+Ratio16.Text = "0%"
+Ratio16.TextColor3 = Color3.new(1, 0, 0)
+Ratio16.TextSize = 14
+Ratio16.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio16.TextScaled = true
+Ratio16.TextWrapped = true
+Ratio16.Parent = Effect16
+
+local Loading16 = Instance.new("Frame")
+Loading16.Name = "Loading"
+Loading16.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading16.Size = UDim2.new(1, 0, 0.1, 0)
+Loading16.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading16.BackgroundTransparency = 1
+Loading16.BorderSizePixel = 0
+Loading16.BorderColor3 = Color3.new(0, 0, 0)
+Loading16.ZIndex = 2
+Loading16.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading16.Transparency = 1
+Loading16.Parent = Effect16
+
+local LoadFrame16 = Instance.new("Frame")
+LoadFrame16.Name = "LoadFrame"
+LoadFrame16.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame16.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame16.BorderSizePixel = 0
+LoadFrame16.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame16.Parent = Loading16
+
+local UICorner48 = Instance.new("UICorner")
+UICorner48.Name = "UICorner"
+UICorner48.CornerRadius = UDim.new(1, 0)
+UICorner48.Parent = LoadFrame16
+
+local Green_Zone = Instance.new("ImageButton")
+Green_Zone.Name = "Green Zone"
+Green_Zone.Position = UDim2.new(0.2, 0, 0.165, 0)
+Green_Zone.Size = UDim2.new(0.25, 0, 0.25, 0)
+Green_Zone.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Green_Zone.BackgroundTransparency = 0.75
+Green_Zone.BorderSizePixel = 0
+Green_Zone.BorderColor3 = Color3.new(0, 0, 0)
+Green_Zone.AnchorPoint = Vector2.new(0.5, 0.5)
+Green_Zone.Transparency = 0.75
+Green_Zone.Image = "rbxassetid://91026341302713"
+Green_Zone.Parent = Sea2
+
+local UIAspectRatioConstraint22 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint22.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint22.Parent = Green_Zone
+
+local UICorner49 = Instance.new("UICorner")
+UICorner49.Name = "UICorner"
+UICorner49.CornerRadius = UDim.new(0.15, 0)
+UICorner49.Parent = Green_Zone
+
+local Effect17 = Instance.new("Frame")
+Effect17.Name = "Effect"
+Effect17.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect17.Size = UDim2.new(1, 0, 1, 0)
+Effect17.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect17.BackgroundTransparency = 0.15000000596046448
+Effect17.BorderSizePixel = 0
+Effect17.BorderColor3 = Color3.new(0, 0, 0)
+Effect17.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect17.Transparency = 0.15000000596046448
+Effect17.Parent = Green_Zone
+
+local UICorner50 = Instance.new("UICorner")
+UICorner50.Name = "UICorner"
+UICorner50.CornerRadius = UDim.new(0.15, 0)
+UICorner50.Parent = Effect17
+
+local UIGradient17 = Instance.new("UIGradient")
+UIGradient17.Name = "UIGradient"
+UIGradient17.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient17.Rotation = -90
+UIGradient17.Offset = Vector2.new(0, 1)
+UIGradient17.Parent = Effect17
+
+local Name17 = Instance.new("TextLabel")
+Name17.Name = "Name"
+Name17.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name17.Size = UDim2.new(1, 0, 0.375, 0)
+Name17.BackgroundColor3 = Color3.new(1, 1, 1)
+Name17.BackgroundTransparency = 1
+Name17.BorderSizePixel = 0
+Name17.BorderColor3 = Color3.new(0, 0, 0)
+Name17.AnchorPoint = Vector2.new(0.5, 0.5)
+Name17.Transparency = 1
+Name17.Text = "Green Zone"
+Name17.TextColor3 = Color3.new(1, 1, 1)
+Name17.TextSize = 14
+Name17.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name17.TextScaled = true
+Name17.TextWrapped = true
+Name17.Parent = Effect17
+
+local CancelButton17 = Instance.new("TextButton")
+CancelButton17.Name = "CancelButton"
+CancelButton17.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton17.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton17.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton17.BorderSizePixel = 0
+CancelButton17.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton17.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton17.Text = "Cancel"
+CancelButton17.TextColor3 = Color3.new(1, 1, 1)
+CancelButton17.TextSize = 14
+CancelButton17.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton17.TextScaled = true
+CancelButton17.TextWrapped = true
+CancelButton17.Parent = Effect17
+
+local UIStroke17 = Instance.new("UIStroke")
+UIStroke17.Name = "UIStroke"
+UIStroke17.Color = Color3.new(1, 1, 1)
+UIStroke17.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke17.Parent = CancelButton17
+
+local Ratio17 = Instance.new("TextLabel")
+Ratio17.Name = "Ratio"
+Ratio17.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio17.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio17.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio17.BackgroundTransparency = 1
+Ratio17.BorderSizePixel = 0
+Ratio17.BorderColor3 = Color3.new(0, 0, 0)
+Ratio17.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio17.Transparency = 1
+Ratio17.Text = "0%"
+Ratio17.TextColor3 = Color3.new(1, 0, 0)
+Ratio17.TextSize = 14
+Ratio17.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio17.TextScaled = true
+Ratio17.TextWrapped = true
+Ratio17.Parent = Effect17
+
+local Loading17 = Instance.new("Frame")
+Loading17.Name = "Loading"
+Loading17.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading17.Size = UDim2.new(1, 0, 0.1, 0)
+Loading17.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading17.BackgroundTransparency = 1
+Loading17.BorderSizePixel = 0
+Loading17.BorderColor3 = Color3.new(0, 0, 0)
+Loading17.ZIndex = 2
+Loading17.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading17.Transparency = 1
+Loading17.Parent = Effect17
+
+local LoadFrame17 = Instance.new("Frame")
+LoadFrame17.Name = "LoadFrame"
+LoadFrame17.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame17.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame17.BorderSizePixel = 0
+LoadFrame17.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame17.Parent = Loading17
+
+local UICorner51 = Instance.new("UICorner")
+UICorner51.Name = "UICorner"
+UICorner51.CornerRadius = UDim.new(1, 0)
+UICorner51.Parent = LoadFrame17
+
+local Graveyard_Island = Instance.new("ImageButton")
+Graveyard_Island.Name = "Graveyard Island"
+Graveyard_Island.Position = UDim2.new(0.5, 0, 0.165, 0)
+Graveyard_Island.Size = UDim2.new(0.25, 0, 0.25, 0)
+Graveyard_Island.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Graveyard_Island.BackgroundTransparency = 0.75
+Graveyard_Island.BorderSizePixel = 0
+Graveyard_Island.BorderColor3 = Color3.new(0, 0, 0)
+Graveyard_Island.AnchorPoint = Vector2.new(0.5, 0.5)
+Graveyard_Island.Transparency = 0.75
+Graveyard_Island.Image = "rbxassetid://109176559760741"
+Graveyard_Island.Parent = Sea2
+
+local UIAspectRatioConstraint23 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint23.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint23.Parent = Graveyard_Island
+
+local UICorner52 = Instance.new("UICorner")
+UICorner52.Name = "UICorner"
+UICorner52.CornerRadius = UDim.new(0.15, 0)
+UICorner52.Parent = Graveyard_Island
+
+local Effect18 = Instance.new("Frame")
+Effect18.Name = "Effect"
+Effect18.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect18.Size = UDim2.new(1, 0, 1, 0)
+Effect18.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect18.BackgroundTransparency = 0.15000000596046448
+Effect18.BorderSizePixel = 0
+Effect18.BorderColor3 = Color3.new(0, 0, 0)
+Effect18.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect18.Transparency = 0.15000000596046448
+Effect18.Parent = Graveyard_Island
+
+local UICorner53 = Instance.new("UICorner")
+UICorner53.Name = "UICorner"
+UICorner53.CornerRadius = UDim.new(0.15, 0)
+UICorner53.Parent = Effect18
+
+local UIGradient18 = Instance.new("UIGradient")
+UIGradient18.Name = "UIGradient"
+UIGradient18.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient18.Rotation = -90
+UIGradient18.Offset = Vector2.new(0, 1)
+UIGradient18.Parent = Effect18
+
+local Name18 = Instance.new("TextLabel")
+Name18.Name = "Name"
+Name18.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name18.Size = UDim2.new(1, 0, 0.375, 0)
+Name18.BackgroundColor3 = Color3.new(1, 1, 1)
+Name18.BackgroundTransparency = 1
+Name18.BorderSizePixel = 0
+Name18.BorderColor3 = Color3.new(0, 0, 0)
+Name18.AnchorPoint = Vector2.new(0.5, 0.5)
+Name18.Transparency = 1
+Name18.Text = "Graveyard Island"
+Name18.TextColor3 = Color3.new(1, 1, 1)
+Name18.TextSize = 14
+Name18.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name18.TextScaled = true
+Name18.TextWrapped = true
+Name18.Parent = Effect18
+
+local CancelButton18 = Instance.new("TextButton")
+CancelButton18.Name = "CancelButton"
+CancelButton18.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton18.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton18.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton18.BorderSizePixel = 0
+CancelButton18.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton18.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton18.Text = "Cancel"
+CancelButton18.TextColor3 = Color3.new(1, 1, 1)
+CancelButton18.TextSize = 14
+CancelButton18.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton18.TextScaled = true
+CancelButton18.TextWrapped = true
+CancelButton18.Parent = Effect18
+
+local UIStroke18 = Instance.new("UIStroke")
+UIStroke18.Name = "UIStroke"
+UIStroke18.Color = Color3.new(1, 1, 1)
+UIStroke18.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke18.Parent = CancelButton18
+
+local Ratio18 = Instance.new("TextLabel")
+Ratio18.Name = "Ratio"
+Ratio18.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio18.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio18.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio18.BackgroundTransparency = 1
+Ratio18.BorderSizePixel = 0
+Ratio18.BorderColor3 = Color3.new(0, 0, 0)
+Ratio18.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio18.Transparency = 1
+Ratio18.Text = "0%"
+Ratio18.TextColor3 = Color3.new(1, 0, 0)
+Ratio18.TextSize = 14
+Ratio18.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio18.TextScaled = true
+Ratio18.TextWrapped = true
+Ratio18.Parent = Effect18
+
+local Loading18 = Instance.new("Frame")
+Loading18.Name = "Loading"
+Loading18.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading18.Size = UDim2.new(1, 0, 0.1, 0)
+Loading18.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading18.BackgroundTransparency = 1
+Loading18.BorderSizePixel = 0
+Loading18.BorderColor3 = Color3.new(0, 0, 0)
+Loading18.ZIndex = 2
+Loading18.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading18.Transparency = 1
+Loading18.Parent = Effect18
+
+local LoadFrame18 = Instance.new("Frame")
+LoadFrame18.Name = "LoadFrame"
+LoadFrame18.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame18.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame18.BorderSizePixel = 0
+LoadFrame18.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame18.Parent = Loading18
+
+local UICorner54 = Instance.new("UICorner")
+UICorner54.Name = "UICorner"
+UICorner54.CornerRadius = UDim.new(1, 0)
+UICorner54.Parent = LoadFrame18
+
+local Hot_and_Cold = Instance.new("ImageButton")
+Hot_and_Cold.Name = "Hot and Cold"
+Hot_and_Cold.Position = UDim2.new(0.8, 0, 0.165, 0)
+Hot_and_Cold.Size = UDim2.new(0.25, 0, 0.25, 0)
+Hot_and_Cold.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Hot_and_Cold.BackgroundTransparency = 0.75
+Hot_and_Cold.BorderSizePixel = 0
+Hot_and_Cold.BorderColor3 = Color3.new(0, 0, 0)
+Hot_and_Cold.AnchorPoint = Vector2.new(0.5, 0.5)
+Hot_and_Cold.Transparency = 0.75
+Hot_and_Cold.Image = "rbxassetid://137395189499291"
+Hot_and_Cold.Parent = Sea2
+
+local UIAspectRatioConstraint24 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint24.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint24.Parent = Hot_and_Cold
+
+local UICorner55 = Instance.new("UICorner")
+UICorner55.Name = "UICorner"
+UICorner55.CornerRadius = UDim.new(0.15, 0)
+UICorner55.Parent = Hot_and_Cold
+
+local Effect19 = Instance.new("Frame")
+Effect19.Name = "Effect"
+Effect19.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect19.Size = UDim2.new(1, 0, 1, 0)
+Effect19.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect19.BackgroundTransparency = 0.15000000596046448
+Effect19.BorderSizePixel = 0
+Effect19.BorderColor3 = Color3.new(0, 0, 0)
+Effect19.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect19.Transparency = 0.15000000596046448
+Effect19.Parent = Hot_and_Cold
+
+local UICorner56 = Instance.new("UICorner")
+UICorner56.Name = "UICorner"
+UICorner56.CornerRadius = UDim.new(0.15, 0)
+UICorner56.Parent = Effect19
+
+local UIGradient19 = Instance.new("UIGradient")
+UIGradient19.Name = "UIGradient"
+UIGradient19.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient19.Rotation = -90
+UIGradient19.Offset = Vector2.new(0, 1)
+UIGradient19.Parent = Effect19
+
+local Name19 = Instance.new("TextLabel")
+Name19.Name = "Name"
+Name19.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name19.Size = UDim2.new(1, 0, 0.375, 0)
+Name19.BackgroundColor3 = Color3.new(1, 1, 1)
+Name19.BackgroundTransparency = 1
+Name19.BorderSizePixel = 0
+Name19.BorderColor3 = Color3.new(0, 0, 0)
+Name19.AnchorPoint = Vector2.new(0.5, 0.5)
+Name19.Transparency = 1
+Name19.Text = "Hot and Cold"
+Name19.TextColor3 = Color3.new(1, 1, 1)
+Name19.TextSize = 14
+Name19.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name19.TextScaled = true
+Name19.TextWrapped = true
+Name19.Parent = Effect19
+
+local CancelButton19 = Instance.new("TextButton")
+CancelButton19.Name = "CancelButton"
+CancelButton19.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton19.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton19.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton19.BorderSizePixel = 0
+CancelButton19.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton19.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton19.Text = "Cancel"
+CancelButton19.TextColor3 = Color3.new(1, 1, 1)
+CancelButton19.TextSize = 14
+CancelButton19.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton19.TextScaled = true
+CancelButton19.TextWrapped = true
+CancelButton19.Parent = Effect19
+
+local UIStroke19 = Instance.new("UIStroke")
+UIStroke19.Name = "UIStroke"
+UIStroke19.Color = Color3.new(1, 1, 1)
+UIStroke19.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke19.Parent = CancelButton19
+
+local Ratio19 = Instance.new("TextLabel")
+Ratio19.Name = "Ratio"
+Ratio19.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio19.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio19.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio19.BackgroundTransparency = 1
+Ratio19.BorderSizePixel = 0
+Ratio19.BorderColor3 = Color3.new(0, 0, 0)
+Ratio19.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio19.Transparency = 1
+Ratio19.Text = "0%"
+Ratio19.TextColor3 = Color3.new(1, 0, 0)
+Ratio19.TextSize = 14
+Ratio19.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio19.TextScaled = true
+Ratio19.TextWrapped = true
+Ratio19.Parent = Effect19
+
+local Loading19 = Instance.new("Frame")
+Loading19.Name = "Loading"
+Loading19.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading19.Size = UDim2.new(1, 0, 0.1, 0)
+Loading19.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading19.BackgroundTransparency = 1
+Loading19.BorderSizePixel = 0
+Loading19.BorderColor3 = Color3.new(0, 0, 0)
+Loading19.ZIndex = 2
+Loading19.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading19.Transparency = 1
+Loading19.Parent = Effect19
+
+local LoadFrame19 = Instance.new("Frame")
+LoadFrame19.Name = "LoadFrame"
+LoadFrame19.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame19.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame19.BorderSizePixel = 0
+LoadFrame19.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame19.Parent = Loading19
+
+local UICorner57 = Instance.new("UICorner")
+UICorner57.Name = "UICorner"
+UICorner57.CornerRadius = UDim.new(1, 0)
+UICorner57.Parent = LoadFrame19
+
+local Snow_Mountain = Instance.new("ImageButton")
+Snow_Mountain.Name = "Snow Mountain"
+Snow_Mountain.Position = UDim2.new(0.2, 0, 0.27, 0)
+Snow_Mountain.Size = UDim2.new(0.25, 0, 0.25, 0)
+Snow_Mountain.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Snow_Mountain.BackgroundTransparency = 0.75
+Snow_Mountain.BorderSizePixel = 0
+Snow_Mountain.BorderColor3 = Color3.new(0, 0, 0)
+Snow_Mountain.AnchorPoint = Vector2.new(0.5, 0.5)
+Snow_Mountain.Transparency = 0.75
+Snow_Mountain.Image = "rbxassetid://129439797530180"
+Snow_Mountain.Parent = Sea2
+
+local UIAspectRatioConstraint25 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint25.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint25.Parent = Snow_Mountain
+
+local UICorner58 = Instance.new("UICorner")
+UICorner58.Name = "UICorner"
+UICorner58.CornerRadius = UDim.new(0.15, 0)
+UICorner58.Parent = Snow_Mountain
+
+local Effect20 = Instance.new("Frame")
+Effect20.Name = "Effect"
+Effect20.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect20.Size = UDim2.new(1, 0, 1, 0)
+Effect20.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect20.BackgroundTransparency = 0.15000000596046448
+Effect20.BorderSizePixel = 0
+Effect20.BorderColor3 = Color3.new(0, 0, 0)
+Effect20.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect20.Transparency = 0.15000000596046448
+Effect20.Parent = Snow_Mountain
+
+local UICorner59 = Instance.new("UICorner")
+UICorner59.Name = "UICorner"
+UICorner59.CornerRadius = UDim.new(0.15, 0)
+UICorner59.Parent = Effect20
+
+local UIGradient20 = Instance.new("UIGradient")
+UIGradient20.Name = "UIGradient"
+UIGradient20.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient20.Rotation = -90
+UIGradient20.Offset = Vector2.new(0, 1)
+UIGradient20.Parent = Effect20
+
+local Name20 = Instance.new("TextLabel")
+Name20.Name = "Name"
+Name20.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name20.Size = UDim2.new(1, 0, 0.375, 0)
+Name20.BackgroundColor3 = Color3.new(1, 1, 1)
+Name20.BackgroundTransparency = 1
+Name20.BorderSizePixel = 0
+Name20.BorderColor3 = Color3.new(0, 0, 0)
+Name20.AnchorPoint = Vector2.new(0.5, 0.5)
+Name20.Transparency = 1
+Name20.Text = "Snow Mountain"
+Name20.TextColor3 = Color3.new(1, 1, 1)
+Name20.TextSize = 14
+Name20.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name20.TextScaled = true
+Name20.TextWrapped = true
+Name20.Parent = Effect20
+
+local CancelButton20 = Instance.new("TextButton")
+CancelButton20.Name = "CancelButton"
+CancelButton20.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton20.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton20.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton20.BorderSizePixel = 0
+CancelButton20.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton20.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton20.Text = "Cancel"
+CancelButton20.TextColor3 = Color3.new(1, 1, 1)
+CancelButton20.TextSize = 14
+CancelButton20.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton20.TextScaled = true
+CancelButton20.TextWrapped = true
+CancelButton20.Parent = Effect20
+
+local UIStroke20 = Instance.new("UIStroke")
+UIStroke20.Name = "UIStroke"
+UIStroke20.Color = Color3.new(1, 1, 1)
+UIStroke20.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke20.Parent = CancelButton20
+
+local Ratio20 = Instance.new("TextLabel")
+Ratio20.Name = "Ratio"
+Ratio20.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio20.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio20.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio20.BackgroundTransparency = 1
+Ratio20.BorderSizePixel = 0
+Ratio20.BorderColor3 = Color3.new(0, 0, 0)
+Ratio20.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio20.Transparency = 1
+Ratio20.Text = "0%"
+Ratio20.TextColor3 = Color3.new(1, 0, 0)
+Ratio20.TextSize = 14
+Ratio20.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio20.TextScaled = true
+Ratio20.TextWrapped = true
+Ratio20.Parent = Effect20
+
+local Loading20 = Instance.new("Frame")
+Loading20.Name = "Loading"
+Loading20.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading20.Size = UDim2.new(1, 0, 0.1, 0)
+Loading20.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading20.BackgroundTransparency = 1
+Loading20.BorderSizePixel = 0
+Loading20.BorderColor3 = Color3.new(0, 0, 0)
+Loading20.ZIndex = 2
+Loading20.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading20.Transparency = 1
+Loading20.Parent = Effect20
+
+local LoadFrame20 = Instance.new("Frame")
+LoadFrame20.Name = "LoadFrame"
+LoadFrame20.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame20.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame20.BorderSizePixel = 0
+LoadFrame20.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame20.Parent = Loading20
+
+local UICorner60 = Instance.new("UICorner")
+UICorner60.Name = "UICorner"
+UICorner60.CornerRadius = UDim.new(1, 0)
+UICorner60.Parent = LoadFrame20
+
+local Ice_Castle = Instance.new("ImageButton")
+Ice_Castle.Name = "Ice Castle"
+Ice_Castle.Position = UDim2.new(0.5, 0, 0.27, 0)
+Ice_Castle.Size = UDim2.new(0.25, 0, 0.25, 0)
+Ice_Castle.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Ice_Castle.BackgroundTransparency = 0.75
+Ice_Castle.BorderSizePixel = 0
+Ice_Castle.BorderColor3 = Color3.new(0, 0, 0)
+Ice_Castle.AnchorPoint = Vector2.new(0.5, 0.5)
+Ice_Castle.Transparency = 0.75
+Ice_Castle.Image = "rbxassetid://106485327348425"
+Ice_Castle.Parent = Sea2
+
+local UIAspectRatioConstraint26 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint26.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint26.Parent = Ice_Castle
+
+local UICorner61 = Instance.new("UICorner")
+UICorner61.Name = "UICorner"
+UICorner61.CornerRadius = UDim.new(0.15, 0)
+UICorner61.Parent = Ice_Castle
+
+local Effect21 = Instance.new("Frame")
+Effect21.Name = "Effect"
+Effect21.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect21.Size = UDim2.new(1, 0, 1, 0)
+Effect21.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect21.BackgroundTransparency = 0.15000000596046448
+Effect21.BorderSizePixel = 0
+Effect21.BorderColor3 = Color3.new(0, 0, 0)
+Effect21.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect21.Transparency = 0.15000000596046448
+Effect21.Parent = Ice_Castle
+
+local UICorner62 = Instance.new("UICorner")
+UICorner62.Name = "UICorner"
+UICorner62.CornerRadius = UDim.new(0.15, 0)
+UICorner62.Parent = Effect21
+
+local UIGradient21 = Instance.new("UIGradient")
+UIGradient21.Name = "UIGradient"
+UIGradient21.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient21.Rotation = -90
+UIGradient21.Offset = Vector2.new(0, 1)
+UIGradient21.Parent = Effect21
+
+local Name21 = Instance.new("TextLabel")
+Name21.Name = "Name"
+Name21.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name21.Size = UDim2.new(1, 0, 0.375, 0)
+Name21.BackgroundColor3 = Color3.new(1, 1, 1)
+Name21.BackgroundTransparency = 1
+Name21.BorderSizePixel = 0
+Name21.BorderColor3 = Color3.new(0, 0, 0)
+Name21.AnchorPoint = Vector2.new(0.5, 0.5)
+Name21.Transparency = 1
+Name21.Text = "Ice Castle"
+Name21.TextColor3 = Color3.new(1, 1, 1)
+Name21.TextSize = 14
+Name21.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name21.TextScaled = true
+Name21.TextWrapped = true
+Name21.Parent = Effect21
+
+local CancelButton21 = Instance.new("TextButton")
+CancelButton21.Name = "CancelButton"
+CancelButton21.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton21.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton21.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton21.BorderSizePixel = 0
+CancelButton21.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton21.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton21.Text = "Cancel"
+CancelButton21.TextColor3 = Color3.new(1, 1, 1)
+CancelButton21.TextSize = 14
+CancelButton21.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton21.TextScaled = true
+CancelButton21.TextWrapped = true
+CancelButton21.Parent = Effect21
+
+local UIStroke21 = Instance.new("UIStroke")
+UIStroke21.Name = "UIStroke"
+UIStroke21.Color = Color3.new(1, 1, 1)
+UIStroke21.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke21.Parent = CancelButton21
+
+local Ratio21 = Instance.new("TextLabel")
+Ratio21.Name = "Ratio"
+Ratio21.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio21.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio21.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio21.BackgroundTransparency = 1
+Ratio21.BorderSizePixel = 0
+Ratio21.BorderColor3 = Color3.new(0, 0, 0)
+Ratio21.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio21.Transparency = 1
+Ratio21.Text = "0%"
+Ratio21.TextColor3 = Color3.new(1, 0, 0)
+Ratio21.TextSize = 14
+Ratio21.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio21.TextScaled = true
+Ratio21.TextWrapped = true
+Ratio21.Parent = Effect21
+
+local Loading21 = Instance.new("Frame")
+Loading21.Name = "Loading"
+Loading21.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading21.Size = UDim2.new(1, 0, 0.1, 0)
+Loading21.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading21.BackgroundTransparency = 1
+Loading21.BorderSizePixel = 0
+Loading21.BorderColor3 = Color3.new(0, 0, 0)
+Loading21.ZIndex = 2
+Loading21.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading21.Transparency = 1
+Loading21.Parent = Effect21
+
+local LoadFrame21 = Instance.new("Frame")
+LoadFrame21.Name = "LoadFrame"
+LoadFrame21.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame21.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame21.BorderSizePixel = 0
+LoadFrame21.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame21.Parent = Loading21
+
+local UICorner63 = Instance.new("UICorner")
+UICorner63.Name = "UICorner"
+UICorner63.CornerRadius = UDim.new(1, 0)
+UICorner63.Parent = LoadFrame21
+
+local Forgotten_Island = Instance.new("ImageButton")
+Forgotten_Island.Name = "Forgotten Island"
+Forgotten_Island.Position = UDim2.new(0.8, 0, 0.27, 0)
+Forgotten_Island.Size = UDim2.new(0.25, 0, 0.25, 0)
+Forgotten_Island.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Forgotten_Island.BackgroundTransparency = 0.75
+Forgotten_Island.BorderSizePixel = 0
+Forgotten_Island.BorderColor3 = Color3.new(0, 0, 0)
+Forgotten_Island.AnchorPoint = Vector2.new(0.5, 0.5)
+Forgotten_Island.Transparency = 0.75
+Forgotten_Island.Image = "rbxassetid://77880790468242"
+Forgotten_Island.Parent = Sea2
+
+local UIAspectRatioConstraint27 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint27.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint27.Parent = Forgotten_Island
+
+local UICorner64 = Instance.new("UICorner")
+UICorner64.Name = "UICorner"
+UICorner64.CornerRadius = UDim.new(0.15, 0)
+UICorner64.Parent = Forgotten_Island
+
+local Effect22 = Instance.new("Frame")
+Effect22.Name = "Effect"
+Effect22.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect22.Size = UDim2.new(1, 0, 1, 0)
+Effect22.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect22.BackgroundTransparency = 0.15000000596046448
+Effect22.BorderSizePixel = 0
+Effect22.BorderColor3 = Color3.new(0, 0, 0)
+Effect22.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect22.Transparency = 0.15000000596046448
+Effect22.Parent = Forgotten_Island
+
+local UICorner65 = Instance.new("UICorner")
+UICorner65.Name = "UICorner"
+UICorner65.CornerRadius = UDim.new(0.15, 0)
+UICorner65.Parent = Effect22
+
+local UIGradient22 = Instance.new("UIGradient")
+UIGradient22.Name = "UIGradient"
+UIGradient22.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient22.Rotation = -90
+UIGradient22.Offset = Vector2.new(0, 1)
+UIGradient22.Parent = Effect22
+
+local Name22 = Instance.new("TextLabel")
+Name22.Name = "Name"
+Name22.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name22.Size = UDim2.new(1, 0, 0.375, 0)
+Name22.BackgroundColor3 = Color3.new(1, 1, 1)
+Name22.BackgroundTransparency = 1
+Name22.BorderSizePixel = 0
+Name22.BorderColor3 = Color3.new(0, 0, 0)
+Name22.AnchorPoint = Vector2.new(0.5, 0.5)
+Name22.Transparency = 1
+Name22.Text = "Forgotten Island"
+Name22.TextColor3 = Color3.new(1, 1, 1)
+Name22.TextSize = 14
+Name22.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name22.TextScaled = true
+Name22.TextWrapped = true
+Name22.Parent = Effect22
+
+local CancelButton22 = Instance.new("TextButton")
+CancelButton22.Name = "CancelButton"
+CancelButton22.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton22.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton22.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton22.BorderSizePixel = 0
+CancelButton22.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton22.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton22.Text = "Cancel"
+CancelButton22.TextColor3 = Color3.new(1, 1, 1)
+CancelButton22.TextSize = 14
+CancelButton22.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton22.TextScaled = true
+CancelButton22.TextWrapped = true
+CancelButton22.Parent = Effect22
+
+local UIStroke22 = Instance.new("UIStroke")
+UIStroke22.Name = "UIStroke"
+UIStroke22.Color = Color3.new(1, 1, 1)
+UIStroke22.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke22.Parent = CancelButton22
+
+local Ratio22 = Instance.new("TextLabel")
+Ratio22.Name = "Ratio"
+Ratio22.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio22.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio22.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio22.BackgroundTransparency = 1
+Ratio22.BorderSizePixel = 0
+Ratio22.BorderColor3 = Color3.new(0, 0, 0)
+Ratio22.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio22.Transparency = 1
+Ratio22.Text = "0%"
+Ratio22.TextColor3 = Color3.new(1, 0, 0)
+Ratio22.TextSize = 14
+Ratio22.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio22.TextScaled = true
+Ratio22.TextWrapped = true
+Ratio22.Parent = Effect22
+
+local Loading22 = Instance.new("Frame")
+Loading22.Name = "Loading"
+Loading22.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading22.Size = UDim2.new(1, 0, 0.1, 0)
+Loading22.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading22.BackgroundTransparency = 1
+Loading22.BorderSizePixel = 0
+Loading22.BorderColor3 = Color3.new(0, 0, 0)
+Loading22.ZIndex = 2
+Loading22.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading22.Transparency = 1
+Loading22.Parent = Effect22
+
+local LoadFrame22 = Instance.new("Frame")
+LoadFrame22.Name = "LoadFrame"
+LoadFrame22.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame22.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame22.BorderSizePixel = 0
+LoadFrame22.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame22.Parent = Loading22
+
+local UICorner66 = Instance.new("UICorner")
+UICorner66.Name = "UICorner"
+UICorner66.CornerRadius = UDim.new(1, 0)
+UICorner66.Parent = LoadFrame22
+
+local Cursed_Ship = Instance.new("ImageButton")
+Cursed_Ship.Name = "Cursed Ship"
+Cursed_Ship.Position = UDim2.new(0.2, 0, 0.375, 0)
+Cursed_Ship.Size = UDim2.new(0.25, 0, 0.25, 0)
+Cursed_Ship.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Cursed_Ship.BackgroundTransparency = 0.75
+Cursed_Ship.BorderSizePixel = 0
+Cursed_Ship.BorderColor3 = Color3.new(0, 0, 0)
+Cursed_Ship.AnchorPoint = Vector2.new(0.5, 0.5)
+Cursed_Ship.Transparency = 0.75
+Cursed_Ship.Image = "rbxassetid://93408458535090"
+Cursed_Ship.Parent = Sea2
+
+local UIAspectRatioConstraint28 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint28.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint28.Parent = Cursed_Ship
+
+local UICorner67 = Instance.new("UICorner")
+UICorner67.Name = "UICorner"
+UICorner67.CornerRadius = UDim.new(0.15, 0)
+UICorner67.Parent = Cursed_Ship
+
+local Effect23 = Instance.new("Frame")
+Effect23.Name = "Effect"
+Effect23.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect23.Size = UDim2.new(1, 0, 1, 0)
+Effect23.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect23.BackgroundTransparency = 0.15000000596046448
+Effect23.BorderSizePixel = 0
+Effect23.BorderColor3 = Color3.new(0, 0, 0)
+Effect23.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect23.Transparency = 0.15000000596046448
+Effect23.Parent = Cursed_Ship
+
+local UICorner68 = Instance.new("UICorner")
+UICorner68.Name = "UICorner"
+UICorner68.CornerRadius = UDim.new(0.15, 0)
+UICorner68.Parent = Effect23
+
+local UIGradient23 = Instance.new("UIGradient")
+UIGradient23.Name = "UIGradient"
+UIGradient23.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient23.Rotation = -90
+UIGradient23.Offset = Vector2.new(0, 1)
+UIGradient23.Parent = Effect23
+
+local Name23 = Instance.new("TextLabel")
+Name23.Name = "Name"
+Name23.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name23.Size = UDim2.new(1, 0, 0.375, 0)
+Name23.BackgroundColor3 = Color3.new(1, 1, 1)
+Name23.BackgroundTransparency = 1
+Name23.BorderSizePixel = 0
+Name23.BorderColor3 = Color3.new(0, 0, 0)
+Name23.AnchorPoint = Vector2.new(0.5, 0.5)
+Name23.Transparency = 1
+Name23.Text = "Cursed Ship"
+Name23.TextColor3 = Color3.new(1, 1, 1)
+Name23.TextSize = 14
+Name23.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name23.TextScaled = true
+Name23.TextWrapped = true
+Name23.Parent = Effect23
+
+local CancelButton23 = Instance.new("TextButton")
+CancelButton23.Name = "CancelButton"
+CancelButton23.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton23.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton23.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton23.BorderSizePixel = 0
+CancelButton23.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton23.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton23.Text = "Cancel"
+CancelButton23.TextColor3 = Color3.new(1, 1, 1)
+CancelButton23.TextSize = 14
+CancelButton23.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton23.TextScaled = true
+CancelButton23.TextWrapped = true
+CancelButton23.Parent = Effect23
+
+local UIStroke23 = Instance.new("UIStroke")
+UIStroke23.Name = "UIStroke"
+UIStroke23.Color = Color3.new(1, 1, 1)
+UIStroke23.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke23.Parent = CancelButton23
+
+local Ratio23 = Instance.new("TextLabel")
+Ratio23.Name = "Ratio"
+Ratio23.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio23.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio23.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio23.BackgroundTransparency = 1
+Ratio23.BorderSizePixel = 0
+Ratio23.BorderColor3 = Color3.new(0, 0, 0)
+Ratio23.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio23.Transparency = 1
+Ratio23.Text = "0%"
+Ratio23.TextColor3 = Color3.new(1, 0, 0)
+Ratio23.TextSize = 14
+Ratio23.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio23.TextScaled = true
+Ratio23.TextWrapped = true
+Ratio23.Parent = Effect23
+
+local Loading23 = Instance.new("Frame")
+Loading23.Name = "Loading"
+Loading23.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading23.Size = UDim2.new(1, 0, 0.1, 0)
+Loading23.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading23.BackgroundTransparency = 1
+Loading23.BorderSizePixel = 0
+Loading23.BorderColor3 = Color3.new(0, 0, 0)
+Loading23.ZIndex = 2
+Loading23.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading23.Transparency = 1
+Loading23.Parent = Effect23
+
+local LoadFrame23 = Instance.new("Frame")
+LoadFrame23.Name = "LoadFrame"
+LoadFrame23.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame23.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame23.BorderSizePixel = 0
+LoadFrame23.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame23.Parent = Loading23
+
+local UICorner69 = Instance.new("UICorner")
+UICorner69.Name = "UICorner"
+UICorner69.CornerRadius = UDim.new(1, 0)
+UICorner69.Parent = LoadFrame23
+
+local Dark_Arena = Instance.new("ImageButton")
+Dark_Arena.Name = "Dark Arena"
+Dark_Arena.Position = UDim2.new(0.5, 0, 0.375, 0)
+Dark_Arena.Size = UDim2.new(0.25, 0, 0.25, 0)
+Dark_Arena.BackgroundColor3 = Color3.new(1, 0.227451, 0.792157)
+Dark_Arena.BackgroundTransparency = 0.75
+Dark_Arena.BorderSizePixel = 0
+Dark_Arena.BorderColor3 = Color3.new(0, 0, 0)
+Dark_Arena.AnchorPoint = Vector2.new(0.5, 0.5)
+Dark_Arena.Transparency = 0.75
+Dark_Arena.Image = "rbxassetid://115077834395031"
+Dark_Arena.Parent = Sea2
+
+local UIAspectRatioConstraint29 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint29.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint29.Parent = Dark_Arena
+
+local UICorner70 = Instance.new("UICorner")
+UICorner70.Name = "UICorner"
+UICorner70.CornerRadius = UDim.new(0.15, 0)
+UICorner70.Parent = Dark_Arena
+
+local Effect24 = Instance.new("Frame")
+Effect24.Name = "Effect"
+Effect24.Position = UDim2.new(0.5, 0, 0.5, 0)
+Effect24.Size = UDim2.new(1, 0, 1, 0)
+Effect24.BackgroundColor3 = Color3.new(0, 0, 0)
+Effect24.BackgroundTransparency = 0.15000000596046448
+Effect24.BorderSizePixel = 0
+Effect24.BorderColor3 = Color3.new(0, 0, 0)
+Effect24.AnchorPoint = Vector2.new(0.5, 0.5)
+Effect24.Transparency = 0.15000000596046448
+Effect24.Parent = Dark_Arena
+
+local UICorner71 = Instance.new("UICorner")
+UICorner71.Name = "UICorner"
+UICorner71.CornerRadius = UDim.new(0.15, 0)
+UICorner71.Parent = Effect24
+
+local UIGradient24 = Instance.new("UIGradient")
+UIGradient24.Name = "UIGradient"
+UIGradient24.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0, 0), NumberSequenceKeypoint.new(1, 1, 0)})
+UIGradient24.Rotation = -90
+UIGradient24.Offset = Vector2.new(0, 1)
+UIGradient24.Parent = Effect24
+
+local Name24 = Instance.new("TextLabel")
+Name24.Name = "Name"
+Name24.Position = UDim2.new(0.5, 0, 0.825, 0)
+Name24.Size = UDim2.new(1, 0, 0.375, 0)
+Name24.BackgroundColor3 = Color3.new(1, 1, 1)
+Name24.BackgroundTransparency = 1
+Name24.BorderSizePixel = 0
+Name24.BorderColor3 = Color3.new(0, 0, 0)
+Name24.AnchorPoint = Vector2.new(0.5, 0.5)
+Name24.Transparency = 1
+Name24.Text = "Dark Arena"
+Name24.TextColor3 = Color3.new(1, 1, 1)
+Name24.TextSize = 14
+Name24.FontFace = Font.new("rbxasset://fonts/families/Kalam.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Name24.TextScaled = true
+Name24.TextWrapped = true
+Name24.Parent = Effect24
+
+local CancelButton24 = Instance.new("TextButton")
+CancelButton24.Name = "CancelButton"
+CancelButton24.Position = UDim2.new(0.5, 0, 0.25, 0)
+CancelButton24.Size = UDim2.new(0.8, 0, 0.275, 0)
+CancelButton24.BackgroundColor3 = Color3.new(0.784314, 0, 0)
+CancelButton24.BorderSizePixel = 0
+CancelButton24.BorderColor3 = Color3.new(0, 0, 0)
+CancelButton24.AnchorPoint = Vector2.new(0.5, 0.5)
+CancelButton24.Text = "Cancel"
+CancelButton24.TextColor3 = Color3.new(1, 1, 1)
+CancelButton24.TextSize = 14
+CancelButton24.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CancelButton24.TextScaled = true
+CancelButton24.TextWrapped = true
+CancelButton24.Parent = Effect24
+
+local UIStroke24 = Instance.new("UIStroke")
+UIStroke24.Name = "UIStroke"
+UIStroke24.Color = Color3.new(1, 1, 1)
+UIStroke24.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke24.Parent = CancelButton24
+
+local Ratio24 = Instance.new("TextLabel")
+Ratio24.Name = "Ratio"
+Ratio24.Position = UDim2.new(0.5, 0, 0.6, 0)
+Ratio24.Size = UDim2.new(1, 0, 0.25, 0)
+Ratio24.BackgroundColor3 = Color3.new(1, 1, 1)
+Ratio24.BackgroundTransparency = 1
+Ratio24.BorderSizePixel = 0
+Ratio24.BorderColor3 = Color3.new(0, 0, 0)
+Ratio24.AnchorPoint = Vector2.new(0.5, 0.5)
+Ratio24.Transparency = 1
+Ratio24.Text = "0%"
+Ratio24.TextColor3 = Color3.new(1, 0, 0)
+Ratio24.TextSize = 14
+Ratio24.FontFace = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+Ratio24.TextScaled = true
+Ratio24.TextWrapped = true
+Ratio24.Parent = Effect24
+
+local Loading24 = Instance.new("Frame")
+Loading24.Name = "Loading"
+Loading24.Position = UDim2.new(0.5, 0, 0.95, 0)
+Loading24.Size = UDim2.new(1, 0, 0.1, 0)
+Loading24.BackgroundColor3 = Color3.new(1, 1, 1)
+Loading24.BackgroundTransparency = 1
+Loading24.BorderSizePixel = 0
+Loading24.BorderColor3 = Color3.new(0, 0, 0)
+Loading24.ZIndex = 2
+Loading24.AnchorPoint = Vector2.new(0.5, 0.5)
+Loading24.Transparency = 1
+Loading24.Parent = Effect24
+
+local LoadFrame24 = Instance.new("Frame")
+LoadFrame24.Name = "LoadFrame"
+LoadFrame24.Size = UDim2.new(1, 0, 1, 0)
+LoadFrame24.BackgroundColor3 = Color3.new(0.92549, 0.737255, 1)
+LoadFrame24.BorderSizePixel = 0
+LoadFrame24.BorderColor3 = Color3.new(0, 0, 0)
+LoadFrame24.Parent = Loading24
+
+local UICorner72 = Instance.new("UICorner")
+UICorner72.Name = "UICorner"
+UICorner72.CornerRadius = UDim.new(1, 0)
+UICorner72.Parent = LoadFrame24
 
 local Frame = Island
 if not Frame then return end
