@@ -80,6 +80,44 @@ do
 end
 -- ============================================
 
+-- ====== FILTER UI FOLDERS THEME-BASED ON PlaceId ======
+
+local function detectPlaceKey()
+    local pid = game.PlaceId
+    for key, data in pairs(PLACES) do
+        if table.find(data.ids, pid) then
+            return key -- "Sea1" / "Sea2" / "Sea3" / "Dungeon"
+        end
+    end
+    return nil
+end
+
+local PLACE_KEY = detectPlaceKey()
+
+-- Nếu PLACE_KEY nil -> không xóa gì
+if PLACE_KEY then
+    local toRemove = {}
+
+    if PLACE_KEY == "Sea1" then
+        toRemove = { "Sea2", "Sea3" }
+    elseif PLACE_KEY == "Sea2" then
+        toRemove = { "Sea1", "Sea3" }
+    elseif PLACE_KEY == "Sea3" then
+        toRemove = { "Sea1", "Sea2" }
+    elseif PLACE_KEY == "Dungeon" then
+        toRemove = { "Sea1", "Sea2", "Sea3" }
+    end
+
+    for _, name in ipairs(toRemove) do
+        local f = ROOT:FindFirstChild(name)
+        if f and f.Parent then
+            -- pcall để tránh lỗi nếu bị thay đổi trong runtime
+            pcall(function() f:Destroy() end)
+        end
+    end
+end
+-- =======================================================
+
 -- ============== UI selection (giữ như hiện tại) =================
 local function getActiveSeaFolder()
     local pid = game.PlaceId
