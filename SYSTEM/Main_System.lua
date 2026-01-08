@@ -2180,42 +2180,130 @@ do
                     end
                 end
             end
-
             for _, group in pairs(mobGroups) do
                 if #group >= 2 then
-                    local sumPos = Vector3.zero
-                    for _, mob in ipairs(group) do
-                        sumPos += mob.HumanoidRootPart.Position
-                    end
-                    local centerPos = sumPos / #group
-
-                    local finalGroup = {}
-
-                    for _, mob in ipairs(group) do
-                        local originPos = InitialPositions[mob]
-                        if originPos and (centerPos - originPos).Magnitude <= MAX_MOVE_FROM_ORIGIN then
-                            table.insert(finalGroup, mob)
+                    -- chuẩn bị danh sách origin tương ứng với từng mob trong group
+                    local n = #group
+                    local originList = {}
+                    for i, mob in ipairs(group) do
+                        if mob and mob.Parent then
+                            local hrp = mob:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                if not InitialPositions[mob] then
+                                    InitialPositions[mob] = hrp.Position
+                                end
+                                originList[i] = InitialPositions[mob]
+                            else
+                                originList[i] = nil
+                            end
+                        else
+                            originList[i] = nil
                         end
                     end
 
-                    if #finalGroup >= 2 then
-                        local finalSum = Vector3.zero
-                        for _, mob in ipairs(finalGroup) do
-                            finalSum += mob.HumanoidRootPart.Position
+                    -- build connected components based on origin distances (edge nếu origin_i - origin_j <= MAX_MOVE_FROM_ORIGIN)
+                    local visited = {}
+                    local components = {}
+
+                    for i = 1, n do
+                        if not visited[i] and originList[i] then
+                            local stack = { i }
+                            visited[i] = true
+                            local compIndices = {}
+
+                            while #stack > 0 do
+                                local idx = table.remove(stack)
+                                table.insert(compIndices, idx)
+
+                                for j = 1, n do
+                                    if not visited[j] and originList[j] then
+                                        local d = (originList[idx] - originList[j]).Magnitude
+                                        if d <= MAX_MOVE_FROM_ORIGIN then
+                                            visited[j] = true
+                                            table.insert(stack, j)
+                                        end
+                                    end
+                                end
+                            end
+
+                            -- convert indices -> actual mobs
+                            local comp = {}
+                            for _, idx in ipairs(compIndices) do
+                                table.insert(comp, group[idx])
+                            end
+                            table.insert(components, comp)
                         end
-                        local centerCFrame = CFrame.new(finalSum / #finalGroup)
+                    end
 
-                        for _, mob in ipairs(finalGroup) do
-                            local hrp = mob.HumanoidRootPart
-                            local hum = mob.Humanoid
+                    -- xử lý từng component (cluster)
+                    for _, comp in ipairs(components) do
+                        if #comp >= 2 then
+                            -- tính centerOrigin = trung bình origin của component
+                            local sumOrigin = Vector3.new(0,0,0)
+                            local cntOrigin = 0
+                            for _, mob in ipairs(comp) do
+                                if InitialPositions[mob] then
+                                    sumOrigin = sumOrigin + InitialPositions[mob]
+                                    cntOrigin = cntOrigin + 1
+                                end
+                            end
+                            if cntOrigin == 0 then
+                                continue
+                            end
+                            local centerOrigin = sumOrigin / cntOrigin
 
-                            hrp.CFrame = centerCFrame
-                            hrp.Size = HITBOX_SIZE
-                            hrp.Transparency = 1
-                            hrp.CanCollide = false
+                            -- lọc từng mob: cần thỏa 2 điều kiện:
+                            -- 1) origin -> centerOrigin <= MAX_MOVE_FROM_ORIGIN
+                            -- 2) currentPos - origin <= MAX_MOVE_FROM_ORIGIN (không đi quá xa so với origin)
+                            local finalGroup = {}
+                            for _, mob in ipairs(comp) do
+                                if mob and mob.Parent then
+                                    local hrp = mob:FindFirstChild("HumanoidRootPart")
+                                    local hum = mob:FindFirstChild("Humanoid")
+                                    local origin = InitialPositions[mob]
+                                    if hrp and hum and origin then
+                                        local originToCenter = (centerOrigin - origin).Magnitude
+                                        local currentDisp = (hrp.Position - origin).Magnitude
+                                        if originToCenter <= MAX_MOVE_FROM_ORIGIN and currentDisp <= MAX_MOVE_FROM_ORIGIN then
+                                            table.insert(finalGroup, mob)
+                                        end
+                                    end
+                                end
+                            end
 
-                            hum.WalkSpeed = 0
-                            hum.JumpPower = 0
+                            -- nếu đủ thành viên thì bring chúng
+                            if #finalGroup >= 2 then
+                                local finalSum = Vector3.new(0,0,0)
+                                local validCount = 0
+                                for _, mob in ipairs(finalGroup) do
+                                    local hrp = mob:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        finalSum = finalSum + hrp.Position
+                                        validCount = validCount + 1
+                                    end
+                                end
+                                if validCount >= 2 then
+                                    local centerPos = finalSum / validCount
+                                    local centerCFrame = CFrame.new(centerPos)
+
+                                    for _, mob in ipairs(finalGroup) do
+                                        if mob and mob.Parent then
+                                            local hrp = mob:FindFirstChild("HumanoidRootPart")
+                                            local hum = mob:FindFirstChild("Humanoid")
+                                            if hrp and hum then
+                                                -- apply bring
+                                                hrp.CFrame = centerCFrame
+                                                hrp.Size = HITBOX_SIZE
+                                                hrp.Transparency = 1
+                                                hrp.CanCollide = false
+
+                                                hum.WalkSpeed = 0
+                                                hum.JumpPower = 0
+                                            end
+                                        end
+                                    end
+                                end
+                            end
                         end
                     end
                 end
