@@ -158,6 +158,23 @@ end
 
 -- ============== MAPPING BUTTON NAME ==========
 local BUTTON_TARGETS = {
+    --=== SEA 1 ===--
+
+    
+    --=== SEA 2 ===--
+    ["Cafe"] = Vector3.new(-379.87, 94.56, 305.70),
+    ["Factory"] = Vector3.new(428.49, 211.55, -428.26),
+    ["Swan Room"] = Vector3.new(2288.30, 46.61, 802.22),
+    ["Green Zone"] = Vector3.new(-2467.06, 117.70, -3234.82),
+    ["Graveyard Island"] = Vector3.new(-5562.93, 208.15, -793.08),
+    ["Hot and Cold"] = Vector3.new(-6043.83, 38.12, -5066.04),
+    ["Snow Mountain"] = Vector3.new(525.68, 422.54, -5386.09),
+    ["Ice Castle"] = Vector3.new(6104.39, 305.76, -6699.34),
+    ["Forgotten Island"] = Vector3.new(-3114.26, 322.32, -10289.32),
+    ["Cursed Ship"] = Vector3.new(917.78, 196.60, 33265.46),
+    ["Dark Arena"] = Vector3.new(3780.60, 22.70, -3499.44),
+    
+    --=== SEA 3 ===--
     ["Port Town"] = Vector3.new(-444.92, 108.57, 5926.82),
     ["Hydra Island"] = Vector3.new(5293.66, 1032.16, 368.10),
     ["Great Tree"] = Vector3.new(2850.98, 513.49, -7228.15),
