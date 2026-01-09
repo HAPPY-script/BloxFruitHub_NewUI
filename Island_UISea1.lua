@@ -5,19 +5,6 @@ Sea1.Name = "Sea1"
 
 Sea1.Parent = FrameSea
 
-local Frame = Instance.new("Frame")
-Frame.Name = "Frame"
-Frame.Size = UDim2.new(0, 100, 0, 100)
-Frame.BackgroundColor3 = Color3.new(1, 1, 1)
-Frame.BorderSizePixel = 0
-Frame.BorderColor3 = Color3.new(0, 0, 0)
-Frame.Parent = Sea1
-
-local Sea1 = Instance.new("Folder")
-Sea1.Name = "Sea1"
-
-Sea1.Parent = Frame
-
 local Pirate_Starter = Instance.new("ImageButton")
 Pirate_Starter.Name = "Pirate Starter"
 Pirate_Starter.Position = UDim2.new(0.2, 0, 0.06, 0)
