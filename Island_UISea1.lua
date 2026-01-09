@@ -11,7 +11,7 @@ Frame.Size = UDim2.new(0, 100, 0, 100)
 Frame.BackgroundColor3 = Color3.new(1, 1, 1)
 Frame.BorderSizePixel = 0
 Frame.BorderColor3 = Color3.new(0, 0, 0)
-Frame.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Frame.Parent = Sea1
 
 local Sea1 = Instance.new("Folder")
 Sea1.Name = "Sea1"
