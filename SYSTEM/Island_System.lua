@@ -159,8 +159,23 @@ end
 -- ============== MAPPING BUTTON NAME ==========
 local BUTTON_TARGETS = {
     --=== SEA 1 ===--
+    ["Pirate Starter"] = Vector3.new(1073.66, 63.10, 1439.64),
+    ["Marine Starter"] = Vector3.new(-2759.78, 115.68, 2169.69),
+    ["Jungle"] = Vector3.new(-1601.15, 85.69, 156.38),
+    ["Pirate Village"] = Vector3.new(-1202.56, 87.81, 3892.60),
+    ["Desert"] = Vector3.new(859.45, 20.75, 4348.89),
+    ["Frozen Village"] = Vector3.new(1393.58, 118.24, -1328.33),
+    ["Marine Fortress"] = Vector3.new(-4929.85, 197.36, 4317.33),
+    ["Skylands"] = Vector3.new(-4824.33, 789.40, -2593.36),
+    ["Upper Skylands"] = Vector3.new(-7775.95, 5636.94, -579.80),
+    ["Prison"] = Vector3.new(5237.91, 143.34, 745.43),
+    ["Magma Village"] = Vector3.new(-5300.14, 55.32, 8489.20),
+    ["Whirlpool"] = Vector3.new(3878.09, 20, -1998.39),
+    ["Underwater City"] = Vector3.new(61095.72, 102.20, 1519.55),
+    ["Fountain City"] = Vector3.new(5265.89, 112.89, 3974.69),
+    ["Colosseum"] = Vector3.new(-1674.31, 99.68, -3136.99),
+    ["Middle Town"] = Vector3.new(-689.53, 15.35, 1583.02),
 
-    
     --=== SEA 2 ===--
     ["Cafe"] = Vector3.new(-379.87, 94.56, 305.70),
     ["Factory"] = Vector3.new(428.49, 211.55, -428.26),
