@@ -1,3 +1,9 @@
+if _G.BloxFruit_Hub then
+    warn("Script đã chạy! Không thể chạy lại.")
+    return
+end
+_G.BloxFruit_Hub = true
+
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/MainUI.lua"))()
 
 print("Main UI 1/10✅")
