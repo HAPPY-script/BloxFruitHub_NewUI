@@ -69,13 +69,66 @@ do
 
     -- ==== LOGIC AUTO COLLECT (giữ nguyên) ====
 
-    local teleportPoints = {
-        Vector3.new(-286.99, 306.18, 597.75),
-        Vector3.new(-6508.56, 83.24, -132.84),
-        Vector3.new(923.21, 125.11, 32852.83),
-        Vector3.new(2284.91, 15.20, 905.62)
+    -----------------------------------------------------
+    -- TELEPORT POINTS
+    -----------------------------------------------------
+    local PLACES = {
+        Sea1 = {
+            ids = { 85211729168715, 2753915549 },
+            points = {
+                Vector3.new(-7894.62, 5545.49, -380.29),
+                Vector3.new(-4607.82, 872.54, -1667.56),
+                Vector3.new(61163.85, 5.30, 1819.78),
+                Vector3.new(3864.69, 5.37, -1926.21)
+            }
+        },
+
+        Sea2 = {
+            ids = { 79091703265657, 4442272183 },
+            points = {
+                Vector3.new(-286.99, 306.18, 597.75),
+                Vector3.new(-6508.56, 83.24, -132.84),
+                Vector3.new(923.21, 125.11, 32852.83),
+                Vector3.new(2284.91, 15.20, 905.62)
+            }
+        },
+
+        Sea3 = {
+            ids = { 7449423635, 100117331123089 },
+            points = {
+                Vector3.new(-12463.61, 374.91, -7549.53),
+                Vector3.new(-5073.83, 314.51, -3152.52),
+                Vector3.new(5661.53, 1013.04, -334.96),
+                Vector3.new(28286.36, 14896.56, 102.62)
+            }
+        },
+
+        Dungeon = {
+            ids = { 73902483975735 },
+            points = {
+                Vector3.new(0, 100000, 0)
+            }
+        }
     }
 
+    local teleportPoints = {}
+
+    do
+        local placeId = game.PlaceId
+
+        for _, data in pairs(PLACES) do
+            if table.find(data.ids, placeId) then
+                teleportPoints = data.points
+                break
+            end
+        end
+
+        if #teleportPoints == 0 then
+            warn("PlaceID không thuộc Sea1 / Sea2 / Sea3 / Dungeon")
+        end
+    end
+
+    --====================================================================================
     local function calculateDistance(a, b)
         return (a - b).Magnitude
     end
