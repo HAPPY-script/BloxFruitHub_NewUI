@@ -4,7 +4,6 @@ do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
-
     local player = Players.LocalPlayer
 
     -- ==== UI NEW SYSTEM ====
@@ -21,7 +20,6 @@ do
 
     local FruitFrame = ScrollingTab:WaitForChild("Fruit")
     local button = FruitFrame:FindFirstChild(BUTTON_NAME, true)
-
     if not button then
         warn("Không tìm thấy button:", BUTTON_NAME)
         return
@@ -36,7 +34,7 @@ do
         return (math.floor(c.R * 255 + 0.5) == 0 and math.floor(c.G * 255 + 0.5) == 255 and math.floor(c.B * 255 + 0.5) == 0)
     end
 
-    -- internal flag driven by color
+    -- internal flag
     local collectFruitEnabled = isButtonOn()
 
     -- click -> request ToggleUI change
@@ -47,24 +45,13 @@ do
     end
 
     -- ==== PAUSE / MOVEMENT token controller ====
-    -- We'll use movementToken like the sample (increment to cancel).
     local movementToken = 0
     local paused = false
+    local function stopMovement() movementToken = movementToken + 1 end
 
-    local function stopMovement()
-        movementToken = movementToken + 1
-    end
+    player.CharacterRemoving:Connect(function() paused = true end)
+    player.CharacterAdded:Connect(function(char) char:WaitForChild("HumanoidRootPart", 5); paused = false end)
 
-    -- pause while character removed; resume when added and HRP ready
-    player.CharacterRemoving:Connect(function()
-        paused = true
-    end)
-    player.CharacterAdded:Connect(function(char)
-        char:WaitForChild("HumanoidRootPart", 5)
-        paused = false
-    end)
-
-    -- when UI turned off -> permanently cancel current job(s)
     button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
         local on = isButtonOn()
         if not on then
@@ -131,11 +118,12 @@ do
         end
     end
 
-    -- ===== movement settings (from sample) =====
+    -- ===== movement settings (adjusted per your request) =====
     local LUNGE_SPEED = 300
     local TELEPORT_HEIGHT = 100
-    local TELEPORT_SPAM_COUNT = 10
-    local TELEPORT_SPAM_TIME = 1.5
+    local TELEPORT_SPAM_COUNT = 15   -- 15 times
+    local TELEPORT_SPAM_TIME = 1.5   -- in 1.5s
+    local TP_DIRECT_THRESHOLD = 275  -- if within this distance, teleport straight
 
     local function getHRP()
         local char = player.Character or player.CharacterAdded:Wait()
@@ -143,93 +131,67 @@ do
     end
 
     local function vecDistance(a,b) return (a-b).Magnitude end
+    local function toXZ(pos, fixedY) return Vector3.new(pos.X, fixedY, pos.Z) end
+    local function xzDistance(a,b) return (Vector3.new(a.X,0,a.Z) - Vector3.new(b.X,0,b.Z)).Magnitude end
 
-    local function toXZ(pos, fixedY)
-        return Vector3.new(pos.X, fixedY, pos.Z)
-    end
-
-    local function xzDistance(a, b)
-        return (Vector3.new(a.X,0,a.Z) - Vector3.new(b.X,0,b.Z)).Magnitude
-    end
-
-    -- find best teleport as in sample
     local function getBestTeleportPoint(fromPos, targetPos)
         local bestPoint, bestDist = nil, math.huge
         for _, p in ipairs(teleportPoints) do
             local d = vecDistance(p, targetPos)
-            if d < bestDist then
-                bestDist = d
-                bestPoint = p
-            end
+            if d < bestDist then bestDist = d; bestPoint = p end
         end
         if not bestPoint then return nil end
-        if vecDistance(fromPos, targetPos) <= bestDist then
-            return nil
-        end
+        if vecDistance(fromPos, targetPos) <= bestDist then return nil end
         return bestPoint
     end
 
-    -- teleport (instant)
     local function teleport(pos)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if hrp then hrp.CFrame = CFrame.new(pos) end
     end
 
-    -- teleport spam: return true if completed; respects pause and token and targetRef
+    -- teleport spam: teleports to 'pos' TELEPORT_SPAM_COUNT times over TELEPORT_SPAM_TIME.
+    -- respects token, paused, and targetRef (if provided). Returns true if completed.
     local function teleportSpam(pos, token, targetRef)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then
-            -- if paused, wait for resume; else try to wait briefly
             local waited = 0
             while not hrp and waited < 5 do
                 if token ~= movementToken then return false end
                 hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then break end
-                task.wait(0.1)
-                waited = waited + 0.1
+                task.wait(0.1); waited = waited + 0.1
             end
             if not hrp then return false end
         end
 
-        local count = 0
         local interval = TELEPORT_SPAM_TIME / math.max(1, TELEPORT_SPAM_COUNT)
+        local count = 0
         local elapsed = 0
         local done = false
 
         local conn
         conn = RunService.Heartbeat:Connect(function(dt)
             if token ~= movementToken then
-                conn:Disconnect()
-                done = true
-                return
+                conn:Disconnect(); done = true; return
             end
-            -- if paused or target gone: just skip doing teleports but keep token valid (we should pause)
             if paused then return end
-            if targetRef and not targetRef.Parent then
-                conn:Disconnect()
-                done = true
-                return
-            end
+            if targetRef and not targetRef.Parent then conn:Disconnect(); done = true; return end
 
             elapsed = elapsed + dt
             if elapsed >= interval then
                 elapsed = elapsed - interval
                 count = count + 1
-                local ok, hrpNow = pcall(function()
-                    return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                end)
+                local ok, hrpNow = pcall(function() return player.Character and player.Character:FindFirstChild("HumanoidRootPart") end)
                 if ok and hrpNow then
                     hrpNow.CFrame = CFrame.new(pos)
                 end
                 if count >= TELEPORT_SPAM_COUNT then
-                    conn:Disconnect()
-                    done = true
-                    return
+                    conn:Disconnect(); done = true; return
                 end
             end
         end)
 
-        -- wait until finished or cancelled
         while not done do
             if token ~= movementToken then
                 if conn and conn.Connected then conn:Disconnect() end
@@ -241,128 +203,85 @@ do
         return token == movementToken
     end
 
-    -- lungeTo (sample-style): yields until finished or cancelled; respects paused and targetRef
+    -- lungeTo: mimic original stable logic but only change X/Z each frame; Y = targetY set immediately.
+    -- if remaining (3D) <= TP_DIRECT_THRESHOLD then teleport straight.
     local function lungeTo(targetPos, token, targetRef)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then
-            -- wait until HRP available or cancelled
             local waited = 0
             while (not hrp) and waited < 5 do
                 if token ~= movementToken then return false end
                 hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then break end
-                task.wait(0.1)
-                waited = waited + 0.1
+                task.wait(0.1); waited = waited + 0.1
             end
             if not hrp then return false end
         end
 
-        -- Fix Y immediately to targetY
-        local fixedY = targetPos.Y
-        local startPos = toXZ(hrp.Position, fixedY)
-        local endPos = toXZ(targetPos, fixedY)
-
-        -- place hrp exactly at start XZ (keeps behavior stable)
-        hrp.CFrame = CFrame.new(startPos)
-
-        local delta = endPos - startPos
-        local distance = xzDistance(startPos, endPos)
-        if distance < 0.001 then
-            hrp.CFrame = CFrame.new(targetPos)
+        -- immediate Y fix
+        local targetY = targetPos.Y
+        local fullDist = (targetPos - hrp.Position).Magnitude
+        if fullDist <= TP_DIRECT_THRESHOLD then
+            -- teleport straight if within threshold
+            local ok, hrpNow = pcall(function() return player.Character and player.Character:FindFirstChild("HumanoidRootPart") end)
+            if ok and hrpNow then hrpNow.CFrame = CFrame.new(targetPos) end
             return token == movementToken
         end
 
-        local direction = delta.Unit
-        local duration = distance / LUNGE_SPEED
-        local elapsed = 0
-        local finished = false
-
-        local conn
-        conn = RunService.Heartbeat:Connect(function(dt)
-            if token ~= movementToken then
-                conn:Disconnect()
-                finished = false
-                return
-            end
-            if paused then return end
-            if targetRef and not targetRef.Parent then
-                conn:Disconnect()
-                finished = false
-                return
-            end
-
-            elapsed = elapsed + dt
-            local alpha = math.clamp(elapsed / duration, 0, 1)
-
-            local pos = startPos + direction * (distance * alpha)
-            -- place hrp with fixed Y
-            local put = Vector3.new(pos.X, fixedY, pos.Z)
-            local hrpNow = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if hrpNow then hrpNow.CFrame = CFrame.new(put) end
-
-            if alpha >= 1 then
-                conn:Disconnect()
-                finished = true
-            end
-        end)
-
-        while not finished do
-            if token ~= movementToken then
-                if conn and conn.Connected then conn:Disconnect() end
-                return false
-            end
-            task.wait()
+        -- compute initial dir unit (XZ movement)
+        local dirXZ = Vector3.new(targetPos.X - hrp.Position.X, 0, targetPos.Z - hrp.Position.Z)
+        local distXZ = dirXZ.Magnitude
+        if distXZ == 0 then
+            local ok2, hrpNow2 = pcall(function() return player.Character and player.Character:FindFirstChild("HumanoidRootPart") end)
+            if ok2 and hrpNow2 then hrpNow2.CFrame = CFrame.new(targetPos.X, targetY, targetPos.Z) end
+            return token == movementToken
         end
 
-        -- final set
-        if token == movementToken then
+        local lungeSpeed = LUNGE_SPEED
+        local last = tick()
+
+        while true do
+            if token ~= movementToken then return false end
+            if not collectFruitEnabled then return false end
+            if targetRef and not targetRef.Parent then return false end
+            if paused then
+                -- wait until resume
+                while paused do
+                    if token ~= movementToken then return false end
+                    task.wait(0.05)
+                end
+                last = tick()
+            end
+
+            -- recalc direction to avoid drift
             local hrpNow = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if hrpNow and (not targetRef or targetRef.Parent) then
+            if not hrpNow then return false end
+            local curPos = hrpNow.Position
+            local remaining3 = (targetPos - curPos).Magnitude
+            if remaining3 <= TP_DIRECT_THRESHOLD then
                 hrpNow.CFrame = CFrame.new(targetPos)
+                return token == movementToken
+            end
+
+            local dirNow = Vector3.new(targetPos.X - curPos.X, 0, targetPos.Z - curPos.Z)
+            local distNow = dirNow.Magnitude
+            if distNow == 0 then
+                hrpNow.CFrame = CFrame.new(targetPos.X, targetY, targetPos.Z)
+                return token == movementToken
+            end
+
+            local dt = RunService.Heartbeat:Wait()
+            local move = lungeSpeed * dt
+            if move >= distNow then
+                hrpNow.CFrame = CFrame.new(targetPos.X, targetY, targetPos.Z)
+                return token == movementToken
+            else
+                local step = dirNow.Unit * move
+                local nx = curPos.X + step.X
+                local nz = curPos.Z + step.Z
+                hrpNow.CFrame = CFrame.new(nx, targetY, nz)
             end
         end
-
-        return token == movementToken
-    end
-
-    -- executeMovementTo (caller should increment movementToken before calling)
-    local function executeMovementTo(targetPos, targetRef)
-        local myToken = movementToken
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            -- wait up to short period (pause handled separately)
-            local waited = 0
-            while not hrp and waited < 5 do
-                if myToken ~= movementToken then return false end
-                hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                task.wait(0.1)
-                waited = waited + 0.1
-            end
-            if not hrp then return false end
-        end
-
-        local bestTeleport = getBestTeleportPoint(hrp.Position, targetPos)
-        if bestTeleport then
-            -- spam teleports to bestTeleport
-            local ok = teleportSpam(bestTeleport, myToken, targetRef)
-            if not ok or movementToken ~= myToken then return false end
-
-            -- teleport up and wait briefly (replicate sample)
-            teleport(bestTeleport + Vector3.new(0, TELEPORT_HEIGHT, 0))
-            task.wait(0.05)
-            if movementToken ~= myToken then return false end
-
-            -- after teleport path, we may want to set Y to exact targetY after 2s (caller handles this)
-        end
-
-        -- then lunge to target
-        local ok2 = lungeTo(targetPos, myToken, targetRef)
-        return ok2 and movementToken == myToken
-    end
-
-    -- ===== core helper functions =====
-    local function isFruit(obj)
-        return obj:IsA("Model") and obj.Name:lower():find("fruit")
     end
 
     local function calculateDistance(a,b) return (a-b).Magnitude end
@@ -370,11 +289,9 @@ do
     local function findNearestTeleportPoint(fruitPos)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then
-            -- short wait if paused
             local waited = 0
-            while (not hrp) and waited < 3 do
+            while not hrp and waited < 3 do
                 if paused then
-                    -- wait longer if paused until resume
                     local t = 0
                     while paused do
                         task.wait(0.05)
@@ -384,8 +301,7 @@ do
                 end
                 hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then break end
-                task.wait(0.05)
-                waited = waited + 0.05
+                task.wait(0.05); waited = waited + 0.05
             end
             if not hrp then return nil, math.huge, math.huge end
         end
@@ -394,90 +310,49 @@ do
         local closestPoint, closestDist = nil, math.huge
         for _, tpPos in pairs(teleportPoints) do
             local dist = calculateDistance(tpPos, fruitPos)
-            if dist < closestDist then
-                closestPoint = tpPos
-                closestDist = dist
-            end
+            if dist < closestDist then closestDist = dist; closestPoint = tpPos end
         end
         return closestPoint, closestDist, calculateDistance(myPos, fruitPos)
     end
 
-    -- goToFruit: orchestration using movementToken + executeMovementTo + setYAfter
+    -- goToFruit orchestration
     local function goToFruit(fruit)
         if not collectFruitEnabled then return end
         if not fruit or not fruit.Parent then return end
 
-        local fruitPart =
-            fruit:FindFirstChild("Handle")
-            or fruit:FindFirstChild("Main")
-            or fruit:FindFirstChild("Part")
-            or fruit:FindFirstChildWhichIsA("BasePart")
-
+        local fruitPart = fruit:FindFirstChild("Handle") or fruit:FindFirstChild("Main")
+            or fruit:FindFirstChild("Part") or fruit:FindFirstChildWhichIsA("BasePart")
         if not fruitPart then return end
 
         local fruitPos = fruitPart.Position
         local tpPos, tpToFruitDist, playerToFruitDist = findNearestTeleportPoint(fruitPos)
-        if tpPos == nil then tpToFruitDist = math.huge end
+        if not tpPos then tpToFruitDist = math.huge end
 
-        -- create new token for this job
+        -- new token for this job
         movementToken = movementToken + 1
         local myToken = movementToken
 
-        -- path selection
+        -- choose path
         if playerToFruitDist < tpToFruitDist or #teleportPoints == 0 then
-            -- direct lunge
-            local ok = lungeTo(fruitPos, myToken, fruit)
-            -- finished or cancelled; no further action
+            -- direct lunge (will set Y = fruit Y each step; will teleport if within TP_DIRECT_THRESHOLD)
+            lungeTo(fruitPos, myToken, fruit)
         else
-            -- use teleport path
+            -- teleport spam to tpPos (15 times in 1.5s)
             local ok = teleportSpam(tpPos, myToken, fruit)
             if not ok or movementToken ~= myToken then return end
 
-            -- after arriving at tpPos, teleport up
+            -- teleport up quickly to avoid obstacles
             teleport(tpPos + Vector3.new(0, TELEPORT_HEIGHT, 0))
-            task.wait(0.05)
+            task.wait(0.03)
             if movementToken ~= myToken then return end
 
-            -- set Y after 2s but respect pause/resume and target exist
-            local total = 2
-            local acc = 0
-            local lastt = tick()
-            while acc < total do
-                if movementToken ~= myToken then return end
-                if not collectFruitEnabled then return end
-                if not fruit or not fruit.Parent then return end
-                if paused then
-                    -- wait until resume
-                    local ok2 = true
-                    while paused do
-                        if movementToken ~= myToken then ok2 = false; break end
-                        task.wait(0.05)
-                    end
-                    if not ok2 then return end
-                    lastt = tick()
-                else
-                    local now = tick()
-                    acc = acc + (now - lastt)
-                    lastt = now
-                    RunService.Heartbeat:Wait()
-                end
-            end
-
-            if movementToken ~= myToken or not collectFruitEnabled or not fruit or not fruit.Parent then return end
-            -- set target Y
-            local hrpNow = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if hrpNow then
-                local cur = hrpNow.Position
-                hrpNow.CFrame = CFrame.new(cur.X, fruitPos.Y, cur.Z)
-            end
-
-            -- then lunge from current position to fruit
-            if movementToken ~= myToken then return end
+            -- after arrival, we DO NOT immediately set Y to target; we only set Y during lunge step per requirement.
+            -- perform lunge from current position (current HRP pos) to fruit; lungeTo will set Y = fruitY each frame.
             lungeTo(fruitPos, myToken, fruit)
         end
     end
 
-    -- main loop: scan and collect (like original)
+    -- main loop: scan & collect
     task.spawn(function()
         while true do
             collectFruitEnabled = isButtonOn()
@@ -494,6 +369,11 @@ do
             task.wait(0.1)
         end
     end)
+
+    -- helper from earlier scripts
+    function isFruit(obj)
+        return obj:IsA("Model") and obj.Name:lower():find("fruit")
+    end
 end
 
 --=== ESP FRUIT =====================================================================================================--
