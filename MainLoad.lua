@@ -5,6 +5,8 @@ end
 _G.BloxFruit_Hub = true
 
 --==================================================================================================================--
+--load UI
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/LoadAnimation.lua"))()
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
