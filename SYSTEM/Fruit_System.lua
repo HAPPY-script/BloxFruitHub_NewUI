@@ -95,27 +95,39 @@ do
     end
 
 
-    local function performLunge(targetPos)
+    local function performLunge(targetPos, delayY)
         local myId = motionId
         local character = player.Character or player.CharacterAdded:Wait()
         local hrp = character:WaitForChild("HumanoidRootPart")
 
         local lungeSpeed = 300
-        local tpThreshold = 300
+        local tpThreshold = 50
+
+        local startTime = tick()
+        local allowY = (delayY ~= true) -- nếu không phải teleport → Y update ngay
 
         while true do
             if myId ~= motionId then return end
             if not collectFruitEnabled then return end
 
-            local dir = (targetPos - hrp.Position)
-            local dist = dir.Magnitude
+            if delayY and not allowY and tick() - startTime >= 2 then
+                allowY = true
+            end
+
+            local currentPos = hrp.Position
+            local targetY = allowY and targetPos.Y or currentPos.Y
+
+            local flatTarget = Vector3.new(targetPos.X, targetY, targetPos.Z)
+            local delta = flatTarget - currentPos
+            local dist = delta.Magnitude
 
             if dist <= tpThreshold then
                 hrp.CFrame = CFrame.new(targetPos)
                 return
             end
 
-            hrp.CFrame += dir.Unit * (lungeSpeed * RunService.Heartbeat:Wait())
+            local step = delta.Unit * (lungeSpeed * RunService.Heartbeat:Wait())
+            hrp.CFrame = CFrame.new(currentPos + step)
         end
     end
 
@@ -149,12 +161,12 @@ do
         local tpPos, tpToFruitDist, playerToFruitDist = findNearestTeleportPoint(fruitPos)
 
         if playerToFruitDist < tpToFruitDist then
-            performLunge(fruitPos)
+            performLunge(fruitPos, false) -- đi trực tiếp → Y theo fruit luôn
         else
             teleportRepeatedly(tpPos, 1)
             teleportRepeatedly(tpPos + Vector3.new(0, 100, 0), 0.3)
             task.wait(0.1)
-            performLunge(fruitPos)
+            performLunge(fruitPos, true) -- đi từ teleport → delay Y 2s
         end
     end
 
