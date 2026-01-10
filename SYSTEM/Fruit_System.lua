@@ -571,3 +571,62 @@ do
         clearAllESP()
     end
 end
+
+--=== RANDOM FRUIT =====================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local StarterGui = game:GetService("StarterGui")
+
+    local player = Players.LocalPlayer
+
+    -- ==== UI NEW SYSTEM ====
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    local BUTTON_NAME = "RandomFruitButton"
+
+    local ScrollingTab = player
+        .PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local FruitFrame = ScrollingTab:FindFirstChild("Fruit", true)
+    if not FruitFrame then
+        warn("Không tìm thấy Frame 'Fruit'")
+        return
+    end
+
+    local button = FruitFrame:FindFirstChild(BUTTON_NAME, true)
+    if not button then
+        warn("Không tìm thấy button:", BUTTON_NAME)
+        return
+    end
+
+    -- ==== LOGIC RANDOM FRUIT ====
+    local function randomFruit()
+        local ok = pcall(function()
+            ReplicatedStorage
+                :WaitForChild("Remotes")
+                :WaitForChild("CommF_")
+                :InvokeServer("Cousin", "Buy")
+        end)
+
+        if not ok then
+            StarterGui:SetCore("SendNotification", {
+                Title = "🔔Random Fruit🔔";
+                Text = "Currently unavailable, please try again later.";
+                Duration = 5;
+            })
+        end
+    end
+
+    if button.Activated then
+        button.Activated:Connect(randomFruit)
+    else
+        button.MouseButton1Click:Connect(randomFruit)
+    end
+end
