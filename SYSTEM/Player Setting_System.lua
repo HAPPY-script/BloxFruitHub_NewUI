@@ -634,15 +634,49 @@ do
         return
     end
 
-    -- internal state (đồng bộ với Attribute "AutoBuso")
-    local DEFAULT_AUTOBUSO = true
-    local autoBuso = DEFAULT_AUTOBUSO
+    -- ---------- helper: infer on/off bằng màu ----------
+    local function inferToggleOn(btn)
+        local ok, bg = pcall(function() return btn.BackgroundColor3 end)
+        if not ok or not bg then return false end
+        -- chỉ khi chính xác (0,255,0) => ON
+        local r = math.floor(bg.R * 255 + 0.5)
+        local g = math.floor(bg.G * 255 + 0.5)
+        local b = math.floor(bg.B * 255 + 0.5)
+        return (r == 0 and g == 255 and b == 0)
+    end
 
-    -- suppress flags to avoid UI <-> Attribute loops
-    local suppressAttrToUI = false
-    local suppressUIToAttr = false
+    -- không tự động thay đổi màu. Yêu cầu: bật mặc định bằng lệnh
+    pcall(function() ToggleUI.Set(BUTTON_NAME, true) end)
 
-    -- helpers (original logic)
+    -- trạng thái nội bộ đồng bộ theo màu (không dùng attribute để điều khiển UI)
+    local autoBuso = inferToggleOn(button)
+    -- cập nhật attribute ban đầu để các hệ thống khác có thể đọc
+    pcall(function() player:SetAttribute("AutoBuso", autoBuso) end)
+
+    -- khi user bấm -> gửi yêu cầu đổi trạng thái cho ToggleUI (ToggleUI chịu trách nhiệm cập nhật màu)
+    local function onButtonActivated()
+        local cur = inferToggleOn(button)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, not cur) end)
+    end
+    if button.Activated then
+        button.Activated:Connect(onButtonActivated)
+    else
+        button.MouseButton1Click:Connect(onButtonActivated)
+    end
+
+    -- khi màu button thay đổi -> cập nhật state nội bộ + attribute (không phản hồi bằng Set)
+    button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        -- nhỏ delay để ToggleUI hoàn tất tween/màu
+        task.delay(0.05, function()
+            local nowOn = inferToggleOn(button)
+            if nowOn ~= autoBuso then
+                autoBuso = nowOn
+                pcall(function() player:SetAttribute("AutoBuso", autoBuso) end)
+            end
+        end)
+    end)
+
+    -- ---------- core Buso logic (giữ nguyên) ----------
     local function getCharacterModel()
         local chars = Workspace:FindFirstChild("Characters")
         return chars and chars:FindFirstChild(player.Name)
@@ -661,67 +695,7 @@ do
         end)
     end
 
-    -- init Attribute from existing attribute or default
-    do
-        local attr = player:GetAttribute("AutoBuso")
-        if attr ~= nil then
-            autoBuso = (attr == true)
-        else
-            player:SetAttribute("AutoBuso", autoBuso)
-        end
-
-        -- push to ToggleUI (suppress UI->attr while doing this)
-        suppressUIToAttr = true
-        pcall(function() ToggleUI.Set(BUTTON_NAME, autoBuso) end)
-        task.delay(0.05, function() suppressUIToAttr = false end)
-    end
-
-    -- Sync UI->Attribute when ToggleUI updates button visuals (observe BackgroundColor3)
-    local function inferToggleOn(btn)
-        local bg
-        pcall(function() bg = btn.BackgroundColor3 end)
-        if not bg then return false end
-        return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
-    end
-
-    button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        -- small delay to let ToggleUI finish its own tween
-        task.delay(0.05, function()
-            if suppressUIToAttr then return end
-            local isOn = inferToggleOn(button)
-            local currentAttr = player:GetAttribute("AutoBuso") == true
-            if currentAttr ~= isOn then
-                suppressAttrToUI = true
-                player:SetAttribute("AutoBuso", isOn)
-                task.delay(0.05, function() suppressAttrToUI = false end)
-            end
-        end)
-    end)
-
-    -- When player clicks the UI button -> request ToggleUI.Set(...)
-    local function onButtonActivated()
-        local cur = inferToggleOn(button)
-        pcall(function() ToggleUI.Set(BUTTON_NAME, not cur) end)
-    end
-    if button.Activated then
-        button.Activated:Connect(onButtonActivated)
-    else
-        button.MouseButton1Click:Connect(onButtonActivated)
-    end
-
-    -- Attribute listener: when attribute changes -> update local state and push to ToggleUI
-    player:GetAttributeChangedSignal("AutoBuso"):Connect(function()
-        local v = player:GetAttribute("AutoBuso")
-        autoBuso = (v == true)
-
-        if not suppressAttrToUI then
-            suppressUIToAttr = true
-            pcall(function() ToggleUI.Set(BUTTON_NAME, autoBuso) end)
-            task.delay(0.05, function() suppressUIToAttr = false end)
-        end
-    end)
-
-    -- Auto loop (giữ nguyên logic)
+    -- Auto loop: chỉ dựa trên 'autoBuso' (được cập nhật từ màu)
     task.spawn(function()
         while true do
             if autoBuso then
@@ -733,7 +707,7 @@ do
         end
     end)
 
-    -- Polling lightweight: hỗ trợ legacy shared.AutoBuso = true/false
+    -- Polling legacy shared.AutoBuso (nếu tồn tại) -> điều khiển UI thông qua ToggleUI.Set
     task.spawn(function()
         local lastShared = nil
         while true do
@@ -742,16 +716,17 @@ do
             if s ~= lastShared then
                 lastShared = s
                 if s ~= nil then
-                    player:SetAttribute("AutoBuso", s == true)
+                    -- IMPORTANT: we change the UI via ToggleUI.Set (not by coloring directly)
+                    pcall(function() ToggleUI.Set(BUTTON_NAME, s == true) end)
                 end
             end
         end
     end)
 
-    -- Expose toggle helper on shared
+    -- Expose toggle helper on shared (để các module khác có thể bật/tắt qua ToggleUI)
     shared = shared or {}
     shared.ToggleAutoBuso = function(val)
-        player:SetAttribute("AutoBuso", val == true)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, val == true) end)
     end
 end
     --[[HOOK
