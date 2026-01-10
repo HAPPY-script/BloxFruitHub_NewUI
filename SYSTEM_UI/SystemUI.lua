@@ -17,7 +17,6 @@ local Main = gui:WaitForChild("Main")
 local White = gui:WaitForChild("White")
 local Gradient = White:WaitForChild("UIGradient")
 local ToggleButton = gui:WaitForChild("Button")           -- button to open/close main
-ToggleButton.Visible = true
 
 local TopButton = Main:WaitForChild("TopButton")         -- top scroll-to-top button
 local ScrollingTab = Main:WaitForChild("ScrollingTab")   -- content area
