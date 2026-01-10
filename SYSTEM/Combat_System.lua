@@ -871,7 +871,6 @@ end
 
 --=== FAST ATTACK ENEMY & PLAYER =========================================================================================--
 
--- Combined FastAttack (Enemies / Players) + Fruit support
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
@@ -974,15 +973,30 @@ do
     local suppressAttrToUI = false
     local suppressUIToAttr = false
 
+    -- === NEW: strict green check (user requirement) ===
+    local GREEN = Color3.fromRGB(0,255,0)
+    local function colorEqual(a,b)
+        if not a or not b then return false end
+        local eps = 1e-5
+        return math.abs(a.R - b.R) <= eps and math.abs(a.G - b.G) <= eps and math.abs(a.B - b.B) <= eps
+    end
+
+    local function isButtonOn(btn)
+        local bg = btn and btn.BackgroundColor3
+        if not bg then return false end
+        -- authoritative: only exact green counts as ON
+        return colorEqual(bg, GREEN)
+    end
+    -- === end NEW ===
+
     local function getToggleOnByName(name, btn)
         local ok, val = pcall(function()
             if ToggleUI.Get then return ToggleUI.Get(name) end
             return nil
         end)
         if ok and type(val) == "boolean" then return val end
-        local bg = btn.BackgroundColor3
-        if bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5 then return true end
-        return false
+        -- Use strict green-check instead of fuzzy G>R/B
+        return isButtonOn(btn)
     end
 
     local function wireToggleButton(btn, name)
@@ -1315,10 +1329,16 @@ do
 
         -- ENEMY section: decide active
         local shouldEnemyBeActive = false
-        if enemyHoldMode then
-            if isFastAttackEnemyEnabled and enemyActive then shouldEnemyBeActive = true end
+        -- Use button color authoritative
+        if isButtonOn(btnFastAttackEnemy) then
+            if enemyHoldMode then
+                if isFastAttackEnemyEnabled and enemyActive then shouldEnemyBeActive = true end
+            else
+                -- Toggle mode: if button is ON -> active
+                shouldEnemyBeActive = true
+            end
         else
-            if isFastAttackEnemyEnabled then shouldEnemyBeActive = true end
+            shouldEnemyBeActive = false
         end
 
         if shouldEnemyBeActive and (tick() - lastEnemyHit) >= delay then
@@ -1373,10 +1393,15 @@ do
 
         -- PLAYER section: decide active
         local shouldPlayerBeActive = false
-        if playerHoldMode then
-            if isAttackPlayerEnabled and playerActive then shouldPlayerBeActive = true end
+        -- Use button color authoritative
+        if isButtonOn(btnAttackPlayer) then
+            if playerHoldMode then
+                if isAttackPlayerEnabled and playerActive then shouldPlayerBeActive = true end
+            else
+                shouldPlayerBeActive = true
+            end
         else
-            if isAttackPlayerEnabled then shouldPlayerBeActive = true end
+            shouldPlayerBeActive = false
         end
 
         if shouldPlayerBeActive and (tick() - lastPlayerHit) >= delay then
@@ -1430,7 +1455,8 @@ do
     if btnFastAttackEnemy.InputBegan then
         btnFastAttackEnemy.InputBegan:Connect(function(input)
             if not enemyHoldMode then return end
-            if not isFastAttackEnemyEnabled then return end
+            -- check button color authoritative
+            if not isButtonOn(btnFastAttackEnemy) then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 enemyActive = true
             end
@@ -1446,7 +1472,8 @@ do
     if btnAttackPlayer.InputBegan then
         btnAttackPlayer.InputBegan:Connect(function(input)
             if not playerHoldMode then return end
-            if not isAttackPlayerEnabled then return end
+            -- check button color authoritative
+            if not isButtonOn(btnAttackPlayer) then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 playerActive = true
             end
@@ -1463,8 +1490,8 @@ do
     UIS.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-            if enemyHoldMode and isFastAttackEnemyEnabled then enemyActive = true end
-            if playerHoldMode and isAttackPlayerEnabled then playerActive = true end
+            if enemyHoldMode and isButtonOn(btnFastAttackEnemy) then enemyActive = true end
+            if playerHoldMode and isButtonOn(btnAttackPlayer) then playerActive = true end
         end
     end)
     UIS.InputEnded:Connect(function(input, gameProcessed)
