@@ -54,26 +54,30 @@ print(">========================================================================
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
 
-print("Status tab System 1/6✅")
+print("Status tab System 1/7✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
 
-print("Main tab System 2/6✅")
+print("Main tab System 2/7✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
 
-print("Raid tab System 3/6✅")
+print("Raid tab System 3/7✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
 
-print("Combat tab System 4/6✅")
+print("Combat tab System 4/7✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua"))()
 
-print("Player Setting tab System 5/6✅")
+print("Player Setting tab System 5/7✅")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua"))()
 
-print("Island tab System 6/6✅")
+print("Island tab System 6/7✅")
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Fruit_System.lua"))()
+
+print("Fruit tab System 7/7✅")
 
 print("✅COMPLETE✅")
