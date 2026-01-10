@@ -28,60 +28,50 @@ do
     ToggleUI.Refresh()
     pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
-    -- helper: exact green check
     local function isButtonOn()
         local ok, c = pcall(function() return button.BackgroundColor3 end)
         if not ok or not c then return false end
-        local r = math.floor(c.R * 255 + 0.5)
-        local g = math.floor(c.G * 255 + 0.5)
-        local b = math.floor(c.B * 255 + 0.5)
-        return (r == 0 and g == 255 and b == 0)
+        return (math.floor(c.R * 255 + 0.5) == 0 and math.floor(c.G * 255 + 0.5) == 255 and math.floor(c.B * 255 + 0.5) == 0)
     end
 
-    -- internal flag (driven by color)
+    -- internal flag driven by color
     local collectFruitEnabled = isButtonOn()
 
-    -- toggle request (do not change color directly)
+    -- click -> request ToggleUI change
     if button.Activated then
-        button.Activated:Connect(function()
-            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
-        end)
+        button.Activated:Connect(function() pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end) end)
     else
-        button.MouseButton1Click:Connect(function()
-            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
-        end)
+        button.MouseButton1Click:Connect(function() pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end) end)
     end
 
-    -- ==== PAUSE / MOTION CONTROL ====
-    local motionId = 0          -- bump to cancel permanently
-    local paused = false        -- true while respawning (pause, not cancel)
+    -- ==== MOTION / PAUSE CONTROL ====
+    local motionId = 0
+    local paused = false
     local function cancelMotion() motionId = motionId + 1 end
 
-    -- pause on respawn start, resume after HRP ready
     player.CharacterRemoving:Connect(function()
         paused = true
     end)
     player.CharacterAdded:Connect(function(char)
-        -- wait HRP ready, then resume
         char:WaitForChild("HumanoidRootPart", 5)
         paused = false
     end)
 
-    -- when UI turns OFF -> cancel jobs and set internal flag false
+    -- if UI turns off -> cancel job and update flag; if on -> set flag
     button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
         local on = isButtonOn()
         if not on then
-            cancelMotion()            -- permanent cancel
+            cancelMotion()
             collectFruitEnabled = false
         else
             collectFruitEnabled = true
         end
     end)
 
-    -- ensure internal initial flag
+    -- ensure internal flag matches color at start
     collectFruitEnabled = isButtonOn()
 
-    -- ==== PLACES ====
+    -- ==== PLACES selection (same as before) ====
     local PLACES = {
         Sea1 = {
             ids = { 85211729168715, 2753915549 },
@@ -92,6 +82,7 @@ do
                 Vector3.new(3864.69, 5.37, -1926.21)
             }
         },
+
         Sea2 = {
             ids = { 79091703265657, 4442272183 },
             points = {
@@ -101,6 +92,7 @@ do
                 Vector3.new(2284.91, 15.20, 905.62)
             }
         },
+
         Sea3 = {
             ids = { 7449423635, 100117331123089 },
             points = {
@@ -110,6 +102,7 @@ do
                 Vector3.new(28286.36, 14896.56, 102.62)
             }
         },
+
         Dungeon = {
             ids = { 73902483975735 },
             points = {
@@ -135,7 +128,7 @@ do
     -- helpers
     local function calculateDistance(a, b) return (a - b).Magnitude end
 
-    -- waitWhilePaused: returns true if still valid to continue, false if canceled or disabled
+    -- wait while paused (returns false if job invalidated)
     local function waitWhilePaused(myId)
         while paused do
             if myId ~= motionId then return false end
@@ -145,13 +138,13 @@ do
         return (myId == motionId) and collectFruitEnabled
     end
 
-    -- teleportRepeatedly: mimic original: set hrp.CFrame = pos each frame for duration
-    -- opts: { setYAfter = number (s), targetRef = instance (optional), targetY = number (optional) }
+    -- teleportRepeatedly: follow original behaviour (set CFrame = pos repeatedly for duration)
+    -- supports pause/resume and targetRef existence check
     local function teleportRepeatedly(pos, duration, opts)
         opts = opts or {}
         local myId = motionId
 
-        -- get hrp (may pause until available)
+        -- ensure hrp available (but if paused, wait)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then
             if not waitWhilePaused(myId) then return end
@@ -159,145 +152,142 @@ do
             if not hrp then return end
         end
 
-        local t0 = tick()
-        while tick() - t0 < (duration or 0) do
+        -- total time tracking like original (use elapsed based on Heartbeat)
+        local elapsed = 0
+        local last = tick()
+
+        while elapsed < (duration or 0) do
             if myId ~= motionId then return end
             if not collectFruitEnabled then return end
-            if opts.targetRef and (not opts.targetRef.Parent) then return end
+            if opts.targetRef and not opts.targetRef.Parent then return end
+
             if paused then
                 if not waitWhilePaused(myId) then return end
-                -- resume; continue loop
-            end
-
-            -- teleport like original (full pos)
-            if hrp and hrp.Parent then
-                pcall(function()
-                    hrp.CFrame = CFrame.new(pos)
-                end)
+                last = tick()
+                -- continue after resume
             else
-                -- try refresh hrp
-                hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if not hrp then
-                    if not waitWhilePaused(myId) then return end
-                    hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                    if not hrp then return end
-                end
+                -- original did immediate set every frame
+                hrp.CFrame = CFrame.new(pos)
+                local now = tick()
+                local dt = now - last
+                last = now
+                elapsed = elapsed + dt
+                RunService.Heartbeat:Wait()
             end
-
-            RunService.Heartbeat:Wait()
         end
 
-        -- setYAfter: wait respecting paused and cancellation, then set Y to targetY if still valid
+        -- setYAfter logic: schedule respecting pause/resume
         if opts.setYAfter and type(opts.targetY) == "number" then
             local total = opts.setYAfter
-            local myTimerId = motionId
-            local elapsed = 0
-            local lastT = tick()
-            while elapsed < total do
-                if myTimerId ~= motionId then return end
+            local timerId = motionId
+            local acc = 0
+            local lastt = tick()
+            while acc < total do
+                if timerId ~= motionId then return end
                 if not collectFruitEnabled then return end
-                if opts.targetRef and (not opts.targetRef.Parent) then return end
+                if opts.targetRef and not opts.targetRef.Parent then return end
                 if paused then
-                    if not waitWhilePaused(myTimerId) then return end
-                    lastT = tick()
+                    if not waitWhilePaused(timerId) then return end
+                    lastt = tick()
                 else
                     local now = tick()
-                    elapsed = elapsed + (now - lastT)
-                    lastT = now
+                    acc = acc + (now - lastt)
+                    lastt = now
                     RunService.Heartbeat:Wait()
                 end
             end
-
-            -- apply Y set if still valid
-            if myTimerId == motionId and collectFruitEnabled then
+            -- apply Y set
+            if timerId == motionId and collectFruitEnabled then
                 local hrp2 = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp2 and (not opts.targetRef or opts.targetRef.Parent) then
+                if hrp2 then
                     local cur = hrp2.Position
-                    pcall(function()
-                        hrp2.CFrame = CFrame.new(cur.X, opts.targetY, cur.Z)
-                    end)
+                    hrp2.CFrame = CFrame.new(cur.X, opts.targetY, cur.Z)
                 end
             end
         end
     end
 
-    -- performLunge: imitation of original lunge with pause/resume and target existence check
-    -- targetPos: Vector3, targetRef: optional (Model)
+    -- performLunge: match original movement but set Y = targetY each step and support pause/resume
     local function performLunge(targetPos, targetRef)
-        -- abort if target removed
-        if targetRef and (not targetRef.Parent) then return end
-
         local myId = motionId
+        if targetRef and not targetRef.Parent then return end
+
         local character = player.Character or player.CharacterAdded:Wait()
         local hrp = character:WaitForChild("HumanoidRootPart")
-        -- compute initial dir and distance (like original)
-        local dir = (targetPos - hrp.Position).Unit
-        local dist = (targetPos - hrp.Position).Magnitude
-        local lungeSpeed = 300
-        local tpThreshold = 300
-        local t0 = tick()
 
-        -- loop until time passes or reached (we'll also check remaining each iter)
-        while true do
+        -- compute dir and dist like original (dir unit uses 3D engine originally; we follow original XZ movement but set Y to targetY)
+        local dir3 = (targetPos - hrp.Position)
+        local dist = dir3.Magnitude
+        if dist == 0 then
+            hrp.CFrame = CFrame.new(targetPos)
+            return
+        end
+
+        -- keep lateral direction but zero Y component so vertical is set to targetY each step
+        local dirXZ = Vector3.new(targetPos.X - hrp.Position.X, 0, targetPos.Z - hrp.Position.Z).Unit
+        local totalTime = dist / 300 -- lungeSpeed = 300 as original
+        local elapsed = 0
+        local targetY = targetPos.Y
+        local last = tick()
+        local tpThreshold = 300
+
+        while elapsed < totalTime do
             if myId ~= motionId then return end
             if not collectFruitEnabled then return end
-            if targetRef and (not targetRef.Parent) then return end
+            if targetRef and not targetRef.Parent then return end
             if paused then
                 if not waitWhilePaused(myId) then return end
-                -- refresh hrp and continue (keep same dir since original computed once)
+                -- refresh hrp after resume
                 character = player.Character or player.CharacterAdded:Wait()
                 hrp = character:WaitForChild("HumanoidRootPart")
-            end
-
-            local remaining = (targetPos - hrp.Position).Magnitude
-            if remaining <= tpThreshold then
-                pcall(function() hrp.CFrame = CFrame.new(targetPos) end)
-                return
-            end
-
-            -- move along dir by speed * dt, but set Y to targetPos.Y each step
-            local dt = RunService.Heartbeat:Wait()
-            local moveDist = lungeSpeed * dt
-            -- recompute hrp in case of respawn during Wait
-            hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then
-                if not waitWhilePaused(myId) then return end
-                hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
-            end
-
-            -- compute new position
-            local cur = hrp.Position
-            -- if moveDist >= remaining, finish
-            if moveDist >= remaining then
-                pcall(function() hrp.CFrame = CFrame.new(targetPos) end)
-                return
+                last = tick()
             else
-                local step = dir * moveDist
-                local nx = cur.X + step.X
-                local nz = cur.Z + step.Z
-                pcall(function() hrp.CFrame = CFrame.new(nx, targetPos.Y, nz) end)
-            end
+                -- check remaining distance and threshold like original
+                local remaining = (targetPos - hrp.Position).Magnitude
+                if remaining <= tpThreshold then
+                    hrp.CFrame = CFrame.new(targetPos) -- full set, includes Y
+                    return
+                end
 
-            -- safeguard: if too long running (> dist/lungeSpeed * 3) break (prevents infinite loops)
-            if tick() - t0 > (dist / lungeSpeed) * 3 + 5 then
-                return
+                local now = tick()
+                local dt = now - last
+                last = now
+                elapsed = elapsed + dt
+
+                -- move by lungeSpeed * dt, but only XZ; set Y to targetY
+                local moveAmount = 300 * dt
+                -- direction recalculated from current hrp to target in XZ to reduce drift
+                local curDirXZ = Vector3.new(targetPos.X - hrp.Position.X, 0, targetPos.Z - hrp.Position.Z)
+                local mag = curDirXZ.Magnitude
+                if mag == 0 then
+                    hrp.CFrame = CFrame.new(targetPos.X, targetY, targetPos.Z)
+                    return
+                end
+                local step = curDirXZ.Unit * math.min(moveAmount, mag)
+                local nx = hrp.Position.X + step.X
+                local nz = hrp.Position.Z + step.Z
+                hrp.CFrame = CFrame.new(nx, targetY, nz)
+
+                RunService.Heartbeat:Wait()
             end
+        end
+
+        -- final guarantee: if loop ends (time expired) set final position
+        if myId == motionId and collectFruitEnabled and (not targetRef or targetRef.Parent) then
+            hrp.CFrame = CFrame.new(targetPos)
         end
     end
 
-    -- fruit check
     local function isFruit(obj)
-        return obj and obj:IsA("Model") and obj.Name:lower():find("fruit")
+        return obj:IsA("Model") and obj.Name:lower():find("fruit")
     end
 
-    -- findNearestTeleportPoint (returns tpPos, tpToFruitDist, playerToFruitDist)
     local function findNearestTeleportPoint(fruitPos)
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then
             if paused then
-                local tmpId = motionId
-                if not waitWhilePaused(tmpId) then return nil, math.huge, math.huge end
+                local tid = motionId
+                if not waitWhilePaused(tid) then return nil, nil, math.huge end
                 hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             else
                 hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -305,67 +295,58 @@ do
         end
         if not hrp then return nil, math.huge, math.huge end
         local myPos = hrp.Position
+
         local closestPoint, closestDist = nil, math.huge
         for _, tpPos in pairs(teleportPoints) do
-            local d = calculateDistance(tpPos, fruitPos)
-            if d < closestDist then
+            local dist = calculateDistance(tpPos, fruitPos)
+            if dist < closestDist then
                 closestPoint = tpPos
-                closestDist = d
+                closestDist = dist
             end
         end
         return closestPoint, closestDist, calculateDistance(myPos, fruitPos)
     end
 
-    -- goToFruit: orchestration (like original) but pause-aware and target-existence-aware
     local function goToFruit(fruit)
         if not collectFruitEnabled then return end
         if not fruit or not fruit.Parent then return end
 
-        local fruitPart = fruit:FindFirstChild("Handle") or fruit:FindFirstChild("Main") or fruit:FindFirstChild("Part") or fruit:FindFirstChildWhichIsA("BasePart")
+        local fruitPart =
+            fruit:FindFirstChild("Handle")
+            or fruit:FindFirstChild("Main")
+            or fruit:FindFirstChild("Part")
+            or fruit:FindFirstChildWhichIsA("BasePart")
+
         if not fruitPart then return end
 
         local fruitPos = fruitPart.Position
         local tpPos, tpToFruitDist, playerToFruitDist = findNearestTeleportPoint(fruitPos)
         if tpPos == nil then tpToFruitDist = math.huge end
 
-        -- new job token (but do not cancel on respawn)
         cancelMotion()
         local myJobId = motionId
 
         if playerToFruitDist < tpToFruitDist or #teleportPoints == 0 then
-            -- direct lunge (targetRef so we can abort if fruit removed)
             performLunge(fruitPos, fruit)
         else
-            -- use teleport route (teleport like original)
             teleportRepeatedly(tpPos, 1, { setYAfter = 2, targetY = fruitPos.Y, targetRef = fruit })
-
-            -- then teleport up
             teleportRepeatedly(tpPos + Vector3.new(0, 100, 0), 0.3, { targetRef = fruit })
-
             task.wait(0.1)
-
             if myJobId == motionId and collectFruitEnabled and fruit and fruit.Parent then
                 performLunge(fruitPos, fruit)
             end
         end
     end
 
-    -- main scan loop (mimic original scanAndCollect)
+    -- main loop: scan and collect (match original)
     task.spawn(function()
         while true do
+            -- refresh internal enabled flag from color
             collectFruitEnabled = isButtonOn()
             if collectFruitEnabled then
                 for _, obj in pairs(workspace:GetChildren()) do
                     if isFruit(obj) then
-                        -- if paused/respawn, wait until resumed but do not cancel the job unless target gone
-                        if paused then
-                            local tmp = motionId
-                            if not waitWhilePaused(tmp) then break end
-                            if not isButtonOn() then break end
-                        end
-
-                        -- double-check fruit still exists before starting
-                        if obj and obj.Parent and isButtonOn() then
+                        if isButtonOn() then
                             goToFruit(obj)
                         end
                         break
