@@ -1,4 +1,4 @@
---=== Auto Fruit Collection =====================================================================================================--
+--=== AUTO FRUIT COLLECTION =====================================================================================================--
 
 do
     local Players = game:GetService("Players")
@@ -391,4 +391,183 @@ do
             task.wait(0.1)
         end
     end)
+end
+
+--=== ESP FRUIT =====================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+
+    local player = Players.LocalPlayer
+    local camera = workspace.CurrentCamera
+
+    -- wait for ToggleUI helper
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    local BUTTON_NAME = "ESPFruitButton"
+
+    -- ScrollingTab path (same as other scripts)
+    local ScrollingTab = player
+        .PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    -- find Fruit frame and button (search descendants)
+    local FruitFrame = ScrollingTab:FindFirstChild("Fruit", true) or ScrollingTab:WaitForChild("Fruit", 5)
+    if not FruitFrame then
+        warn("Không tìm thấy Frame 'Fruit' trong ScrollingTab")
+        return
+    end
+
+    local button = FruitFrame:FindFirstChild(BUTTON_NAME, true)
+    if not button then
+        warn("Không tìm thấy button:", BUTTON_NAME)
+        return
+    end
+
+    -- ensure ToggleUI state exists (start OFF)
+    ToggleUI.Refresh()
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+    -- helper: exact color check (0,255,0 => ON; everything else => OFF)
+    local function isButtonOn()
+        local ok, c = pcall(function() return button.BackgroundColor3 end)
+        if not ok or not c then return false end
+        local r = math.floor(c.R * 255 + 0.5)
+        local g = math.floor(c.G * 255 + 0.5)
+        local b = math.floor(c.B * 255 + 0.5)
+        return (r == 0 and g == 255 and b == 0)
+    end
+
+    -- internal state (driven by color only)
+    local fruitESPEnabled = isButtonOn()
+    -- map model -> {billboard=Instance, conn=RBXScriptConnection}
+    local fruitESPObjects = {}
+
+    -- safe create/destroy helpers
+    local function removeESPFor(model)
+        if not model then return end
+        local key = model
+        local entry = fruitESPObjects[key]
+        if not entry then return end
+        if entry.conn and entry.conn.Disconnect then
+            pcall(function() entry.conn:Disconnect() end)
+        elseif entry.conn and type(entry.conn) == "RBXScriptConnection" then
+            pcall(function() entry.conn:Disconnect() end)
+        end
+        if entry.billboard and entry.billboard.Destroy then
+            pcall(function() entry.billboard:Destroy() end)
+        end
+        fruitESPObjects[key] = nil
+    end
+
+    local function createFruitESP(model)
+        if not model or not model.Parent then return end
+        if fruitESPObjects[model] then return end -- already exists
+
+        local part = model:FindFirstChild("Handle") or model:FindFirstChild("Main") or model:FindFirstChild("Part") or model:FindFirstChildWhichIsA("BasePart")
+        if not part then return end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "FruitESP"
+        billboard.Adornee = part
+        billboard.Size = UDim2.new(0, 120, 0, 44)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        -- parent to part to ensure it follows; BillboardGui must be descendant of PlayerGui or workspace object with Adornee
+        billboard.Parent = part
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(0, 255, 0)
+        label.Font = Enum.Font.SourceSansBold
+        label.TextScaled = true
+        label.Text = ""
+        label.Parent = billboard
+
+        -- RenderStepped updater (store connection so we can disconnect)
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            -- cleanup if model/part removed
+            if not model or not model.Parent or not part or not part.Parent then
+                if conn then conn:Disconnect() end
+                if billboard and billboard.Parent then
+                    pcall(function() billboard:Destroy() end)
+                end
+                fruitESPObjects[model] = nil
+                return
+            end
+
+            -- update text
+            local dist = math.floor((camera.CFrame.Position - part.Position).Magnitude)
+            label.Text = model.Name .. "\nDist: " .. tostring(dist) .. "m"
+        end)
+
+        fruitESPObjects[model] = { billboard = billboard, conn = conn }
+    end
+
+    local function scanFruitsAndCreate()
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and obj.Name:lower():find("fruit") and not obj:IsA("Folder") then
+                createFruitESP(obj)
+            end
+        end
+    end
+
+    local function clearAllESP()
+        for model, _ in pairs(fruitESPObjects) do
+            removeESPFor(model)
+        end
+        fruitESPObjects = {}
+    end
+
+    -- persistent ChildAdded listener: only creates new ESP when enabled
+    Workspace.ChildAdded:Connect(function(child)
+        -- small delay to allow object to settle
+        task.wait(0.2)
+        if not fruitESPEnabled then return end
+        if child:IsA("Model") and child.Name:lower():find("fruit") and not child:IsA("Folder") then
+            createFruitESP(child)
+        end
+    end)
+
+    -- button activation: request ToggleUI change (do not change color directly)
+    if button.Activated then
+        button.Activated:Connect(function()
+            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
+        end)
+    else
+        button.MouseButton1Click:Connect(function()
+            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
+        end)
+    end
+
+    -- when color changes: update internal flag and start/stop ESP accordingly
+    button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        -- small delay to allow ToggleUI tweens
+        task.delay(0.05, function()
+            local was = fruitESPEnabled
+            fruitESPEnabled = isButtonOn()
+            if fruitESPEnabled and (not was) then
+                -- enabled now
+                scanFruitsAndCreate()
+            elseif (not fruitESPEnabled) and was then
+                -- disabled now
+                clearAllESP()
+            end
+        end)
+    end)
+
+    -- initialize according to current color
+    if fruitESPEnabled then
+        scanFruitsAndCreate()
+    else
+        clearAllESP()
+    end
 end
