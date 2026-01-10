@@ -667,6 +667,57 @@ UIStroke17.Thickness = 2
 UIStroke17.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke17.Parent = ReturnYButton
 
+local StrokeFrame = Instance.new("Frame")
+StrokeFrame.Name = "StrokeFrame"
+StrokeFrame.Position = UDim2.new(0.485, 0, 0.055, 0)
+StrokeFrame.Size = UDim2.new(0.95, 0, 0.09, 0)
+StrokeFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+StrokeFrame.BackgroundTransparency = 1
+StrokeFrame.BorderSizePixel = 0
+StrokeFrame.BorderColor3 = Color3.new(0, 0, 0)
+StrokeFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+StrokeFrame.Transparency = 1
+StrokeFrame.Parent = Combat
+
+local UIStroke18 = Instance.new("UIStroke")
+UIStroke18.Name = "UIStroke"
+UIStroke18.Color = Color3.new(0.8, 0, 1)
+UIStroke18.Parent = StrokeFrame
+
+local StrokeFrame2 = Instance.new("Frame")
+StrokeFrame2.Name = "StrokeFrame"
+StrokeFrame2.Position = UDim2.new(0.485, 0, 0.155, 0)
+StrokeFrame2.Size = UDim2.new(0.95, 0, 0.09, 0)
+StrokeFrame2.BackgroundColor3 = Color3.new(1, 1, 1)
+StrokeFrame2.BackgroundTransparency = 1
+StrokeFrame2.BorderSizePixel = 0
+StrokeFrame2.BorderColor3 = Color3.new(0, 0, 0)
+StrokeFrame2.AnchorPoint = Vector2.new(0.5, 0.5)
+StrokeFrame2.Transparency = 1
+StrokeFrame2.Parent = Combat
+
+local UIStroke19 = Instance.new("UIStroke")
+UIStroke19.Name = "UIStroke"
+UIStroke19.Color = Color3.new(0.8, 0, 1)
+UIStroke19.Parent = StrokeFrame2
+
+local StrokeFrame3 = Instance.new("Frame")
+StrokeFrame3.Name = "StrokeFrame"
+StrokeFrame3.Position = UDim2.new(0.485, 0, 0.255, 0)
+StrokeFrame3.Size = UDim2.new(0.95, 0, 0.09, 0)
+StrokeFrame3.BackgroundColor3 = Color3.new(1, 1, 1)
+StrokeFrame3.BackgroundTransparency = 1
+StrokeFrame3.BorderSizePixel = 0
+StrokeFrame3.BorderColor3 = Color3.new(0, 0, 0)
+StrokeFrame3.AnchorPoint = Vector2.new(0.5, 0.5)
+StrokeFrame3.Transparency = 1
+StrokeFrame3.Parent = Combat
+
+local UIStroke20 = Instance.new("UIStroke")
+UIStroke20.Name = "UIStroke"
+UIStroke20.Color = Color3.new(0.8, 0, 1)
+UIStroke20.Parent = StrokeFrame3
+
 local Frame = Combat
 if not Frame then return end
 task.spawn(function()
