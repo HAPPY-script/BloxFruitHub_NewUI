@@ -122,7 +122,7 @@ do
     local LUNGE_SPEED = 300
     local TELEPORT_HEIGHT = 100
     local TELEPORT_SPAM_COUNT = 15   -- 15 times
-    local TELEPORT_SPAM_TIME = 1.5   -- in 1.5s
+    local TELEPORT_SPAM_TIME = 1   -- in 1s
     local TP_DIRECT_THRESHOLD = 275  -- if within this distance, teleport straight
 
     local function getHRP()
