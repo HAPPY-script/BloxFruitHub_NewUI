@@ -1507,6 +1507,7 @@ local FarmZones = {
             lastLevel = getLevel()
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
@@ -1948,6 +1949,7 @@ do
 
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
