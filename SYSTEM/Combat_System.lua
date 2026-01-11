@@ -1607,6 +1607,16 @@ do
     end)
 end
 
+--[[ HOOK
+player:SetAttribute("FastAttackEnemy", true) -- false/true
+player:SetAttribute("FastAttackPlayer", true) -- false/true
+
+player:SetAttribute("FastAttackEnemyMode", "Toggle") -- Toggle/Hold
+player:SetAttribute("FastAttackPlayerMode", "Toggle") -- Toggle/Hold
+
+player:SetAttribute("FastAttackEnemyStyle", "Melee") -- Melee/Fruit
+player:SetAttribute("FastAttackPlayerStyle", "Melee") -- Melee/Fruit
+]]
 --=== AUTO ESCAPE =========================================================================================--
 
 do
