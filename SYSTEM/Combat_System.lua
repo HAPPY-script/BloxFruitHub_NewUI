@@ -880,13 +880,18 @@ do
     local UIS = game:GetService("UserInputService")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
-    local TweenInfo = TweenInfo -- kept for clarity
 
     local TWEEN_TIME = 0.18
     local modeAnimating = {}
 
     local COLOR_TOGGLE = Color3.fromRGB(255,125,0)
     local COLOR_HOLD   = Color3.fromRGB(255,255,0)
+
+    -- style colors & labels
+    local STYLE_MELEE_COLOR = Color3.fromRGB(0,200,255)
+    local STYLE_FRUIT_COLOR = Color3.fromRGB(0,255,150)
+    local STYLE_MELEE_TEXT  = "Style: Melee"
+    local STYLE_FRUIT_TEXT  = "Style: Fruit"
 
     local function getUIStroke(btn)
         for _, c in ipairs(btn:GetChildren()) do
@@ -904,7 +909,7 @@ do
     end
 
     local function animateModeButton(btn, isHold)
-        if not btn:IsA("TextButton") and not btn:IsA("TextLabel") then return end
+        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
 
         if modeAnimating[btn] then
             modeAnimating[btn].cancelled = true
@@ -916,6 +921,36 @@ do
         local stroke = getUIStroke(btn)
         local targetColor = isHold and COLOR_HOLD or COLOR_TOGGLE
         local targetText  = "Mode: " .. (isHold and "Hold" or "Toggle")
+
+        local t1 = tween({
+            obj = btn,
+            goal = { TextTransparency = 1 }
+        })
+        t1.Completed:Wait()
+        if anim.cancelled then return end
+
+        btn.Text = targetText
+
+        tween({ obj = btn, goal = { TextTransparency = 0 } })
+        tween({ obj = btn, goal = { BackgroundColor3 = targetColor } })
+        if stroke then
+            tween({ obj = stroke, goal = { Color = targetColor } })
+        end
+    end
+
+    local function animateStyleButton(btn, isFruit)
+        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
+
+        if modeAnimating[btn] then
+            modeAnimating[btn].cancelled = true
+        end
+
+        local anim = { cancelled = false }
+        modeAnimating[btn] = anim
+
+        local stroke = getUIStroke(btn)
+        local targetColor = isFruit and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR
+        local targetText  = isFruit and STYLE_FRUIT_TEXT or STYLE_MELEE_TEXT
 
         local t1 = tween({
             obj = btn,
@@ -950,9 +985,18 @@ do
     local btnModeEnemy       = combatFrame:FindFirstChild("ModeFastAttackEnemyButton", true)
     local btnModePlayer      = combatFrame:FindFirstChild("ModeFastAttackPlayerButton", true)
 
+    -- new style buttons
+    local btnStyleEnemy      = combatFrame:FindFirstChild("StyleFastAttackEnemyButton", true)
+    local btnStylePlayer     = combatFrame:FindFirstChild("StyleFastAttackPlayerButton", true)
+
     if not btnFastAttackEnemy or not btnAttackPlayer or not btnModeEnemy or not btnModePlayer then
         warn("Không tìm đủ controls trong Combat (FastAttackEnemyButton / FastAttackPlayerButton / ModeFastAttackEnemyButton / ModeFastAttackPlayerButton)")
         return
+    end
+
+    if not btnStyleEnemy or not btnStylePlayer then
+        warn("Không tìm thấy StyleFastAttack buttons, thêm chúng vào UI để sử dụng tính năng style.")
+        -- continue without style buttons (backward compatible)
     end
 
     pcall(function() ToggleUI.Set("FastAttackEnemyButton", false) end)
@@ -965,6 +1009,10 @@ do
     local playerHoldMode = false
     local enemyActive = false
     local playerActive = false
+
+    -- style state: "Melee" or "Fruit"
+    local enemyStyle = "Melee"
+    local playerStyle = "Melee"
 
     local radius = 100
     local delay = 0.01
@@ -1045,6 +1093,30 @@ do
         btnModePlayer.MouseButton1Click:Connect(function() toggleModeAttribute("FastAttackPlayerMode", btnModePlayer) end)
     end
 
+    -- wire style buttons (if present)
+    local function toggleStyleAttribute(attrName, styleBtn)
+        local cur = LocalPlayer:GetAttribute(attrName) or "Melee"
+        local nextStyle = (tostring(cur) == "Fruit") and "Melee" or "Fruit"
+        LocalPlayer:SetAttribute(attrName, nextStyle)
+    end
+
+    if btnStyleEnemy then
+        if btnStyleEnemy.Activated then
+            btnStyleEnemy.Activated:Connect(function() toggleStyleAttribute("FastAttackEnemyStyle", btnStyleEnemy) end)
+        else
+            btnStyleEnemy.MouseButton1Click:Connect(function() toggleStyleAttribute("FastAttackEnemyStyle", btnStyleEnemy) end)
+        end
+    end
+
+    if btnStylePlayer then
+        if btnStylePlayer.Activated then
+            btnStylePlayer.Activated:Connect(function() toggleStyleAttribute("FastAttackPlayerStyle", btnStylePlayer) end)
+        else
+            btnStylePlayer.MouseButton1Click:Connect(function() toggleStyleAttribute("FastAttackPlayerStyle", btnStylePlayer) end)
+        end
+    end
+
+    -- attribute change handlers
     LocalPlayer:GetAttributeChangedSignal("FastAttackEnemy"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackEnemy") == true
         isFastAttackEnemyEnabled = v
@@ -1079,6 +1151,23 @@ do
         animateModeButton(btnModePlayer, playerHoldMode)
     end)
 
+    -- style attribute change handlers
+    LocalPlayer:GetAttributeChangedSignal("FastAttackEnemyStyle"):Connect(function()
+        local v = LocalPlayer:GetAttribute("FastAttackEnemyStyle")
+        enemyStyle = (tostring(v) == "Fruit") and "Fruit" or "Melee"
+        -- reset active flags to avoid hold leaks
+        enemyActive = false
+        if btnStyleEnemy then animateStyleButton(btnStyleEnemy, enemyStyle == "Fruit") end
+    end)
+
+    LocalPlayer:GetAttributeChangedSignal("FastAttackPlayerStyle"):Connect(function()
+        local v = LocalPlayer:GetAttribute("FastAttackPlayerStyle")
+        playerStyle = (tostring(v) == "Fruit") and "Fruit" or "Melee"
+        playerActive = false
+        if btnStylePlayer then animateStyleButton(btnStylePlayer, playerStyle == "Fruit") end
+    end)
+
+    -- initialize from attributes / UI
     do
         local v = LocalPlayer:GetAttribute("FastAttackEnemy") == true
         isFastAttackEnemyEnabled = v
@@ -1099,9 +1188,32 @@ do
         local vm2 = LocalPlayer:GetAttribute("FastAttackPlayerMode") or "Toggle"
         playerHoldMode = (tostring(vm2) == "Hold")
         pcall(function() if btnModePlayer:IsA("TextButton") or btnModePlayer:IsA("TextLabel") then btnModePlayer.Text = "Mode: " .. (playerHoldMode and "Hold" or "Toggle") end end)
+
+        -- styles
+        local sEnemy = LocalPlayer:GetAttribute("FastAttackEnemyStyle") or "Melee"
+        enemyStyle = (tostring(sEnemy) == "Fruit") and "Fruit" or "Melee"
+        if btnStyleEnemy then
+            pcall(function() if btnStyleEnemy:IsA("TextButton") or btnStyleEnemy:IsA("TextLabel") then
+                btnStyleEnemy.Text = (enemyStyle == "Fruit") and STYLE_FRUIT_TEXT or STYLE_MELEE_TEXT
+                btnStyleEnemy.BackgroundColor3 = (enemyStyle == "Fruit") and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR
+                local stroke = getUIStroke(btnStyleEnemy)
+                if stroke then stroke.Color = btnStyleEnemy.BackgroundColor3 end
+            end end)
+        end
+
+        local sPlayer = LocalPlayer:GetAttribute("FastAttackPlayerStyle") or "Melee"
+        playerStyle = (tostring(sPlayer) == "Fruit") and "Fruit" or "Melee"
+        if btnStylePlayer then
+            pcall(function() if btnStylePlayer:IsA("TextButton") or btnStylePlayer:IsA("TextLabel") then
+                btnStylePlayer.Text = (playerStyle == "Fruit") and STYLE_FRUIT_TEXT or STYLE_MELEE_TEXT
+                btnStylePlayer.BackgroundColor3 = (playerStyle == "Fruit") and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR
+                local stroke = getUIStroke(btnStylePlayer)
+                if stroke then stroke.Color = btnStylePlayer.BackgroundColor3 end
+            end end)
+        end
     end
 
-    -- shared poll
+    -- shared poll (unchanged)
     task.spawn(function()
         local lastSharedEnemy, lastSharedPlayer = nil, nil
         while true do
@@ -1318,8 +1430,9 @@ do
     -- ----------
     -- Attack runner (Heartbeat)
     -- - For each tick we decide whether to attack enemies and/or players.
-    -- - If equipped tool is a Fruit with LeftClickRemote -> use that remote to send skill casts (aimed by look direction or target direction).
-    -- - Otherwise fallback to using atkrem/hitrem as original.
+    -- - Attack method chosen strictly by the corresponding style (Melee vs Fruit).
+    -- - If style == Fruit but no fruit equipped -> skip (do not fallback to melee).
+    -- - If style == Melee but remotes not ready -> skip.
     -- ----------
 
     RunService.Heartbeat:Connect(function()
@@ -1329,16 +1442,10 @@ do
 
         -- ENEMY section: decide active
         local shouldEnemyBeActive = false
-        -- Use button color authoritative
-        if isButtonOn(btnFastAttackEnemy) then
-            if enemyHoldMode then
-                if isFastAttackEnemyEnabled and enemyActive then shouldEnemyBeActive = true end
-            else
-                -- Toggle mode: if button is ON -> active
-                shouldEnemyBeActive = true
-            end
+        if enemyHoldMode then
+            if isFastAttackEnemyEnabled and enemyActive then shouldEnemyBeActive = true end
         else
-            shouldEnemyBeActive = false
+            if isFastAttackEnemyEnabled then shouldEnemyBeActive = true end
         end
 
         if shouldEnemyBeActive and (tick() - lastEnemyHit) >= delay then
@@ -1346,32 +1453,33 @@ do
 
             local targets = getTargetsEnemies(hrp.Position)
             if #targets > 0 then
-                -- If current tool is fruit and fruit usage enabled -> use fruit remote for skills
-                if FruitConfig.Enabled and currentToolIsFruit and currentToolRemote then
-                    -- Aim: prefer the first target position
-                    local fp = targets[1].part
-                    local aimDir
-                    if fp and fp.Position and hrp.Position then
-                        local dir = (fp.Position - hrp.Position)
-                        if dir.Magnitude > 0 then
-                            aimDir = dir.Unit
+                -- Choose method based on enemyStyle
+                if enemyStyle == "Fruit" then
+                    -- Only use fruit method
+                    if FruitConfig.Enabled and currentToolIsFruit and currentToolRemote then
+                        local fp = targets[1].part
+                        local aimDir
+                        if fp and fp.Position and hrp.Position then
+                            local dir = (fp.Position - hrp.Position)
+                            if dir.Magnitude > 0 then
+                                aimDir = dir.Unit
+                            else
+                                aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
+                            end
                         else
                             aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
                         end
-                    else
-                        aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
-                    end
 
-                    for i = 1, 4 do
-                        if FruitConfig.Skills[i] then
-                            pcall(function()
-                                -- many LeftClickRemote signatures accept (lookVector, skillIndex, boolean)
-                                currentToolRemote:FireServer(aimDir, i, true)
-                            end)
+                        for i = 1, 4 do
+                            if FruitConfig.Skills[i] then
+                                pcall(function()
+                                    currentToolRemote:FireServer(aimDir, i, true)
+                                end)
+                            end
                         end
                     end
                 else
-                    -- fallback to existing atkrem/hitrem
+                    -- Melee path only
                     if ensureRemotes() then
                         pcall(function() atkrem:FireServer() end)
                         local mt = {}
@@ -1393,15 +1501,10 @@ do
 
         -- PLAYER section: decide active
         local shouldPlayerBeActive = false
-        -- Use button color authoritative
-        if isButtonOn(btnAttackPlayer) then
-            if playerHoldMode then
-                if isAttackPlayerEnabled and playerActive then shouldPlayerBeActive = true end
-            else
-                shouldPlayerBeActive = true
-            end
+        if playerHoldMode then
+            if isAttackPlayerEnabled and playerActive then shouldPlayerBeActive = true end
         else
-            shouldPlayerBeActive = false
+            if isAttackPlayerEnabled then shouldPlayerBeActive = true end
         end
 
         if shouldPlayerBeActive and (tick() - lastPlayerHit) >= delay then
@@ -1409,28 +1512,31 @@ do
 
             local targets = getTargetsPlayers(hrp.Position)
             if #targets > 0 then
-                if FruitConfig.Enabled and currentToolIsFruit and currentToolRemote then
-                    local fp = targets[1].part
-                    local aimDir
-                    if fp and fp.Position and hrp.Position then
-                        local dir = (fp.Position - hrp.Position)
-                        if dir.Magnitude > 0 then
-                            aimDir = dir.Unit
+                if playerStyle == "Fruit" then
+                    if FruitConfig.Enabled and currentToolIsFruit and currentToolRemote then
+                        local fp = targets[1].part
+                        local aimDir
+                        if fp and fp.Position and hrp.Position then
+                            local dir = (fp.Position - hrp.Position)
+                            if dir.Magnitude > 0 then
+                                aimDir = dir.Unit
+                            else
+                                aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
+                            end
                         else
                             aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
                         end
-                    else
-                        aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
-                    end
 
-                    for i = 1, 4 do
-                        if FruitConfig.Skills[i] then
-                            pcall(function()
-                                currentToolRemote:FireServer(aimDir, i, true)
-                            end)
+                        for i = 1, 4 do
+                            if FruitConfig.Skills[i] then
+                                pcall(function()
+                                    currentToolRemote:FireServer(aimDir, i, true)
+                                end)
+                            end
                         end
                     end
                 else
+                    -- Melee path only for players
                     if ensureRemotes() then
                         pcall(function() atkrem:FireServer() end)
                         local mt = {}
@@ -1455,7 +1561,6 @@ do
     if btnFastAttackEnemy.InputBegan then
         btnFastAttackEnemy.InputBegan:Connect(function(input)
             if not enemyHoldMode then return end
-            -- check button color authoritative
             if not isButtonOn(btnFastAttackEnemy) then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 enemyActive = true
@@ -1472,7 +1577,6 @@ do
     if btnAttackPlayer.InputBegan then
         btnAttackPlayer.InputBegan:Connect(function(input)
             if not playerHoldMode then return end
-            -- check button color authoritative
             if not isButtonOn(btnAttackPlayer) then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 playerActive = true
