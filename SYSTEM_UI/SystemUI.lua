@@ -74,7 +74,7 @@ do
 		end
 	end)
 	
-	local DRAG_THRESHOLD = 10
+	local DRAG_THRESHOLD = 5
 
 	UserInputService.InputChanged:Connect(function(input)
 		if OpenClose.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
