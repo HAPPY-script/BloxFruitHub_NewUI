@@ -73,10 +73,16 @@ do
 			end)
 		end
 	end)
+	
+	local DRAG_THRESHOLD = 10
+
 	UserInputService.InputChanged:Connect(function(input)
 		if OpenClose.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			OpenClose.moved = true
-			updateToggleDrag(input)
+			local delta = (input.Position - OpenClose.dragStart)
+			if math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD then
+				OpenClose.moved = true
+				updateToggleDrag(input)
+			end
 		end
 	end)
 
