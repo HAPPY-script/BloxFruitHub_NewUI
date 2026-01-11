@@ -219,6 +219,7 @@ do
         if running then
             -- same attribute behavior as trước
             player:SetAttribute("FastAttackEnemyMode", "Toggle")
+            player:SetAttribute("FastAttackEnemyStyle", "Melee")
             player:SetAttribute("FastAttackEnemy", true)
         else
             -- đảm bảo attribute tắt khi off
@@ -969,7 +970,9 @@ do
             hookToolTracking(character)
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
                 player:SetAttribute("FastAttackEnemy", true)
+
                 player:SetAttribute("AutoBuso", true)
                 player:SetAttribute("AutoObserve", true)
                 player:SetAttribute("AutoAbility", true)
