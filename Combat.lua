@@ -352,8 +352,8 @@ UIStroke8.Parent = FollowPlayerTitle
 
 local FastAttackEnemyTitle = Instance.new("TextLabel")
 FastAttackEnemyTitle.Name = "FastAttackEnemyTitle"
-FastAttackEnemyTitle.Position = UDim2.new(0.275, 0, 0.13, 0)
-FastAttackEnemyTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+FastAttackEnemyTitle.Position = UDim2.new(0.225, 0, 0.13, 0)
+FastAttackEnemyTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
 FastAttackEnemyTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 FastAttackEnemyTitle.BorderSizePixel = 0
 FastAttackEnemyTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -375,8 +375,8 @@ UIStroke9.Parent = FastAttackEnemyTitle
 
 local FastAttackPlayerTitle = Instance.new("TextLabel")
 FastAttackPlayerTitle.Name = "FastAttackPlayerTitle"
-FastAttackPlayerTitle.Position = UDim2.new(0.275, 0, 0.18, 0)
-FastAttackPlayerTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+FastAttackPlayerTitle.Position = UDim2.new(0.225, 0, 0.18, 0)
+FastAttackPlayerTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
 FastAttackPlayerTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 FastAttackPlayerTitle.BorderSizePixel = 0
 FastAttackPlayerTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -421,8 +421,8 @@ UIStroke11.Parent = AutoEscapeTitle
 
 local ModeFastAttackEnemyButton = Instance.new("TextButton")
 ModeFastAttackEnemyButton.Name = "ModeFastAttackEnemyButton"
-ModeFastAttackEnemyButton.Position = UDim2.new(0.645, 0, 0.13, 0)
-ModeFastAttackEnemyButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+ModeFastAttackEnemyButton.Position = UDim2.new(0.674, 0, 0.13, 0)
+ModeFastAttackEnemyButton.Size = UDim2.new(0.15, 0, 0.03, 0)
 ModeFastAttackEnemyButton.BackgroundColor3 = Color3.new(1, 0.490196, 0)
 ModeFastAttackEnemyButton.BackgroundTransparency = 0.75
 ModeFastAttackEnemyButton.BorderSizePixel = 0
@@ -446,8 +446,8 @@ UIStroke12.Parent = ModeFastAttackEnemyButton
 
 local ModeFastAttackPlayerButton = Instance.new("TextButton")
 ModeFastAttackPlayerButton.Name = "ModeFastAttackPlayerButton"
-ModeFastAttackPlayerButton.Position = UDim2.new(0.645, 0, 0.18, 0)
-ModeFastAttackPlayerButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+ModeFastAttackPlayerButton.Position = UDim2.new(0.674, 0, 0.18, 0)
+ModeFastAttackPlayerButton.Size = UDim2.new(0.15, 0, 0.03, 0)
 ModeFastAttackPlayerButton.BackgroundColor3 = Color3.new(1, 0.490196, 0)
 ModeFastAttackPlayerButton.BackgroundTransparency = 0.75
 ModeFastAttackPlayerButton.BorderSizePixel = 0
@@ -717,6 +717,56 @@ local UIStroke20 = Instance.new("UIStroke")
 UIStroke20.Name = "UIStroke"
 UIStroke20.Color = Color3.new(0.8, 0, 1)
 UIStroke20.Parent = StrokeFrame3
+
+local StyleFastAttackPlayerButton = Instance.new("TextButton")
+StyleFastAttackPlayerButton.Name = "StyleFastAttackPlayerButton"
+StyleFastAttackPlayerButton.Position = UDim2.new(0.512, 0, 0.18, 0)
+StyleFastAttackPlayerButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+StyleFastAttackPlayerButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+StyleFastAttackPlayerButton.BackgroundTransparency = 0.75
+StyleFastAttackPlayerButton.BorderSizePixel = 0
+StyleFastAttackPlayerButton.BorderColor3 = Color3.new(0, 0, 0)
+StyleFastAttackPlayerButton.AnchorPoint = Vector2.new(0.5, 0.5)
+StyleFastAttackPlayerButton.Transparency = 0.75
+StyleFastAttackPlayerButton.Text = "Style: melee"
+StyleFastAttackPlayerButton.TextColor3 = Color3.new(1, 1, 1)
+StyleFastAttackPlayerButton.TextSize = 14
+StyleFastAttackPlayerButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+StyleFastAttackPlayerButton.TextScaled = true
+StyleFastAttackPlayerButton.TextWrapped = true
+StyleFastAttackPlayerButton.Parent = Combat
+
+local UIStroke21 = Instance.new("UIStroke")
+UIStroke21.Name = "UIStroke"
+UIStroke21.Color = Color3.new(0, 0.784314, 1)
+UIStroke21.Thickness = 2
+UIStroke21.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke21.Parent = StyleFastAttackPlayerButton
+
+local StyleFastAttackEnemyButton = Instance.new("TextButton")
+StyleFastAttackEnemyButton.Name = "StyleFastAttackEnemyButton"
+StyleFastAttackEnemyButton.Position = UDim2.new(0.512, 0, 0.13, 0)
+StyleFastAttackEnemyButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+StyleFastAttackEnemyButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+StyleFastAttackEnemyButton.BackgroundTransparency = 0.75
+StyleFastAttackEnemyButton.BorderSizePixel = 0
+StyleFastAttackEnemyButton.BorderColor3 = Color3.new(0, 0, 0)
+StyleFastAttackEnemyButton.AnchorPoint = Vector2.new(0.5, 0.5)
+StyleFastAttackEnemyButton.Transparency = 0.75
+StyleFastAttackEnemyButton.Text = "Style: melee"
+StyleFastAttackEnemyButton.TextColor3 = Color3.new(1, 1, 1)
+StyleFastAttackEnemyButton.TextSize = 14
+StyleFastAttackEnemyButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+StyleFastAttackEnemyButton.TextScaled = true
+StyleFastAttackEnemyButton.TextWrapped = true
+StyleFastAttackEnemyButton.Parent = Combat
+
+local UIStroke22 = Instance.new("UIStroke")
+UIStroke22.Name = "UIStroke"
+UIStroke22.Color = Color3.new(0, 0.784314, 1)
+UIStroke22.Thickness = 2
+UIStroke22.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke22.Parent = StyleFastAttackEnemyButton
 
 local Frame = Combat
 if not Frame then return end
