@@ -1747,23 +1747,53 @@ do
         tween.Completed:Wait()
     end
 
-    -- get nearest enemy within distanceLimit around centerPos
+    -- get nearest enemy that is WITHIN distanceLimit of centerPos,
+    -- but prioritized by proximity to the player's hrp.
     local function getNearestEnemy(centerPos)
         local folder = workspace:FindFirstChild("Enemies")
         if not folder then return nil end
-        local nearest, nearestDist
+
+        -- collect candidates that are inside the anchor/center zone
+        local candidates = {}
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
                 local hp = mob:FindFirstChildOfClass("Humanoid")
-                if hp and hp.Health > 0 then
-                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
-                    if dist <= (distanceLimit or 0) then
-                        if not nearestDist or dist < nearestDist then
-                            nearest = mob
-                            nearestDist = dist
-                        end
+                local part = mob:FindFirstChild("HumanoidRootPart")
+                if hp and hp.Health > 0 and part then
+                    local distToCenter = (centerPos - part.Position).Magnitude
+                    if distToCenter <= (distanceLimit or 0) then
+                        table.insert(candidates, {model = mob, part = part, distCenter = distToCenter})
                     end
                 end
+            end
+        end
+
+        if #candidates == 0 then
+            -- no enemies inside the anchor zone
+            return nil
+        end
+
+        -- if we have the player's hrp, pick candidate closest to player
+        if hrp and hrp.Parent then
+            local best = nil
+            local bestDist = nil
+            for _, c in ipairs(candidates) do
+                local dPlayer = (hrp.Position - c.part.Position).Magnitude
+                if not bestDist or dPlayer < bestDist then
+                    best = c.model
+                    bestDist = dPlayer
+                end
+            end
+            return best
+        end
+
+        -- fallback: choose by proximity to center if player hrp not available
+        local nearest = nil
+        local nearestDist = nil
+        for _, c in ipairs(candidates) do
+            if not nearestDist or c.distCenter < nearestDist then
+                nearest = c.model
+                nearestDist = c.distCenter
             end
         end
         return nearest
