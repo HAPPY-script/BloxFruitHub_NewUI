@@ -382,15 +382,23 @@ do
     local function startListening()
         if listeningForKey then return end
         listeningForKey = true
-        setSelectAppearance("waiting")
 
+        -- create token so other functions can cancel/disconnect
         local token = {}
         listenCancelToken = token
+
+        -- set UI to waiting asynchronously so this function is not blocked by tweens
+        task.spawn(function()
+            -- only show waiting if still this token
+            if listenCancelToken == token then
+                setSelectAppearance("waiting")
+            end
+        end)
 
         local conn
         conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             -- deliberately do NOT bail out on gameProcessed here; allows capturing keys that other scripts/games processed
-            if not listeningForKey then return end
+            if listenCancelToken ~= token or not listeningForKey then return end
 
             local inputName = nil
             if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -404,21 +412,43 @@ do
             end
 
             if inputName and inputName ~= "" then
-                selectedKey = inputName
-                setSelectAppearance("selected", selectedKey)
+                -- Stop listening IMMEDIATELY, disconnect connection, clear token
                 listeningForKey = false
+                -- disconnect first to avoid any further events
+                if conn then
+                    conn:Disconnect()
+                    conn = nil
+                end
+                -- clear the global token reference so timeout won't act
                 listenCancelToken = nil
-                if conn then conn:Disconnect() end
+
+                -- set selectedKey immediately
+                selectedKey = inputName
+
+                -- run UI update asynchronously so we don't block InputBegan handler
+                task.spawn(function()
+                    setSelectAppearance("selected", selectedKey)
+                end)
             end
         end)
 
+        -- attach conn reference to token so external canceller can disconnect
+        token.conn = conn
+
+        -- timeout handler
         task.delay(WAIT_TIMEOUT, function()
             if listenCancelToken == token and listeningForKey then
+                -- cancel listening
                 listeningForKey = false
+                -- disconnect conn if exists
+                if token.conn then
+                    pcall(function() token.conn:Disconnect() end)
+                    token.conn = nil
+                end
                 listenCancelToken = nil
-                if conn then conn:Disconnect() end
                 selectedKey = nil
-                setSelectAppearance("none")
+                -- update UI asynchronously
+                task.spawn(function() setSelectAppearance("none") end)
             end
         end)
     end
@@ -426,8 +456,14 @@ do
     local function stopListeningCancel()
         if listeningForKey then
             listeningForKey = false
+            -- if there's an active token with a connection, disconnect it
+            if listenCancelToken and listenCancelToken.conn then
+                pcall(function() listenCancelToken.conn:Disconnect() end)
+                listenCancelToken.conn = nil
+            end
             listenCancelToken = nil
-            setSelectAppearance("none")
+            -- update UI asynchronously (do not block caller)
+            task.spawn(function() setSelectAppearance("none") end)
         end
     end
 
@@ -517,9 +553,9 @@ do
     -- Keep toggle state in sync and ensure initial states
     task.delay(0.05, syncToggleFromBtn)
     if selectedKey then
-        setSelectAppearance("selected", selectedKey)
+        task.spawn(function() setSelectAppearance("selected", selectedKey) end)
     else
-        setSelectAppearance("none")
+        task.spawn(function() setSelectAppearance("none") end)
     end
 end
 
