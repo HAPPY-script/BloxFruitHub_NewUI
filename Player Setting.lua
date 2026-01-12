@@ -595,9 +595,8 @@ OnIcon5.BackgroundColor3 = Color3.new(0, 1, 0)
 OnIcon5.BackgroundTransparency = 1
 OnIcon5.BorderSizePixel = 0
 OnIcon5.BorderColor3 = Color3.new(0, 0, 0)
-OnIcon5.Transparency = 1
 OnIcon5.Image = "rbxassetid://133446041443660"
-OnIcon5.ImageTransparency = 1
+OnIcon5.ImageTransparency = 0
 OnIcon5.Parent = Dot5
 
 local OffIcon5 = Instance.new("ImageLabel")
@@ -607,8 +606,8 @@ OffIcon5.BackgroundColor3 = Color3.new(1, 0, 0)
 OffIcon5.BackgroundTransparency = 1
 OffIcon5.BorderSizePixel = 0
 OffIcon5.BorderColor3 = Color3.new(0, 0, 0)
-OffIcon5.Transparency = 1
 OffIcon5.Image = "rbxassetid://109833067427302"
+OffIcon5.ImageTransparency = 1
 OffIcon5.Parent = Dot5
 
 local AutoObserveButton = Instance.new("TextButton")
