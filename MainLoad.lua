@@ -88,7 +88,7 @@ StarTemplate.Position = UDim2.new(0.5, 0, 1000, 0) -- keep template offscreen
 -- internal progress state
 local currentPercent = 0 -- 0..1
 local lock = false -- finish lock
-local activeStars = 0 -- count of active star clones in-flight
+local activeStars = 0 -- count of active star clones in-flight (now counts 3D effects too)
 local function clamp01(v) return math.clamp(v or 0, 0, 1) end
 
 -- tween helper
@@ -147,7 +147,205 @@ local function driveArc(star, fromUDim2, toUDim2, duration, onComplete)
 	end)
 end
 
--- initial entry: entry -> mid -> strong arc -> delete + tween size
+-- =========================
+-- BEGIN 3D VFX CODE (integrated into loader)
+-- These functions use the parameters from your VFX script (kept as-is)
+-- =========================
+
+local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart") or player.CharacterAdded:Wait():WaitForChild("HumanoidRootPart")
+
+-- VFX constants (kept)
+local DURATION_VFX = 30
+local SPAWN_INTERVAL = 0.25
+local SPAWN_RADIUS = 30
+local INITIAL_Y = -1
+local LIFT_AMOUNT = 2
+local LIFT_TIME = 0.45
+local ARC_DELAY = 1
+local ARC_TIME = 0.6
+local HRP_EFFECT_LIVE = 0.1
+local HRP_EFFECT_FADE = 1
+
+-- Helper: random point
+local function randomXZPoint(origin, radius)
+	local theta = math.random() * 2 * math.pi
+	local r = math.random() * radius
+	local dx = math.cos(theta) * r
+	local dz = math.sin(theta) * r
+	return origin + Vector3.new(dx, 0, dz)
+end
+
+local function bezierQuad(a, b, c, t)
+	local omt = 1 - t
+	return a * (omt * omt) + b * (2 * omt * t) + c * (t * t)
+end
+
+local function createEffectPart(position)
+	local Effect = Instance.new("Part")
+	Effect.Name = "Effect"
+	Effect.TopSurface = Enum.SurfaceType.Smooth
+	Effect.BottomSurface = Enum.SurfaceType.Smooth
+	Effect.Anchored = true
+	Effect.CanCollide = false
+	Effect.Size = Vector3.new(1,1,1)
+	Effect.Transparency = 1
+	Effect.CFrame = CFrame.new(position)
+	Effect.Parent = workspace
+
+	local Att0 = Instance.new("Attachment")
+	Att0.Name = "Att0"
+	Att0.Position = Vector3.new(0, -0.25, 0)
+	Att0.Parent = Effect
+
+	local Att1 = Instance.new("Attachment")
+	Att1.Name = "Att1"
+	Att1.Position = Vector3.new(0, 0.25, 0)
+	Att1.Parent = Effect
+
+	local Trail = Instance.new("Trail")
+	Trail.Name = "EffectTrail"
+	Trail.Attachment0 = Att0
+	Trail.Attachment1 = Att1
+	Trail.FaceCamera = true
+	Trail.MinLength = 1
+	Trail.MaxLength = 8
+	Trail.Lifetime = 0.25
+	Trail.LightInfluence = 1
+	Trail.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(184,0,255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255,237,135))
+	}
+	Trail.WidthScale = NumberSequence.new{ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) }
+	Trail.Transparency = NumberSequence.new{ NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1) }
+	Trail.Parent = Effect
+
+	local BillboardGui = Instance.new("BillboardGui")
+	BillboardGui.Name = "EffectBillboard"
+	BillboardGui.Active = true
+	BillboardGui.AlwaysOnTop = true
+	BillboardGui.Size = UDim2.new(3,0,3,0)
+	BillboardGui.MaxDistance = math.huge
+	BillboardGui.Parent = Effect
+
+	local ImageLabel = Instance.new("ImageLabel")
+	ImageLabel.Size = UDim2.new(1,0,1,0)
+	ImageLabel.AnchorPoint = Vector2.new(0.5,0.5)
+	ImageLabel.Position = UDim2.new(0.5,0.5,0.5,0)
+	ImageLabel.BackgroundTransparency = 1
+	ImageLabel.BorderSizePixel = 0
+	ImageLabel.Image = "rbxassetid://112882057182762"
+	ImageLabel.ImageColor3 = Color3.fromRGB(224,74,255)
+	ImageLabel.Parent = BillboardGui
+
+	return Effect, Att0, Att1
+end
+
+local function spawnHRPEffect()
+	if not hrp or not hrp.Parent then return end
+
+	local att = Instance.new("Attachment")
+	att.Name = "HRP_EffectAttachment"
+	-- chest/head offset so particles appear on player
+	att.Position = Vector3.new(0, 1.2, 0)
+	att.Parent = hrp
+
+	local pe = Instance.new("ParticleEmitter")
+	pe.Name = "HRP_Particles"
+	pe.Lifetime = NumberRange.new(0.4,0.5)
+	pe.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255,222,137)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(224,74,255))
+	}
+	pe.Drag = 50
+	pe.LightInfluence = 0
+	pe.SpreadAngle = Vector2.new(90,90)
+	-- Slightly reduced speed to ensure visible in many camera scenarios
+	pe.Speed = NumberRange.new(30,40)
+	pe.Texture = "rbxassetid://112882057182762"
+	pe.RotSpeed = NumberRange.new(30,60)
+	pe.Transparency = NumberSequence.new{
+		NumberSequenceKeypoint.new(0,0),
+		NumberSequenceKeypoint.new(1,1)
+	}
+	pe.Size = NumberSequence.new{
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 0.5)
+	}
+	pe.Rate = 50
+	pe.Parent = att
+
+	-- Fade out smoothly
+	task.delay(HRP_EFFECT_LIVE, function()
+		local steps = 20
+		local startRate = pe.Rate
+		for i = 1, steps do
+			local frac = i / steps
+			pe.Rate = math.floor(startRate * (1 - frac) + 0.5)
+			task.wait(HRP_EFFECT_FADE / steps)
+		end
+		pe.Rate = 0
+		task.delay(0.25, function()
+			if att and att.Parent then att:Destroy() end
+		end)
+	end)
+end
+
+-- runSingleEffect returns after it has spawned HRP effect (so loader can advance percent)
+local function runSingleEffect()
+	-- spawn position random around player (XZ), Y low
+	local basePos = hrp.Position
+	local spawnXZ = randomXZPoint(basePos, SPAWN_RADIUS)
+	local spawnPos = Vector3.new(spawnXZ.X, basePos.Y + INITIAL_Y, spawnXZ.Z)
+
+	local effect, att0, att1 = createEffectPart(spawnPos)
+
+	-- small upward lift tween (CFrame)
+	local targetLiftCFrame = effect.CFrame * CFrame.new(0, LIFT_AMOUNT, 0)
+	local liftTween = TweenService:Create(effect, TweenInfo.new(LIFT_TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = targetLiftCFrame})
+	liftTween:Play()
+
+	-- After lift completes then wait ARC_DELAY
+	task.wait(LIFT_TIME + (ARC_DELAY - 0))
+
+	local startP = effect.Position
+	local t0 = tick()
+
+	while true do
+		local alpha = (tick() - t0) / ARC_TIME
+		if alpha >= 1 then break end
+
+		-- dynamic target
+		local currentEnd = hrp.Position
+		local mid = (startP + currentEnd) / 2
+		local height = math.max(6, (currentEnd.Y - startP.Y) * 0.5 + 6)
+		local control = mid + Vector3.new(0, height, 0)
+
+		local pos = bezierQuad(startP, control, currentEnd, alpha)
+		effect.CFrame = CFrame.new(pos)
+
+		RunService.RenderStepped:Wait()
+	end
+
+	-- ensure final snap
+	if hrp and hrp.Parent then
+		effect.CFrame = CFrame.new(hrp.Position)
+	end
+
+	-- destroy effect part and spawn HRP effect that follows player
+	effect:Destroy()
+
+	if hrp and hrp.Parent then
+		spawnHRPEffect()
+	end
+
+	-- finished lifecycle for this effect
+end
+
+-- =========================
+-- END 3D VFX CODE
+-- =========================
+
+-- initial entry: entry -> mid -> strong arc -> delete + tween size (kept unchanged)
 local function initialEntry()
 	if LoadWhiteFrame.Visible then return end
 	LoadWhiteFrame.Visible = true
@@ -191,27 +389,24 @@ local function shakeLoadFrame()
 	LoadWhiteFrame.Position = origin
 end
 
--- spawn a star that does entry -> mid -> arc -> arrival callback -> destroy
+-- NEW spawnStarFly: spawn 3D effect instead of GUI star, keep onArrive callback intact
 local function spawnStarFly(onArrive)
 	activeStars = activeStars + 1
-	local star = StarTemplate:Clone()
-	star.Parent = loadGui
-	star.Visible = true
-	star.AnchorPoint = Vector2.new(0.5, 0.5)
-	star.Position = STAR_ENTRY_POS
-	star.ImageColor3 = START_STAR_COLOR
 
-	-- entry -> mid
-	local tmid = tweenObject(star, {Position = STAR_MID_POS}, 0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	tmid.Completed:Wait()
-
-	-- then strong arc into target
-	driveArc(star, STAR_MID_POS, STAR_TARGET_POS, arcTime, function()
-		-- on arrival: callback then destroy immediately
+	-- spawn the 3D effect asynchronously
+	task.spawn(function()
+		-- runSingleEffect will arc into HRP and spawn HRP particles
 		pcall(function()
-			if type(onArrive) == "function" then onArrive() end
+			runSingleEffect()
 		end)
-		pcall(function() star:Destroy() end)
+
+		-- effect finished -> call onArrive to update percent + UI
+		pcall(function()
+			if type(onArrive) == "function" then
+				onArrive()
+			end
+		end)
+
 		activeStars = math.max(0, activeStars - 1)
 	end)
 end
@@ -274,7 +469,7 @@ shared.load = shared.load or function(amount)
 		spawnStarFly(function()
 			-- on arrival
 			currentPercent = clamp01(currentPercent + delta)
-			dprint("Star arrived; currentPercent=", currentPercent)
+			dprint("Effect arrived; currentPercent=", currentPercent)
 
 			-- shake + tween inner gradient (the one inside LoadFrame) to reflect new percent
 			pcall(shakeLoadFrame)
@@ -289,7 +484,7 @@ shared.load = shared.load or function(amount)
 			end
 		end)
 
-		-- small stagger between star spawns
+		-- small stagger between spawns
 		task.wait(0.06 + math.random() * 0.05)
 	end
 end
