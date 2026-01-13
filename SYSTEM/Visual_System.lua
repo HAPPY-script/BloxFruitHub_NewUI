@@ -6,7 +6,6 @@ local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 
--- tìm button đúng đường dẫn
 local Frame = player.PlayerGui
 	:WaitForChild("BloxFruitHubGui")
 	:WaitForChild("Main")
@@ -21,7 +20,6 @@ local uiGradient = button:FindFirstChildOfClass("UIGradient")
 local firstClick = true
 
 local function removeFog()
-	-- Xóa LightingLayers nếu có
 	local folder = Lighting:FindFirstChild("LightingLayers")
 	if folder then
 		folder:Destroy()
@@ -31,35 +29,37 @@ end
 button.MouseButton1Click:Connect(function()
 	removeFog()
 
-	if not firstClick then
-		return
-	end
+	if not firstClick then return end
 	firstClick = false
 
-	-- Tween settings
 	local info = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-	-- Tween BackgroundColor -> xanh
+	-- Button background -> xanh
 	TweenService:Create(button, info, {
 		BackgroundColor3 = Color3.fromRGB(0,255,0)
 	}):Play()
 
-	-- Tween TextColor -> trắng
+	-- Text -> trắng
 	TweenService:Create(button, info, {
 		TextColor3 = Color3.fromRGB(255,255,255)
 	}):Play()
 
-	-- Tween UIStroke -> trắng
+	-- UIStroke -> trắng
 	if uiStroke then
 		TweenService:Create(uiStroke, info, {
-			Color = Color3.fromRGB(255,255,255)
+			Color = Color3.new(1,1,1)
 		}):Play()
 	end
 
-	-- Tween UIGradient -> toàn trắng
+	-- UIGradient: tween toàn bộ keypoints sang trắng
 	if uiGradient then
+		local newKeys = {}
+		for _,kp in ipairs(uiGradient.Color.Keypoints) do
+			table.insert(newKeys, ColorSequenceKeypoint.new(kp.Time, Color3.new(1,1,1)))
+		end
+
 		TweenService:Create(uiGradient, info, {
-			Color = ColorSequence.new(Color3.fromRGB(255,255,255))
+			Color = ColorSequence.new(newKeys)
 		}):Play()
 	end
 end)
