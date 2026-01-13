@@ -151,21 +151,12 @@ do
     	end
     	rows = {}
 
-    	-- restore camera when closing (if previously changed) only if NOT preserving view
-    	if not preserveView then
-    		currentViewedPlayer = nil
-    		if prevCameraSubject then
-    			local cam = workspace.CurrentCamera
-    			if cam then
-    				pcall(function()
-    					cam.CameraSubject = prevCameraSubject
-    					cam.CameraType = prevCameraType or Enum.CameraType.Custom
-    				end)
-    			end
-    			prevCameraSubject = nil
-    			prevCameraType = nil
-    		end
-    	end
+        if not preserveView then
+        	currentViewedPlayer = nil
+        	forceReturnToLocalCamera()
+        	prevCameraSubject = nil
+        	prevCameraType = nil
+        end
     end
 
     -- helper: update HP bar tween (size + color)
@@ -180,6 +171,20 @@ do
     	local gC = math.clamp(math.floor(255*ratio),0,255)
     	local color = Color3.fromRGB(rC, gC, 0)
     	tween(hpBar, {BackgroundColor3 = color}, 0.18)
+    end
+
+    local function forceReturnToLocalCamera()
+    	local cam = workspace.CurrentCamera
+	    if not cam then return end
+
+    	local char = localPlayer.Character
+	    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+	    if hum then
+	    	pcall(function()
+		    	cam.CameraSubject = hum
+		    	cam.CameraType = Enum.CameraType.Custom
+		    end)
+	    end
     end
 
     -- robust helper: set avatar image on ImageLabel for a Player
