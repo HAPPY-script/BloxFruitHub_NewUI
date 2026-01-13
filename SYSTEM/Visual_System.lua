@@ -132,6 +132,28 @@ do
     	if OffImg then OffImg.Visible = not isOn end
     end
 
+    -- helper: restore camera to local player's humanoid immediately
+    local function restoreCameraToLocal()
+    	local cam = workspace.CurrentCamera
+    	if cam and localPlayer and localPlayer.Character then
+    		local localHum = localPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    		if localHum then
+    			pcall(function()
+    				cam.CameraSubject = localHum
+    				cam.CameraType = Enum.CameraType.Custom
+    			end)
+    		end
+    	end
+    	-- clear view state
+    	prevCameraSubject = nil
+    	prevCameraType = nil
+    	currentViewedPlayer = nil
+    	-- turn off visuals on all rows
+    	for _, rec in ipairs(rows) do
+    		pcall(setRowViewVisuals, rec.frame, false)
+    	end
+    end
+
     -- helper: cleanup all created rows
     -- preserveView = true sẽ giữ currentViewedPlayer & prevCameraSubject (dùng khi repopulate)
     local function cleanupRows(preserveView)
@@ -151,12 +173,21 @@ do
     	end
     	rows = {}
 
-        if not preserveView then
-        	currentViewedPlayer = nil
-        	forceReturnToLocalCamera()
-        	prevCameraSubject = nil
-        	prevCameraType = nil
-        end
+    	-- restore camera when closing (if previously changed) only if NOT preserving view
+    	if not preserveView then
+    		currentViewedPlayer = nil
+    		if prevCameraSubject then
+    			local cam = workspace.CurrentCamera
+    			if cam then
+    				pcall(function()
+    					cam.CameraSubject = prevCameraSubject
+    					cam.CameraType = prevCameraType or Enum.CameraType.Custom
+    				end)
+    			end
+    			prevCameraSubject = nil
+    			prevCameraType = nil
+    		end
+    	end
     end
 
     -- helper: update HP bar tween (size + color)
@@ -171,20 +202,6 @@ do
     	local gC = math.clamp(math.floor(255*ratio),0,255)
     	local color = Color3.fromRGB(rC, gC, 0)
     	tween(hpBar, {BackgroundColor3 = color}, 0.18)
-    end
-
-    local function forceReturnToLocalCamera()
-    	local cam = workspace.CurrentCamera
-	    if not cam then return end
-
-    	local char = localPlayer.Character
-	    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
-	    if hum then
-	    	pcall(function()
-		    	cam.CameraSubject = hum
-		    	cam.CameraType = Enum.CameraType.Custom
-		    end)
-	    end
     end
 
     -- robust helper: set avatar image on ImageLabel for a Player
@@ -407,6 +424,8 @@ do
     		active = true
     	else
     		-- move back to folder and cleanup
+    		-- ensure camera returns to local immediately
+    		restoreCameraToLocal()
     		cleanupRows(false)
     		RowTemplate.Visible = true
     		PlayerFrameTemplate.Parent = UIPlayersFolder
@@ -429,6 +448,8 @@ do
     		end)
     	elseif PlayerFrameTemplate.Parent ~= Main and active then
     		pcall(function()
+    			-- when hidden externally, restore camera too
+    			restoreCameraToLocal()
     			cleanupRows(false)
     			RowTemplate.Visible = true
     			active = false
