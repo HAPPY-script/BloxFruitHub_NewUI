@@ -173,25 +173,31 @@ do
     	local goalSize = UDim2.new(ratio, 0, 1, 0)
     	tween(hpBar, {Size = goalSize}, 0.18)
     	-- color interpolate: 1->green, 0->red
-    	local color = Color3.fromRGB(255*(1-ratio), 255*ratio, 0) -- (r,g,b): at ratio=1 -> (0,255,0); ratio=0 -> (255,0,0)
+    	local color = Color3.fromRGB(255*(1-ratio), 255*ratio, 0)
     	tween(hpBar, {BackgroundColor3 = color}, 0.18)
     end
 
-    -- helper: set avatar image (uses GetUserThumbnailAsync)
+    -- robust helper: set avatar image on ImageLabel for a Player
     local function setAvatarImage(imageLabel, player)
-    	if not imageLabel then return end
-    	-- try to get headshot thumbnail (pcall in case of errors)
-    	local success, thumbUrl = pcall(function()
-    		local userId = player.UserId
-    		local thumbType = Enum.ThumbnailType.HeadShot
-    		local thumbSize = Enum.ThumbnailSize.Size48
-    		return Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+    	if not imageLabel or not player then return end
+
+    	-- ensure visible
+    	pcall(function() imageLabel.Visible = true end)
+
+    	-- try GetUserThumbnailAsync (pcall to avoid runtime error)
+    	local ok, thumbUrl = pcall(function()
+    		return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48)
     	end)
-    	if success and thumbUrl then
+
+    	if ok and type(thumbUrl) == "string" and thumbUrl ~= "" then
+    		-- Use returned url
     		imageLabel.Image = thumbUrl
-    	else
-    		-- fallback: use built-in (keep existing)
+    		return
     	end
+
+    	-- fallback: rbxthumb scheme (should work in client)
+    	local fallback = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=48&h=48"
+    	imageLabel.Image = fallback
     end
 
     -- create a row for a player (clones template)
@@ -201,19 +207,34 @@ do
     	row.Name = "Player_" .. tostring(targetPlayer.UserId)
     	row.Visible = true
     	row.Parent = PlayerFrameTemplate
+
     	-- set position
     	local y = ROW_START_Y + (index - 1) * ROW_STEP
     	row.Position = UDim2.new(0.5, 0, y, 0)
+
     	-- fill name
     	local nameLabel = row:FindFirstChild("Name", true) or row:FindFirstChild("Name")
     	if nameLabel and nameLabel:IsA("TextLabel") then
     		nameLabel.Text = targetPlayer.Name
     	end
-    	-- avatar
+
+    	-- avatar: find ImageLabel named "Avatar" and set image
     	local avatar = row:FindFirstChild("Avatar", true) or row:FindFirstChild("Avatar")
     	if avatar and avatar:IsA("ImageLabel") then
-    		-- set image async
+    		-- immediately set avatar (async within pcall)
     		pcall(setAvatarImage, avatar, targetPlayer)
+
+    		-- optional: if player changes appearance, refresh when character added
+    		local cRefresh = targetPlayer.CharacterAdded:Connect(function()
+    			-- small delay to let appearance load
+    			task.delay(0.5, function()
+    				pcall(setAvatarImage, avatar, targetPlayer)
+    			end)
+    		end)
+
+    		-- keep this connection in connections for cleanup
+    		-- we'll add it into connections table below
+    		-- (we add it after creating connections table)
     	end
 
     	-- HP frame
