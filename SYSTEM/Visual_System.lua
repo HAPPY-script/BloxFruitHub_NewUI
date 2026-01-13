@@ -404,5 +404,6 @@ do
     	if playersRemovedConn then playersRemovedConn:Disconnect() end
     	cleanupRows()
     end
-    game:BindToClose(onCleanup)
+
+    script.Destroying:Connect(onCleanup)
 end
