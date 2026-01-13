@@ -51,15 +51,27 @@ button.MouseButton1Click:Connect(function()
 		}):Play()
 	end
 
-	-- UIGradient: tween toàn bộ keypoints sang trắng
+	-- UIGradient tween mượt thật sự
 	if uiGradient then
-		local newKeys = {}
-		for _,kp in ipairs(uiGradient.Color.Keypoints) do
-			table.insert(newKeys, ColorSequenceKeypoint.new(kp.Time, Color3.new(1,1,1)))
-		end
+		local startColor = Color3.fromRGB(52,52,52)
+		local endColor = Color3.fromRGB(255,255,255)
 
-		TweenService:Create(uiGradient, info, {
-			Color = ColorSequence.new(newKeys)
-		}):Play()
+		local alpha = Instance.new("NumberValue")
+		alpha.Value = 0
+
+		local tween = TweenService:Create(alpha, info, {Value = 1})
+		tween:Play()
+
+		alpha.Changed:Connect(function(v)
+			local c = startColor:Lerp(endColor, v)
+			uiGradient.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, c),
+				ColorSequenceKeypoint.new(1, c),
+			})
+		end)
+
+		tween.Completed:Connect(function()
+			alpha:Destroy()
+		end)
 	end
 end)
