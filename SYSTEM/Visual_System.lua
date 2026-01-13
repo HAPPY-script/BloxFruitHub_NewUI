@@ -133,13 +133,14 @@ do
     end
 
     -- helper: cleanup all created rows
-    local function cleanupRows()
+    -- preserveView = true sẽ giữ currentViewedPlayer & prevCameraSubject (dùng khi repopulate)
+    local function cleanupRows(preserveView)
     	for _, r in ipairs(rows) do
     		-- disconnect connections
     		if r.conns then
     			for _, c in ipairs(r.conns) do
     				if c and type(c.Disconnect) == "function" then
-    					c:Disconnect()
+    					pcall(function() c:Disconnect() end)
     				end
     			end
     		end
@@ -149,53 +150,49 @@ do
     		end
     	end
     	rows = {}
-    	currentViewedPlayer = nil
-    	-- restore camera when closing (if previously changed)
-    	if prevCameraSubject then
-    		local cam = workspace.CurrentCamera
-    		if cam then
-    			-- restore subject if possible
-    			pcall(function()
-    				cam.CameraSubject = prevCameraSubject
-    				cam.CameraType = prevCameraType or Enum.CameraType.Custom
-    			end)
+
+    	-- restore camera when closing (if previously changed) only if NOT preserving view
+    	if not preserveView then
+    		currentViewedPlayer = nil
+    		if prevCameraSubject then
+    			local cam = workspace.CurrentCamera
+    			if cam then
+    				pcall(function()
+    					cam.CameraSubject = prevCameraSubject
+    					cam.CameraType = prevCameraType or Enum.CameraType.Custom
+    				end)
+    			end
+    			prevCameraSubject = nil
+    			prevCameraType = nil
     		end
-    		prevCameraSubject = nil
-    		prevCameraType = nil
     	end
     end
 
     -- helper: update HP bar tween (size + color)
     local function updateHPVisual(hpFrame, ratio)
-    	local hpBar = hpFrame:FindFirstChild("HP")
+    	local hpBar = hpFrame and hpFrame:FindFirstChild("HP")
     	if not hpBar then return end
     	ratio = math.clamp(ratio or 0, 0, 1)
     	local goalSize = UDim2.new(ratio, 0, 1, 0)
     	tween(hpBar, {Size = goalSize}, 0.18)
     	-- color interpolate: 1->green, 0->red
-    	local color = Color3.fromRGB(255*(1-ratio), 255*ratio, 0)
+    	local rC = math.clamp(math.floor(255*(1-ratio)),0,255)
+    	local gC = math.clamp(math.floor(255*ratio),0,255)
+    	local color = Color3.fromRGB(rC, gC, 0)
     	tween(hpBar, {BackgroundColor3 = color}, 0.18)
     end
 
     -- robust helper: set avatar image on ImageLabel for a Player
     local function setAvatarImage(imageLabel, player)
     	if not imageLabel or not player then return end
-
-    	-- ensure visible
     	pcall(function() imageLabel.Visible = true end)
-
-    	-- try GetUserThumbnailAsync (pcall to avoid runtime error)
     	local ok, thumbUrl = pcall(function()
     		return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48)
     	end)
-
     	if ok and type(thumbUrl) == "string" and thumbUrl ~= "" then
-    		-- Use returned url
     		imageLabel.Image = thumbUrl
     		return
     	end
-
-    	-- fallback: rbxthumb scheme (should work in client)
     	local fallback = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(player.UserId) .. "&w=48&h=48"
     	imageLabel.Image = fallback
     end
@@ -218,39 +215,34 @@ do
     		nameLabel.Text = targetPlayer.Name
     	end
 
+    	-- prepare connections table early
+    	local connections = {}
+
     	-- avatar: find ImageLabel named "Avatar" and set image
     	local avatar = row:FindFirstChild("Avatar", true) or row:FindFirstChild("Avatar")
     	if avatar and avatar:IsA("ImageLabel") then
-    		-- immediately set avatar (async within pcall)
     		pcall(setAvatarImage, avatar, targetPlayer)
-
-    		-- optional: if player changes appearance, refresh when character added
+    		-- refresh avatar on character added (appearance change)
     		local cRefresh = targetPlayer.CharacterAdded:Connect(function()
-    			-- small delay to let appearance load
     			task.delay(0.5, function()
     				pcall(setAvatarImage, avatar, targetPlayer)
     			end)
     		end)
-
-    		-- keep this connection in connections for cleanup
-    		-- we'll add it into connections table below
-    		-- (we add it after creating connections table)
+    		table.insert(connections, cRefresh)
     	end
 
     	-- HP frame
     	local HPFrame = row:FindFirstChild("HPFrame", true) or row:FindFirstChild("HPFrame")
     	if HPFrame then
-    		-- initialize to 0 until we read humanoid
     		updateHPVisual(HPFrame, 0)
     	end
 
     	-- view button
     	local viewBtn = row:FindFirstChild("ViewButton", true) or row:FindFirstChild("ViewButton")
     	if viewBtn and viewBtn:IsA("TextButton") then
-    		viewBtn.MouseButton1Click:Connect(function()
+    		local btnConn = viewBtn.MouseButton1Click:Connect(function()
     			-- if currently viewing this player -> restore to local
     			if currentViewedPlayer and currentViewedPlayer.UserId == targetPlayer.UserId then
-    				-- restore camera
     				local cam = workspace.CurrentCamera
     				if cam and localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Humanoid") then
     					pcall(function()
@@ -259,38 +251,35 @@ do
     					end)
     				end
     				currentViewedPlayer = nil
-    				-- update visuals (turn off On for this row)
     				for _, rec in ipairs(rows) do
     					setRowViewVisuals(rec.frame, false)
     				end
     			else
-    				-- set camera subject to target player's humanoid (if exists)
     				local cam = workspace.CurrentCamera
-    				if cam and targetPlayer.Character and targetPlayer.Character:FindFirstChildWhichIsA("Humanoid") then
+    				local targetHum = targetPlayer.Character and targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    				if cam and targetHum then
     					-- save previous subject on first time
     					if not prevCameraSubject then
     						prevCameraSubject = cam.CameraSubject
     						prevCameraType = cam.CameraType
     					end
     					pcall(function()
-    						cam.CameraSubject = targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    						cam.CameraSubject = targetHum
     						cam.CameraType = Enum.CameraType.Custom
     					end)
     					currentViewedPlayer = targetPlayer
-    					-- update visuals (On visible for this row only)
     					for _, rec in ipairs(rows) do
     						setRowViewVisuals(rec.frame, rec.player.UserId == targetPlayer.UserId)
     					end
     				end
     			end
     		end)
+    		table.insert(connections, btnConn)
     	end
 
     	-- Setup HP updates: listen to character/humanoid changes
-    	local connections = {}
-
     	local function bindHumanoid(humanoid)
-    		if not humanoid then return end
+    		if not humanoid or not HPFrame then return end
     		-- initial set
     		local health = humanoid.Health or 0
     		local maxHealth = humanoid.MaxHealth or 1
@@ -315,7 +304,6 @@ do
 
     	-- character added / removed
     	local cChar = targetPlayer.CharacterAdded:Connect(function(ch)
-    		-- small delay for humanoid
     		local humanoid = ch:WaitForChild("Humanoid", 2)
     		if humanoid then
     			bindHumanoid(humanoid)
@@ -342,18 +330,18 @@ do
     	setRowViewVisuals(row, currentViewedPlayer and currentViewedPlayer.UserId == targetPlayer.UserId)
     end
 
-    -- Populate rows for all players (except maybe local player? We'll include others; include local too at end)
+    -- Populate rows for all players (preserve current view if possible)
     local function populatePlayers()
-    	-- clean previously created rows (but keep template RowTemplate hidden)
-    	cleanupRows()
+    	-- remember who is currently viewed (by UserId)
+    	local viewedId = currentViewedPlayer and currentViewedPlayer.UserId
+
+    	-- clean previously created rows but preserve view state
+    	cleanupRows(true)
     	RowTemplate.Visible = false
 
     	local allPlayers = Players:GetPlayers()
-    	-- build list excluding the PlayerFrame owner? We'll include everyone except the template
     	local idx = 1
     	for _, p in ipairs(allPlayers) do
-    		-- skip if template corresponds to local UI or other non-player (no)
-    		-- include all players except maybe the local Player? include all except local by default? We'll include all others first, then local at end
     		if p ~= localPlayer then
     			createRowForPlayer(p, idx)
     			idx = idx + 1
@@ -361,6 +349,46 @@ do
     	end
     	-- put localPlayer at the end (optional)
     	createRowForPlayer(localPlayer, idx)
+
+    	-- try to restore view if viewed player still present
+    	if viewedId then
+    		local restored = false
+    		for _, rec in ipairs(rows) do
+    			if rec.player and rec.player.UserId == viewedId then
+    				-- try set camera subject (if humanoid exists)
+    				local cam = workspace.CurrentCamera
+    				local hum = rec.player.Character and rec.player.Character:FindFirstChildWhichIsA("Humanoid")
+    				if cam and hum then
+    					-- prevCameraSubject should already be saved from first view
+    					pcall(function()
+    						cam.CameraSubject = hum
+    						cam.CameraType = Enum.CameraType.Custom
+    					end)
+    					currentViewedPlayer = rec.player
+    					-- update visuals
+    					for _, r2 in ipairs(rows) do
+    						setRowViewVisuals(r2.frame, r2.player.UserId == viewedId)
+    					end
+    					restored = true
+    				end
+    				break
+    			end
+    		end
+
+    		-- if couldn't restore (player left or no humanoid), restore original camera subject
+    		if not restored and prevCameraSubject then
+    			local cam = workspace.CurrentCamera
+    			if cam then
+    				pcall(function()
+    					cam.CameraSubject = prevCameraSubject
+    					cam.CameraType = prevCameraType or Enum.CameraType.Custom
+    				end)
+    			end
+    			prevCameraSubject = nil
+    			prevCameraType = nil
+    			currentViewedPlayer = nil
+    		end
+    	end
     end
 
     -- Toggle PlayerFrame parent between UIPlayers folder and Main
@@ -374,7 +402,7 @@ do
     		active = true
     	else
     		-- move back to folder and cleanup
-    		cleanupRows()
+    		cleanupRows(false)
     		RowTemplate.Visible = true
     		PlayerFrameTemplate.Parent = UIPlayersFolder
     		PlayerFrameTemplate.Visible = false -- keep hidden in folder
@@ -387,19 +415,16 @@ do
     	pcall(enablePlayerFrame)
     end)
 
-    -- Also, if PlayerFrame gets parented manually or its Visible toggled, we watch that and ensure we populate only when parent == Main
-    -- Observe ancestry change to react if someone else moves it
+    -- Observe ancestry change (external show/hide)
     PlayerFrameTemplate.AncestryChanged:Connect(function()
     	if PlayerFrameTemplate.Parent == Main and not active then
-    		-- populate on external show
     		pcall(function()
     			populatePlayers()
     			active = true
     		end)
     	elseif PlayerFrameTemplate.Parent ~= Main and active then
-    		-- hidden externally: cleanup
     		pcall(function()
-    			cleanupRows()
+    			cleanupRows(false)
     			RowTemplate.Visible = true
     			active = false
     		end)
@@ -410,7 +435,6 @@ do
     local playersConn
     playersConn = Players.PlayerAdded:Connect(function(pl)
     	if not active then return end
-    	-- simply repopulate (cheap because small list)
     	pcall(populatePlayers)
     end)
     local playersRemovedConn
@@ -423,7 +447,7 @@ do
     local function onCleanup()
     	if playersConn then playersConn:Disconnect() end
     	if playersRemovedConn then playersRemovedConn:Disconnect() end
-    	cleanupRows()
+    	cleanupRows(false)
     end
 
     script.Destroying:Connect(onCleanup)
