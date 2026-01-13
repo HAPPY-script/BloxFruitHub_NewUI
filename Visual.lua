@@ -36,7 +36,7 @@ UIStroke.Parent = Remove_fog
 
 local UIGradient = Instance.new("UIGradient")
 UIGradient.Name = "UIGradient"
-UIGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0.203922, 0.203922, 0.203922)), ColorSequenceKeypoint.new(0.5, Color3.new(0.764706, 0.764706, 0.764706)), ColorSequenceKeypoint.new(1, Color3.new(0.203922, 0.203922, 0.203922))})
+UIGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0.203922, 0.203922, 0.203922)), ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(1, Color3.new(0.203922, 0.203922, 0.203922))})
 UIGradient.Parent = Remove_fog
 
 local Frame = Visual
