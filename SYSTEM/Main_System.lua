@@ -1855,10 +1855,11 @@ do
         Beam.Texture = "rbxassetid://78520400570887"
         Beam.TextureLength = 25
         Beam.LightEmission = 1
+        Beam.Transparency = 0
 
         -- ĐỘ DÀY: tăng lên để dễ thấy — chỉnh các giá trị này nếu cần
-        Beam.Width0 = 1     -- đầu gần player
-        Beam.Width1 = 1     -- đầu gần enemy
+        Beam.Width0 = 2     -- đầu gần player
+        Beam.Width1 = 2     -- đầu gần enemy
 
         -- Nếu muốn hoàn toàn không trong suốt: NumberSequence.new(0)
         -- Nếu muốn gradient trong suốt: dùng table keypoint
