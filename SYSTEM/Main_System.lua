@@ -1815,7 +1815,7 @@ do
         end
         if currentBeamAttachments then
             for _, att in ipairs(currentBeamAttachments) do
-                if att and att.Parent then
+                if att then
                     pcall(function() att:Destroy() end)
                 end
             end
@@ -1824,29 +1824,31 @@ do
     end
 
     local function createBeamBetweenParts(partA, partB)
-        -- partA = player's HRP, partB = enemy HRP
+        -- partA: source (farmPoint or hrp)
+        -- partB: target (enemy HRP)
         if not (partA and partB and partA.Parent and partB.Parent) then return nil end
 
         -- dọn beam cũ
         destroyCurrentBeam()
 
-        -- tạo attachments gắn trực tiếp vào HRP (offset lên một chút để nhìn rõ)
+        -- tạo attachments gắn trực tiếp vào partA và partB
         local att0 = Instance.new("Attachment")
         att0.Name = "FastTargetBeam_Att0"
         att0.Parent = partA
-        att0.Position = Vector3.new(0, 1.5, 0)     -- nâng lên ~ ngực
+        -- nếu partA là farmPoint (small part), đặt offset thấp hơn; nếu là HRP vẫn ổn
+        att0.Position = Vector3.new(0, 0.7, 0)      -- nhẹ nâng lên khỏi mặt đất
 
         local att1 = Instance.new("Attachment")
         att1.Name = "FastTargetBeam_Att1"
         att1.Parent = partB
-        att1.Position = Vector3.new(0, 1.5, 0)     -- nâng lên ~ ngực/head của enemy
+        att1.Position = Vector3.new(0, 1.5, 0)      -- bám vào ngực / đầu enemy
 
-        -- tạo beam (tối ưu hiển thị)
+        -- tạo beam
         local Beam = Instance.new("Beam")
         Beam.Name = "FastTargetBeam"
         Beam.FaceCamera = true
 
-        -- dùng hai Color3 thay cho keypoint table (dễ đọc & an toàn)
+        -- màu: dùng ColorSequence với 2 Color3 (an toàn)
         Beam.Color = ColorSequence.new(Color3.fromRGB(140, 0, 255), Color3.fromRGB(140, 0, 255))
 
         Beam.Attachment0 = att0
@@ -1855,20 +1857,15 @@ do
         Beam.Texture = "rbxassetid://78520400570887"
         Beam.TextureLength = 25
         Beam.LightEmission = 1
-        Beam.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 0)
-        })
 
-        -- ĐỘ DÀY: tăng lên để dễ thấy — chỉnh các giá trị này nếu cần
-        Beam.Width0 = 2     -- đầu gần player
-        Beam.Width1 = 2     -- đầu gần enemy
+        -- ĐỘ DÀY: chỉnh lớn để dễ nhìn; giảm nếu quá to
+        Beam.Width0 = 2.0
+        Beam.Width1 = 1.6
 
-        -- Nếu muốn hoàn toàn không trong suốt: NumberSequence.new(0)
-        -- Nếu muốn gradient trong suốt: dùng table keypoint
+        -- Transparency bắt buộc là NumberSequence
         Beam.Transparency = NumberSequence.new(0)
 
-        -- Parenting trên workspace (client-side) — chỉ hiển thị cho local player
+        -- parent client-side (hiển thị chỉ cho local player)
         Beam.Parent = workspace
 
         currentBeam = Beam
@@ -1888,9 +1885,17 @@ do
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
 
-        -- tạo beam từ hrp (player) tới hrpEnemy
-        if hrp and hrp.Parent then
-            createBeamBetweenParts(hrp, hrpEnemy)
+        local function ensureBeamSource()
+            -- nếu farmPoint tồn tại và ở workspace, dùng nó, ngược lại dùng hrp
+            if farmPoint and farmPoint.Parent then
+                return farmPoint
+            end
+            return hrp
+        end
+
+        local beamSource = ensureBeamSource()
+        if beamSource and beamSource.Parent and hrpEnemy and hrpEnemy.Parent then
+            createBeamBetweenParts(beamSource, hrpEnemy)
         end
 
         if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
@@ -1969,7 +1974,12 @@ do
     end
 
     local function destroyFarmPoint()
-        if farmPoint and farmPoint.Parent then farmPoint:Destroy() end
+        -- nếu có beam đang dùng farmPoint, hủy beam trước
+        destroyCurrentBeam()
+
+        if farmPoint and farmPoint.Parent then
+            farmPoint:Destroy()
+        end
         farmPoint = nil
         farmBillboard = nil
         farmCenter = nil
