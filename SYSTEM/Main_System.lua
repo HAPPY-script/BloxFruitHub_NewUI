@@ -1829,6 +1829,63 @@ do
         end)
     end
 
+    -- Beam hiện tại (chỉ 1 beam cùng lúc)
+    local currentBeam = nil
+    local currentBeamAttachments = {} -- {att0, att1}
+
+    local function destroyCurrentBeam()
+        if currentBeam then
+            pcall(function() currentBeam:Destroy() end)
+            currentBeam = nil
+        end
+        if currentBeamAttachments then
+            for _, att in ipairs(currentBeamAttachments) do
+                if att then
+                    pcall(function() att:Destroy() end)
+                end
+            end
+            currentBeamAttachments = {}
+        end
+    end
+
+    local function createBeamBetweenParts(partA, partB)
+        if not (partA and partB and partA.Parent and partB.Parent) then return nil end
+
+        -- chắc chắn không còn beam cũ
+        destroyCurrentBeam()
+
+        -- tạo attachments (đặt offset nếu cần)
+        local att0 = Instance.new("Attachment")
+        att0.Name = "FastTargetBeam_Att0"
+        att0.Parent = partA
+        att0.Position = Vector3.new(0, 0, 0)
+
+        local att1 = Instance.new("Attachment")
+        att1.Name = "FastTargetBeam_Att1"
+        att1.Parent = partB
+        att1.Position = Vector3.new(0, 0, 0)
+
+        -- tạo beam (dùng mẫu của bạn, chỉnh width/transparency nếu muốn)
+        local Beam = Instance.new("Beam")
+        Beam.Name = "FastTargetBeam"
+        Beam.FaceCamera = true
+        Beam.Color = ColorSequence.new(ColorSequenceKeypoint.new(0.00, Color3.new(0.55, 0.00, 1.00)), ColorSequenceKeypoint.new(1.00, Color3.new(0.55, 0.00, 1.00)))
+        Beam.Attachment0 = att0
+        Beam.Attachment1 = att1
+        Beam.Texture = "rbxassetid://78520400570887"
+        Beam.TextureLength = 50
+        Beam.LightEmission = 1
+        Beam.Width0 = 0.18
+        Beam.Width1 = 0.10
+        Beam.Transparency = NumberSequence.new(NumberSequenceKeypoint.new(0.00, 0.00, 0.00), NumberSequenceKeypoint.new(1.00, 0.00, 0.00))
+        Beam.Parent = workspace
+
+        currentBeam = Beam
+        currentBeamAttachments = {att0, att1}
+
+        return Beam
+    end
+
     -- follow enemy (giữ logic)
     local function followEnemy(enemy)
         if not enemy then return end
@@ -1836,15 +1893,20 @@ do
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
 
+        -- tạo highlight (gốc)
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
+
+        -- tạo beam từ hrp (player) tới hrpEnemy
+        if hrp and hrp.Parent then
+            createBeamBetweenParts(hrp, hrpEnemy)
+        end
 
         if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
             anchorY = hrpEnemy.Position.Y + 25
             lastAnchorUpdate = tick()
         end
 
-        -- camera sẽ follow anchorLocal (Part) để tiện điều chỉnh
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = anchorLocal
 
@@ -1854,15 +1916,26 @@ do
         else
             while humanoid.Health > 0 and running do
                 updateHighlight(enemy)
+
+                -- nếu enemy chuyển động thì đảm bảo beam vẫn nối (attachments tự theo part)
                 anchorY = hrpEnemy.Position.Y + 25
                 local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
                 anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
 
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+
+                -- kiểm tra xem hrpEnemy vẫn tồn tại và là target hiện tại
+                if not running or not humanoid.Parent or humanoid.Health <= 0 or not hrpEnemy.Parent then
+                    break
+                end
+
                 RunService.RenderStepped:Wait()
             end
         end
+
+        -- khi rời target hoặc enemy chết: hủy beam
+        destroyCurrentBeam()
     end
 
     -- create farm point + billboard
@@ -1998,6 +2071,9 @@ do
             -- restore camera to previous state (or player default)
             restoreCameraState()
             destroyFarmPoint()
+
+            -- HỦY beam nếu còn
+            destroyCurrentBeam()
 
             if anchor and anchor.Parent then
                 anchor:Destroy()
