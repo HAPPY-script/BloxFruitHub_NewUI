@@ -277,8 +277,8 @@ UIStroke5.Parent = AutoRaidTitle
 
 local AutoDungeonTitle = Instance.new("TextLabel")
 AutoDungeonTitle.Name = "AutoDungeonTitle"
-AutoDungeonTitle.Position = UDim2.new(0.375, 0, 0.13, 0)
-AutoDungeonTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+AutoDungeonTitle.Position = UDim2.new(0.275, 0, 0.13, 0)
+AutoDungeonTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
 AutoDungeonTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoDungeonTitle.BorderSizePixel = 0
 AutoDungeonTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -569,6 +569,31 @@ UIStroke10.Color = Color3.new(1, 1, 0)
 UIStroke10.Thickness = 2
 UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke10.Parent = SettingAutoBuffButton
+
+local SupportStyleDungeonButton = Instance.new("TextButton")
+SupportStyleDungeonButton.Name = "SupportStyleDungeonButton"
+SupportStyleDungeonButton.Position = UDim2.new(0.645, 0, 0.13, 0)
+SupportStyleDungeonButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+SupportStyleDungeonButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+SupportStyleDungeonButton.BackgroundTransparency = 0.75
+SupportStyleDungeonButton.BorderSizePixel = 0
+SupportStyleDungeonButton.BorderColor3 = Color3.new(0, 0, 0)
+SupportStyleDungeonButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SupportStyleDungeonButton.Transparency = 0.75
+SupportStyleDungeonButton.Text = "Support: Melee"
+SupportStyleDungeonButton.TextColor3 = Color3.new(1, 1, 1)
+SupportStyleDungeonButton.TextSize = 14
+SupportStyleDungeonButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SupportStyleDungeonButton.TextScaled = true
+SupportStyleDungeonButton.TextWrapped = true
+SupportStyleDungeonButton.Parent = Raid
+
+local UIStroke11 = Instance.new("UIStroke")
+UIStroke11.Name = "UIStroke"
+UIStroke11.Color = Color3.new(0, 0.784314, 1)
+UIStroke11.Thickness = 2
+UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke11.Parent = SupportStyleDungeonButton
 
 local Frame = Raid
 if not Frame then return end
