@@ -1855,7 +1855,7 @@ do
         Beam.Attachment1 = att1
 
         Beam.Texture = "rbxassetid://78520400570887"
-        Beam.TextureLength = 25
+        Beam.TextureLength = 100
         Beam.LightEmission = 1
 
         -- ĐỘ DÀY: chỉnh lớn để dễ nhìn; giảm nếu quá to
