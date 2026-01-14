@@ -559,10 +559,16 @@ do
     end
 
     local BUTTON_NAME = "AutoDungeonButton"
+    local SUPPORT_BTN_NAME = "SupportStyleDungeonButton"
     local autoBtn = raidFrame:FindFirstChild(BUTTON_NAME, true)
+    local supportBtn = raidFrame:FindFirstChild(SUPPORT_BTN_NAME, true)
+
     if not autoBtn then
         warn("Không tìm thấy Button:", BUTTON_NAME)
         return
+    end
+    if not supportBtn then
+        warn("Không tìm thấy SupportStyleDungeonButton:", SUPPORT_BTN_NAME, "- tiếp tục nhưng không có UI support.")
     end
 
     -- helper: tìm UIStroke descendant đầu tiên
@@ -573,6 +579,7 @@ do
         return nil
     end
     local btnStroke = findStroke(autoBtn)
+    local supportStroke = supportBtn and findStroke(supportBtn) or nil
 
     -- tween helper
     local function tweenGui(obj, props, time, style, dir)
@@ -586,10 +593,18 @@ do
     local DISTANCE_LIMIT = 900
     local SCAN_INTERVAL = 0.08
     local MOVE_SPEED = 600
-    local FOLLOW_HEIGHT = 35
+    local FOLLOW_HEIGHT = 35 -- mặc định Melee
     local ATTACK_INTERVAL = 0.5
 
     local ALLOWED_PLACE = 73902483975735
+
+    -- Support style config
+    local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
+    local FRUIT_COLOR = Color3.fromRGB(0, 255, 150)
+    local SUPPORT_TEXT = { Melee = "Support: Melee", Fruit = "Support: Fruit" }
+
+    local supportStyle = "Melee" -- mặc định
+    local _prevSupportStyle = nil
 
     -- internal state
     local autoDungeon = false
@@ -970,7 +985,7 @@ do
             hookToolTracking(character)
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                player:SetAttribute("FastAttackEnemyStyle", supportStyle) -- dùng style hiện tại
                 player:SetAttribute("FastAttackEnemy", true)
 
                 player:SetAttribute("AutoBuso", true)
@@ -1040,6 +1055,102 @@ do
 
     -- small initial sync after UI settled
     task.delay(0.05, syncFromButtonColor)
+
+    -- ========== SupportStyleDungeonButton handling & visuals ==========
+    local function getTextHolder(btn)
+        if not btn then return nil end
+        if btn:IsA("TextButton") or btn:IsA("TextLabel") then
+            return btn
+        end
+        local t = btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+        return t
+    end
+
+    local function tweenProperty(instance, props, time)
+        if not instance then return end
+        local ok, t = pcall(function()
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            tw:Play()
+            return tw
+        end)
+        if ok then return t end
+        return nil
+    end
+
+    local function applySupportVisuals(style)
+        if not supportBtn then return end
+        local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
+        -- tween background
+        pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
+        -- tween UIStroke.Color if exists
+        if supportStroke then
+            pcall(function() tweenProperty(supportStroke, {Color = targetColor}, 0.18) end)
+        end
+        -- text tween: fade out -> change -> fade in
+        local textObj = getTextHolder(supportBtn)
+        if textObj then
+            local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
+            if t1 then t1.Completed:Wait() end
+            local newText = SUPPORT_TEXT[style] or ("Support: " .. style)
+            pcall(function() textObj.Text = newText end)
+            local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.12)
+            if t2 then t2.Completed:Wait() end
+        end
+    end
+
+    local function setSupportStyle(style)
+        if not style then return end
+        style = (style == "Fruit") and "Fruit" or "Melee"
+        if _prevSupportStyle == style then
+            -- đồng bộ visuals nếu vẫn giống
+            applySupportVisuals(style)
+            return
+        end
+
+        supportStyle = style
+        -- cập nhật FOLLOW_HEIGHT tương ứng
+        if style == "Melee" then
+            FOLLOW_HEIGHT = 35
+        else
+            FOLLOW_HEIGHT = 10
+        end
+
+        applySupportVisuals(style)
+        _prevSupportStyle = style
+
+        -- gọi SetAttribute cho chế độ hiện tại 1 lần
+        pcall(function()
+            player:SetAttribute("FastAttackEnemyStyle", style)
+        end)
+    end
+
+    -- khởi tạo supportBtn visuals mặc định Melee
+    if supportBtn then
+        -- ensure initial text transparency is 0 (hiển thị)
+        local textObj = getTextHolder(supportBtn)
+        if textObj then
+            pcall(function() textObj.TextTransparency = 0 end)
+            pcall(function() textObj.Text = SUPPORT_TEXT[supportStyle] end)
+        end
+        -- set initial background & stroke instantly
+        pcall(function() supportBtn.BackgroundColor3 = MELEE_COLOR end)
+        if supportStroke then pcall(function() supportStroke.Color = MELEE_COLOR end) end
+
+        -- connect click to toggle
+        local function onSupportActivated()
+            local nextStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
+            setSupportStyle(nextStyle)
+        end
+        if supportBtn.Activated then
+            supportBtn.Activated:Connect(onSupportActivated)
+        else
+            supportBtn.MouseButton1Click:Connect(onSupportActivated)
+        end
+    end
+
+    -- ensure attribute initial value set to default supportStyle (một lần)
+    pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+
 end
 
 --=== SELECT BUFF DUNGEON ===================================================================================================================--
