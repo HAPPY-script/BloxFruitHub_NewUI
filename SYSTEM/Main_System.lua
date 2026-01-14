@@ -1855,7 +1855,10 @@ do
         Beam.Texture = "rbxassetid://78520400570887"
         Beam.TextureLength = 25
         Beam.LightEmission = 1
-        Beam.Transparency = NumberSequence.new(0)
+        Beam.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 0)
+        })
 
         -- ĐỘ DÀY: tăng lên để dễ thấy — chỉnh các giá trị này nếu cần
         Beam.Width0 = 2     -- đầu gần player
