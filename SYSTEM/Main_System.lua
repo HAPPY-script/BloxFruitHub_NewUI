@@ -1604,7 +1604,6 @@ do
     end
 
     local function restoreCameraToPlayer()
-        -- Ưu tiên dùng Humanoid của nhân vật nếu có
         if player and player.Character and player.Character.Parent then
             local hum = player.Character:FindFirstChildOfClass("Humanoid")
             if hum then
@@ -1613,7 +1612,6 @@ do
                 return
             end
         end
-        -- fallback về trạng thái ban đầu
         camera.CameraType = originalCameraState.Type or Enum.CameraType.Custom
         camera.CameraSubject = originalCameraState.Subject
     end
@@ -1648,10 +1646,12 @@ do
     -- tên UI do bạn đặt
     local BUTTON_NAME = "AutoFarmArenaButton"
     local BOX_NAME    = "AutoFarmArenaBox"
+    local SUPPORT_BTN_NAME = "SupportStyleButton" -- tên nút support mới
 
     -- find controls (đệ quy)
     local autoBtn = uiMain:FindFirstChild(BUTTON_NAME, true)
     local distanceBox = uiMain:FindFirstChild(BOX_NAME, true)
+    local supportBtn = uiMain:FindFirstChild(SUPPORT_BTN_NAME, true)
 
     if not autoBtn then
         warn("Không tìm thấy button:", BUTTON_NAME)
@@ -1660,6 +1660,9 @@ do
     if not distanceBox then
         warn("Không tìm thấy textbox:", BOX_NAME)
         return
+    end
+    if not supportBtn then
+        warn("Không tìm thấy SupportStyleButton:", SUPPORT_BTN_NAME, "- tiếp tục nhưng không có UI toggle.")
     end
 
     -- ensure ToggleUI state initial
@@ -1683,6 +1686,14 @@ do
     local anchorY = nil
     local lastAnchorUpdate = 0
     local anchorUpdateInterval = 1
+
+    -- Support style config
+    local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
+    local FRUIT_COLOR = Color3.fromRGB(0, 255, 150)
+    local SUPPORT_TEXT = { Melee = "Support: Melee", Fruit = "Support: Fruit" }
+
+    local supportStyle = "Melee" -- mặc định
+    local _prevSupportStyle = nil
 
     -- helper: normalize textbox initial value
     if not distanceBox.Text or distanceBox.Text == "" then
@@ -1728,7 +1739,6 @@ do
         local folder = workspace:FindFirstChild("Enemies")
         if not folder then return nil end
 
-        -- collect candidates that are inside the anchor/center zone
         local candidates = {}
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
@@ -1744,11 +1754,9 @@ do
         end
 
         if #candidates == 0 then
-            -- no enemies inside the anchor zone
             return nil
         end
 
-        -- if we have the player's hrp, pick candidate closest to player
         if hrp and hrp.Parent then
             local best = nil
             local bestDist = nil
@@ -1762,7 +1770,6 @@ do
             return best
         end
 
-        -- fallback: choose by proximity to center if player hrp not available
         local nearest = nil
         local nearestDist = nil
         for _, c in ipairs(candidates) do
@@ -1824,48 +1831,30 @@ do
     end
 
     local function createBeamBetweenParts(partA, partB)
-        -- partA: source (farmPoint or hrp)
-        -- partB: target (enemy HRP)
         if not (partA and partB and partA.Parent and partB.Parent) then return nil end
-
-        -- dọn beam cũ
         destroyCurrentBeam()
-
-        -- tạo attachments gắn trực tiếp vào partA và partB
         local att0 = Instance.new("Attachment")
         att0.Name = "FastTargetBeam_Att0"
         att0.Parent = partA
-        -- nếu partA là farmPoint (small part), đặt offset thấp hơn; nếu là HRP vẫn ổn
-        att0.Position = Vector3.new(0, 0.7, 0)      -- nhẹ nâng lên khỏi mặt đất
+        att0.Position = Vector3.new(0, 0.7, 0)
 
         local att1 = Instance.new("Attachment")
         att1.Name = "FastTargetBeam_Att1"
         att1.Parent = partB
-        att1.Position = Vector3.new(0, 1.5, 0)      -- bám vào ngực / đầu enemy
+        att1.Position = Vector3.new(0, 1.5, 0)
 
-        -- tạo beam
         local Beam = Instance.new("Beam")
         Beam.Name = "FastTargetBeam"
         Beam.FaceCamera = true
-
-        -- màu: dùng ColorSequence với 2 Color3 (an toàn)
         Beam.Color = ColorSequence.new(Color3.fromRGB(140, 0, 255), Color3.fromRGB(140, 0, 255))
-
         Beam.Attachment0 = att0
         Beam.Attachment1 = att1
-
         Beam.Texture = "rbxassetid://78520400570887"
         Beam.TextureLength = 100
         Beam.LightEmission = 1
-
-        -- ĐỘ DÀY: chỉnh lớn để dễ nhìn; giảm nếu quá to
         Beam.Width0 = 2.0
         Beam.Width1 = 1.6
-
-        -- Transparency bắt buộc là NumberSequence
         Beam.Transparency = NumberSequence.new(0)
-
-        -- parent client-side (hiển thị chỉ cho local player)
         Beam.Parent = workspace
 
         currentBeam = Beam
@@ -1874,19 +1863,17 @@ do
         return Beam
     end
 
-    -- follow enemy (giữ logic)
+    -- follow enemy (giữ logic), sử dụng supportStyle để đổi offset
     local function followEnemy(enemy)
         if not enemy then return end
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
 
-        -- tạo highlight (gốc)
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
 
         local function ensureBeamSource()
-            -- nếu farmPoint tồn tại và ở workspace, dùng nó, ngược lại dùng hrp
             if farmPoint and farmPoint.Parent then
                 return farmPoint
             end
@@ -1899,7 +1886,8 @@ do
         end
 
         if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
-            anchorY = hrpEnemy.Position.Y + 25
+            local offset = (supportStyle == "Melee") and 25 or 10
+            anchorY = hrpEnemy.Position.Y + offset
             lastAnchorUpdate = tick()
         end
 
@@ -1913,15 +1901,14 @@ do
             while humanoid.Health > 0 and running do
                 updateHighlight(enemy)
 
-                -- nếu enemy chuyển động thì đảm bảo beam vẫn nối (attachments tự theo part)
-                anchorY = hrpEnemy.Position.Y + 25
-                local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
+                -- mỗi vòng lấy offset từ supportStyle (cho phép đổi giữa chặn)
+                local offset = (supportStyle == "Melee") and 25 or 10
+                local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + offset, hrpEnemy.Position.Z)
                 anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
 
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
 
-                -- kiểm tra xem hrpEnemy vẫn tồn tại và là target hiện tại
                 if not running or not humanoid.Parent or humanoid.Health <= 0 or not hrpEnemy.Parent then
                     break
                 end
@@ -1930,7 +1917,6 @@ do
             end
         end
 
-        -- khi rời target hoặc enemy chết: hủy beam
         destroyCurrentBeam()
     end
 
@@ -1974,9 +1960,7 @@ do
     end
 
     local function destroyFarmPoint()
-        -- nếu có beam đang dùng farmPoint, hủy beam trước
         destroyCurrentBeam()
-
         if farmPoint and farmPoint.Parent then
             farmPoint:Destroy()
         end
@@ -2025,9 +2009,7 @@ do
 
     -- When user clicks the UI toggle: call ToggleUI.Set like mẫu
     if autoBtn then
-        -- handle either Activated or MouseButton1Click
         local function onToggleActivated()
-            -- infer current on from background color (greenish -> on)
             local bg = autoBtn.BackgroundColor3
             local currentOn = (bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5)
             local target = not currentOn
@@ -2053,11 +2035,11 @@ do
 
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                -- Set style based on current supportStyle (mặc định Melee)
+                player:SetAttribute("FastAttackEnemyStyle", supportStyle)
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
-            -- save current camera state so we can restore it later
             saveCameraState()
 
             if hrp then
@@ -2069,11 +2051,8 @@ do
 
             _G.BringMobGate2 = false
 
-            -- restore camera to previous state (or player default)
             restoreCameraState()
             destroyFarmPoint()
-
-            -- HỦY beam nếu còn
             destroyCurrentBeam()
 
             if anchor and anchor.Parent then
@@ -2084,7 +2063,6 @@ do
     end
 
     autoBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        -- let ToggleUI update internally first, small delay
         task.delay(0.05, setRunningFromButtonColor)
     end)
 
@@ -2126,7 +2104,7 @@ do
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
             restoreCameraState()
             destroyFarmPoint()
-            destroyCurrentBeam()      -- <-- thêm dòng này
+            destroyCurrentBeam()
             if anchor and anchor.Parent then anchor:Destroy() end
             anchor = nil
         end
@@ -2164,6 +2142,109 @@ do
             end
         end
     end)
+
+    -- ===== SupportStyleButton handling & visuals =====
+    local function getTextHolder(btn)
+        if not btn then return nil end
+        if btn:IsA("TextButton") or btn:IsA("TextLabel") then
+            return btn
+        end
+        local t = btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+        return t
+    end
+
+    local function getUIStroke(btn)
+        if not btn then return nil end
+        return btn:FindFirstChildOfClass("UIStroke") or btn:FindFirstChild("UIStroke")
+    end
+
+    local function tweenProperty(instance, props, time)
+        if not instance then return end
+        local ok, t = pcall(function()
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            tw:Play()
+            return tw
+        end)
+        if ok then return t end
+        return nil
+    end
+
+    local function applySupportVisuals(style)
+        if not supportBtn then return end
+        local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
+        -- tween background
+        pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
+        -- tween UIStroke.Color if exists
+        local stroke = getUIStroke(supportBtn)
+        if stroke then
+            pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end)
+        end
+        -- text tween: 0 -> 1, change, 1 -> 0
+        local textObj = getTextHolder(supportBtn)
+        if textObj then
+            -- tween to transparent
+            local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
+            if t1 then t1.Completed:Wait() end
+            -- change text
+            local newText = SUPPORT_TEXT[style] or ("Support: " .. style)
+            pcall(function() textObj.Text = newText end)
+            -- tween back to visible
+            pcall(function()
+                local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.12)
+                if t2 then t2.Completed:Wait() end
+            end)
+        end
+    end
+
+    -- set support style (đảm bảo SetAttribute chỉ gọi 1 lần khi thực sự thay đổi)
+    local function setSupportStyle(style)
+        if not style then return end
+        style = (style == "Fruit") and "Fruit" or "Melee"
+        if _prevSupportStyle == style then
+            -- vẫn cập nhật visuals để đồng bộ UI nếu cần
+            applySupportVisuals(style)
+            return
+        end
+
+        supportStyle = style
+        applySupportVisuals(style)
+        _prevSupportStyle = style
+
+        -- gọi SetAttribute cho chế độ hiện tại 1 lần
+        pcall(function()
+            player:SetAttribute("FastAttackEnemyStyle", style)
+        end)
+    end
+
+    -- khởi tạo supportBtn visuals mặc định Melee
+    if supportBtn then
+        -- ensure initial text transparency is 0 (hiển thị)
+        local textObj = getTextHolder(supportBtn)
+        if textObj then
+            pcall(function() textObj.TextTransparency = 0 end)
+            pcall(function() textObj.Text = SUPPORT_TEXT[supportStyle] end)
+        end
+        -- set initial background & stroke instantly
+        pcall(function() supportBtn.BackgroundColor3 = MELEE_COLOR end)
+        local stroke = getUIStroke(supportBtn)
+        if stroke then pcall(function() stroke.Color = MELEE_COLOR end) end
+
+        -- connect click
+        local function onSupportActivated()
+            local nextStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
+            -- play transition and set attribute
+            setSupportStyle(nextStyle)
+        end
+        if supportBtn.Activated then
+            supportBtn.Activated:Connect(onSupportActivated)
+        else
+            supportBtn.MouseButton1Click:Connect(onSupportActivated)
+        end
+    end
+
+    -- ensure attribute initial value set to default supportStyle (một lần)
+    pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+
 end
 
 --=== BRING MOD =====================================================================================================--
