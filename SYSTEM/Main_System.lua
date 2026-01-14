@@ -1684,31 +1684,6 @@ do
     local lastAnchorUpdate = 0
     local anchorUpdateInterval = 1
 
-    local function onCharacterDied()
-    	if running then
-    		running = false
-
-    		-- tắt UI toggle
-    		pcall(function()
-    			ToggleUI.Set(BUTTON_NAME, false)
-    		end)
-
-    		-- cleanup an toàn
-    		-- phục hồi camera về player (Humanoid / trạng thái ban đầu)
-    		restoreCameraState()
-    		destroyFarmPoint()
-
-    		if anchor and anchor.Parent then
-    			anchor:Destroy()
-    		end
-    		anchor = nil
-    	end
-    end
-
-    if humanoid then
-    	humanoid.Died:Connect(onCharacterDied)
-    end
-
     -- helper: normalize textbox initial value
     if not distanceBox.Text or distanceBox.Text == "" then
         distanceBox.Text = tostring(distanceLimit)
@@ -1849,48 +1824,48 @@ do
     end
 
     local function createBeamBetweenParts(partA, partB)
+        -- partA = player's HRP, partB = enemy HRP
         if not (partA and partB and partA.Parent and partB.Parent) then return nil end
 
-        -- chắc chắn không còn beam cũ
+        -- dọn beam cũ
         destroyCurrentBeam()
 
-        -- tạo attachments (đặt offset nếu cần)
+        -- tạo attachments gắn trực tiếp vào HRP (offset lên một chút để nhìn rõ)
         local att0 = Instance.new("Attachment")
         att0.Name = "FastTargetBeam_Att0"
         att0.Parent = partA
-        att0.Position = Vector3.new(0, 0, 0)
+        att0.Position = Vector3.new(0, 1.5, 0)     -- nâng lên ~ ngực
 
         local att1 = Instance.new("Attachment")
         att1.Name = "FastTargetBeam_Att1"
         att1.Parent = partB
-        att1.Position = Vector3.new(0, 0, 0)
+        att1.Position = Vector3.new(0, 1.5, 0)     -- nâng lên ~ ngực/head của enemy
 
-        -- tạo beam (dùng mẫu của bạn, chỉnh width/transparency nếu muốn)
+        -- tạo beam (tối ưu hiển thị)
         local Beam = Instance.new("Beam")
         Beam.Name = "FastTargetBeam"
         Beam.FaceCamera = true
 
-        -- color: dùng table các ColorSequenceKeypoint hoặc 2 Color3 (ở đây dùng table)
-        Beam.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0.00, Color3.new(0.55, 0.00, 1.00)),
-            ColorSequenceKeypoint.new(1.00, Color3.new(0.55, 0.00, 1.00))
-        }
+        -- dùng hai Color3 thay cho keypoint table (dễ đọc & an toàn)
+        Beam.Color = ColorSequence.new(Color3.fromRGB(140, 0, 255), Color3.fromRGB(140, 0, 255))
 
         Beam.Attachment0 = att0
         Beam.Attachment1 = att1
+
         Beam.Texture = "rbxassetid://78520400570887"
-        Beam.TextureLength = 50
+        Beam.TextureLength = 25
         Beam.LightEmission = 1
-        Beam.Width0 = 0.18
-        Beam.Width1 = 0.10
 
-        -- transparency: cũng phải bọc keypoint vào table
-        Beam.Transparency = NumberSequence.new{
-            NumberSequenceKeypoint.new(0.00, 0.00),
-            NumberSequenceKeypoint.new(1.00, 0.00)
-        }
+        -- ĐỘ DÀY: tăng lên để dễ thấy — chỉnh các giá trị này nếu cần
+        Beam.Width0 = 2.0     -- đầu gần player
+        Beam.Width1 = 1.5     -- đầu gần enemy
 
-        Beam.Parent = workspace  -- client-side, hiển thị chỉ cho local player
+        -- Nếu muốn hoàn toàn không trong suốt: NumberSequence.new(0)
+        -- Nếu muốn gradient trong suốt: dùng table keypoint
+        Beam.Transparency = NumberSequence.new(0)
+
+        -- Parenting trên workspace (client-side) — chỉ hiển thị cho local player
+        Beam.Parent = workspace
 
         currentBeam = Beam
         currentBeamAttachments = {att0, att1}
@@ -2129,6 +2104,22 @@ do
                 farmCenter = farmPoint.Position
             end
         end)
+    end
+
+    local function onCharacterDied()
+        if running then
+            running = false
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+            restoreCameraState()
+            destroyFarmPoint()
+            destroyCurrentBeam()      -- <-- thêm dòng này
+            if anchor and anchor.Parent then anchor:Destroy() end
+            anchor = nil
+        end
+    end
+
+    if humanoid then
+    	humanoid.Died:Connect(onCharacterDied)
     end
 
     -- auto farm loop: use farmCenter when available
