@@ -1840,7 +1840,7 @@ do
         end
         if currentBeamAttachments then
             for _, att in ipairs(currentBeamAttachments) do
-                if att then
+                if att and att.Parent then
                     pcall(function() att:Destroy() end)
                 end
             end
@@ -1869,7 +1869,13 @@ do
         local Beam = Instance.new("Beam")
         Beam.Name = "FastTargetBeam"
         Beam.FaceCamera = true
-        Beam.Color = ColorSequence.new(ColorSequenceKeypoint.new(0.00, Color3.new(0.55, 0.00, 1.00)), ColorSequenceKeypoint.new(1.00, Color3.new(0.55, 0.00, 1.00)))
+
+        -- color: dùng table các ColorSequenceKeypoint hoặc 2 Color3 (ở đây dùng table)
+        Beam.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0.00, Color3.new(0.55, 0.00, 1.00)),
+            ColorSequenceKeypoint.new(1.00, Color3.new(0.55, 0.00, 1.00))
+        }
+
         Beam.Attachment0 = att0
         Beam.Attachment1 = att1
         Beam.Texture = "rbxassetid://78520400570887"
@@ -1877,8 +1883,14 @@ do
         Beam.LightEmission = 1
         Beam.Width0 = 0.18
         Beam.Width1 = 0.10
-        Beam.Transparency = NumberSequence.new(NumberSequenceKeypoint.new(0.00, 0.00, 0.00), NumberSequenceKeypoint.new(1.00, 0.00, 0.00))
-        Beam.Parent = workspace
+
+        -- transparency: cũng phải bọc keypoint vào table
+        Beam.Transparency = NumberSequence.new{
+            NumberSequenceKeypoint.new(0.00, 0.00),
+            NumberSequenceKeypoint.new(1.00, 0.00)
+        }
+
+        Beam.Parent = workspace  -- client-side, hiển thị chỉ cho local player
 
         currentBeam = Beam
         currentBeamAttachments = {att0, att1}
