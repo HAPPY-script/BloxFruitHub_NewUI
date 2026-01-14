@@ -229,8 +229,8 @@ OffIcon2.Parent = Dot2
 
 local AutoFarmArenaTitle = Instance.new("TextLabel")
 AutoFarmArenaTitle.Name = "AutoFarmArenaTitle"
-AutoFarmArenaTitle.Position = UDim2.new(0.275, 0, 0.13, 0)
-AutoFarmArenaTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+AutoFarmArenaTitle.Position = UDim2.new(0.225, 0, 0.13, 0)
+AutoFarmArenaTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
 AutoFarmArenaTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoFarmArenaTitle.BorderSizePixel = 0
 AutoFarmArenaTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -252,8 +252,8 @@ UIStroke6.Parent = AutoFarmArenaTitle
 
 local AutoFarmArenaBox = Instance.new("TextBox")
 AutoFarmArenaBox.Name = "AutoFarmArenaBox"
-AutoFarmArenaBox.Position = UDim2.new(0.645, 0, 0.13, 0)
-AutoFarmArenaBox.Size = UDim2.new(0.2, 0, 0.03, 0)
+AutoFarmArenaBox.Position = UDim2.new(0.674, 0, 0.13, 0)
+AutoFarmArenaBox.Size = UDim2.new(0.15, 0, 0.03, 0)
 AutoFarmArenaBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
 AutoFarmArenaBox.BackgroundTransparency = 0.75
 AutoFarmArenaBox.BorderSizePixel = 0
@@ -445,6 +445,31 @@ OffIcon4.BorderColor3 = Color3.new(0, 0, 0)
 OffIcon4.Transparency = 1
 OffIcon4.Image = "rbxassetid://109833067427302"
 OffIcon4.Parent = Dot4
+
+local SupportStyleButton = Instance.new("TextButton")
+SupportStyleButton.Name = "SupportStyleButton"
+SupportStyleButton.Position = UDim2.new(0.512, 0, 0.13, 0)
+SupportStyleButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+SupportStyleButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+SupportStyleButton.BackgroundTransparency = 0.75
+SupportStyleButton.BorderSizePixel = 0
+SupportStyleButton.BorderColor3 = Color3.new(0, 0, 0)
+SupportStyleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SupportStyleButton.Transparency = 0.75
+SupportStyleButton.Text = "Support: melee"
+SupportStyleButton.TextColor3 = Color3.new(1, 1, 1)
+SupportStyleButton.TextSize = 14
+SupportStyleButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SupportStyleButton.TextScaled = true
+SupportStyleButton.TextWrapped = true
+SupportStyleButton.Parent = Main
+
+local UIStroke11 = Instance.new("UIStroke")
+UIStroke11.Name = "UIStroke"
+UIStroke11.Color = Color3.new(0, 0.784314, 1)
+UIStroke11.Thickness = 2
+UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke11.Parent = SupportStyleButton
 
 local Frame = Main
 if not Frame then return end
