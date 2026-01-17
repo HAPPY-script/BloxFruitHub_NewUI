@@ -1777,17 +1777,17 @@ end
 --=== SILENT AIM =========================================================================================--
 
 do
-    -- SilentAim (core được tối ưu, tích hợp UI sẵn có)
+    -- SilentAim (core được tối ưu, an toàn hơn)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
 
     local LocalPlayer = Players.LocalPlayer
-    local player = LocalPlayer
+    if not LocalPlayer then return end
 
     -- Lấy ScrollingTab + Combat frame
-    local ScrollingTab = player.PlayerGui
+    local ScrollingTab = LocalPlayer.PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
@@ -1840,32 +1840,34 @@ do
     local ToggleUI = _G.ToggleUI
     local BUTTON_NAME = SilentAimButton.Name
     ToggleUI.Refresh()
-    -- trạng thái local để tránh đọc màu quá thường xuyên
+
     local function isButtonOn(btn)
-        local c = btn.BackgroundColor3
+        if not btn or not btn:IsA("GuiObject") then return false end
+        local ok, c = pcall(function() return btn.BackgroundColor3 end)
+        if not ok or not c then return false end
         return (math.floor(c.R*255) == 0 and math.floor(c.G*255) == 255 and math.floor(c.B*255) == 0)
     end
+
     local silentEnabled = isButtonOn(SilentAimButton)
     ToggleUI.Set(BUTTON_NAME, silentEnabled)
 
-    -- duy trì trạng thái khi UI thay đổi màu (hệ thống chính vẫn thay đổi BackgroundColor3)
+    -- cập nhật local state khi BackgroundColor3 thay đổi (hệ thống chính sẽ thay đổi màu)
     SilentAimButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
         silentEnabled = isButtonOn(SilentAimButton)
         ToggleUI.Set(BUTTON_NAME, silentEnabled)
     end)
-
     SilentAimButton.Activated:Connect(function()
         ToggleUI.Set(BUTTON_NAME, not silentEnabled)
-        -- hệ thống chính sẽ thay đổi màu; property changed sẽ cập nhật silentEnabled
     end)
 
-    -- Mode handling (Limit <-> 360) (giữ logic visuals như trước)
+    -- Mode handling (default 360)
     local COLOR_360 = Color3.fromRGB(0,255,255)
     local COLOR_LIMIT = Color3.fromRGB(144,0,255)
     local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local mode = (string.find(ModeButton.Text or "", "360") and "360") or "Limit"
+    local mode = "360" -- mặc định là 360 theo yêu cầu
+
     local function setModeVisuals(newMode)
-        mode = newMode
+        mode = newMode or mode
         local targetColor = (mode == "360") and COLOR_360 or COLOR_LIMIT
         pcall(function()
             TweenService:Create(ModeButton, tweenInfo, {BackgroundColor3 = targetColor}):Play()
@@ -1873,12 +1875,16 @@ do
             if stroke then TweenService:Create(stroke, tweenInfo, {Color = targetColor}):Play() end
             TweenService:Create(ModeButton, TweenInfo.new(0.12), {TextTransparency = 1}):Play()
             task.delay(0.13, function()
-                ModeButton.Text = (mode == "360") and "Mode:\n360°" or "Mode:\nLimit"
-                TweenService:Create(ModeButton, TweenInfo.new(0.12), {TextTransparency = 0}):Play()
+                if ModeButton and ModeButton.Parent then
+                    ModeButton.Text = (mode == "360") and "Mode:\n360°" or "Mode:\nLimit"
+                    TweenService:Create(ModeButton, TweenInfo.new(0.12), {TextTransparency = 0}):Play()
+                end
             end)
             local targetPos = (mode == "Limit") and UDim2.new(0.275,0,0.4,0) or UDim2.new(0.375,0,0.4,0)
             local targetSize = (mode == "Limit") and UDim2.new(0.5,0,0.03,0) or UDim2.new(0.7,0,0.03,0)
-            TweenService:Create(ModeTitle, tweenInfo, {Position = targetPos, Size = targetSize}):Play()
+            if ModeTitle and ModeTitle.Parent then
+                TweenService:Create(ModeTitle, tweenInfo, {Position = targetPos, Size = targetSize}):Play()
+            end
         end)
     end
     setModeVisuals(mode)
@@ -1888,7 +1894,7 @@ do
 
     -- SilentAimBox: numeric default 100
     local function getRadius()
-        local n = tonumber(RadiusBox.Text)
+        local n = tonumber(pcall(function() return RadiusBox.Text end) and RadiusBox.Text or nil)
         if not n or n <= 0 then return 100 end
         return math.clamp(math.floor(n), 10, 10000)
     end
@@ -1914,40 +1920,46 @@ do
 
     -- Target selection với cache
     local Camera = workspace.CurrentCamera
-    local CACHE_INTERVAL = 0.1
+    local CACHE_INTERVAL = 0.12
     local cachedTarget, cachedAt = nil, 0
 
     local function isInFOV_screen(screenPos, radius)
+        if not screenPos then return false end
+        if not Camera then return false end
         local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= radius
     end
 
     local function getNearestCharacter(ignoreOnScreen)
+        if not Camera then return nil end
         local now = tick()
         if cachedTarget and (now - cachedAt) <= CACHE_INTERVAL then
             return cachedTarget
         end
 
         local bestChar, bestDist = nil, math.huge
-        local camPos = Camera.CFrame.Position
+        local camPos = Camera.CFrame and Camera.CFrame.Position or Vector3.new(0,0,0)
         local playersList = Players:GetPlayers()
         for i=1, #playersList do
             local pl = playersList[i]
-            if pl ~= LocalPlayer then
+            if pl and pl ~= LocalPlayer then
                 local char = pl.Character
                 if char then
                     local hrp = char:FindFirstChild("HumanoidRootPart")
                     local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hrp and hum and hum.Health > 0 then
+                    if hrp and hum and hum.Health and hum.Health > 0 then
                         local pos = hrp.Position
                         if ignoreOnScreen then
                             local d = (pos - camPos).Magnitude
                             if d < bestDist then bestDist = d; bestChar = char end
                         else
-                            local screenPos, onScreen = Camera:WorldToScreenPoint(pos)
-                            if onScreen and isInFOV_screen(screenPos, getRadius()) then
-                                local d = (pos - camPos).Magnitude
-                                if d < bestDist then bestDist = d; bestChar = char end
+                            local ok, screenPos, onScreen = pcall(function() return Camera:WorldToScreenPoint(pos) end)
+                            if ok then
+                                onScreen = onScreen or (screenPos and true) -- fallback
+                                if onScreen and isInFOV_screen(screenPos, getRadius()) then
+                                    local d = (pos - camPos).Magnitude
+                                    if d < bestDist then bestDist = d; bestChar = char end
+                                end
                             end
                         end
                     end
@@ -1959,76 +1971,102 @@ do
         return bestChar
     end
 
-    -- Prepare Mouse ref
-    local Mouse = LocalPlayer:GetMouse()
+    -- Prepare Mouse ref safely
+    local Mouse
+    pcall(function() Mouse = LocalPlayer:GetMouse() end)
+    if not Mouse then
+        warn("[SilentAim] Không lấy được Mouse -> tạm dừng.")
+        setNotificationVisible(true)
+        return
+    end
 
     -- Hook safe trong pcall; nếu hook fail -> show notification và dừng
     local oldIndex
-    local ok, err = pcall(function()
+    local hookOk, hookErr = pcall(function()
         oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-            -- nhanh return nếu điều kiện không thỏa để giảm tải
+            -- If self is not mouse, try to call original safely
+            local function safeCallOld(...)
+                if type(oldIndex) == "function" then
+                    local ok, res = pcall(oldIndex, ...)
+                    if ok then return res end
+                end
+                return nil
+            end
+
             if self ~= Mouse then
-                return oldIndex(self, key)
+                return safeCallOld(self, key)
             end
 
-            -- chỉ quan tâm 4 key này -> return nhanh nếu khác
+            -- Only care about these keys
             if key ~= "Hit" and key ~= "Target" and key ~= "X" and key ~= "Y" then
-                return oldIndex(self, key)
+                return safeCallOld(self, key)
             end
 
-            -- nếu tắt UI hoặc button off thì trả về bình thường
+            -- If disabled -> fallback to original
             if not silentEnabled then
-                return oldIndex(self, key)
+                return safeCallOld(self, key)
             end
 
-            -- xác định target theo mode
-            local targetChar = (mode == "360") and getNearestCharacter(true) or getNearestCharacter(false)
+            -- Determine target
+            local targetChar
+            local ok, result = pcall(function()
+                if mode == "360" then
+                    return getNearestCharacter(true)
+                else
+                    return getNearestCharacter(false)
+                end
+            end)
+            if ok then targetChar = result end
             if not targetChar then
-                return oldIndex(self, key)
+                return safeCallOld(self, key)
             end
 
             local targetPart = targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart")
             if not targetPart then
-                return oldIndex(self, key)
+                return safeCallOld(self, key)
             end
 
-            -- trả về giá trị mong muốn
+            -- Return desired values, wrapped with pcall for safety
             if key == "Hit" then
-                return targetPart.CFrame
+                local ok2, val = pcall(function() return targetPart.CFrame end)
+                if ok2 then return val end
+                return safeCallOld(self, key)
             elseif key == "Target" then
                 return targetPart
             elseif key == "X" or key == "Y" then
-                local pos = targetPart.Position
-                local screenPos = Camera:WorldToScreenPoint(pos)
-                return (key == "X") and screenPos.X or screenPos.Y
+                local ok3, sx, sy = pcall(function() local sp = Camera:WorldToScreenPoint(targetPart.Position); return sp.X, sp.Y end)
+                if ok3 and sx and sy then
+                    return (key == "X") and sx or sy
+                end
+                return safeCallOld(self, key)
             end
 
-            return oldIndex(self, key)
+            return safeCallOld(self, key)
         end))
     end)
 
-    if not ok then
+    if not hookOk then
         setNotificationVisible(true)
-        warn("[SilentAim] Hook failed -> tạm dừng để tránh lỗi. Lỗi:", err)
+        warn("[SilentAim] Hook failed -> tạm dừng để tránh lỗi. Lỗi:", hookErr)
         return
     else
         setNotificationVisible(false)
     end
 
-    -- RenderStepped update (nhẹ)
-    local renderConn
-    renderConn = RunService.RenderStepped:Connect(function()
-        if FOVCircle then
+    -- Render update (nhẹ)
+    local renderConn = RunService.Heartbeat:Connect(function()
+        if FOVCircle and Camera then
             if mode == "Limit" then
-                FOVCircle.Visible = true
-                FOVCircle.Radius = getRadius()
-                FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                pcall(function()
+                    FOVCircle.Visible = true
+                    FOVCircle.Radius = getRadius()
+                    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                end)
             else
-                FOVCircle.Visible = false
+                pcall(function() FOVCircle.Visible = false end)
             end
         end
     end)
 
-    -- Khi script cần dừng (ví dụ reload), có thể disconnect:
-    -- renderConn:Disconnect()
+    -- Clean up note (nếu cần dừng script): renderConn:Disconnect()
 end
