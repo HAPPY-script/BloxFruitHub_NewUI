@@ -921,31 +921,30 @@ UIStroke26.Thickness = 2
 UIStroke26.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke26.Parent = SilentAimModeTitle
 
-local 360ModeButton = Instance.new("TextButton")
-360ModeButton.Name = "360ModeButton"
-360ModeButton.Position = UDim2.new(0.85, 0, 0.4, 0)
-360ModeButton.Size = UDim2.new(0.2, 0, 0.03, 0)
-360ModeButton.BackgroundColor3 = Color3.new(0.564706, 0, 1)
-360ModeButton.BackgroundTransparency = 0.75
-360ModeButton.BorderSizePixel = 0
-360ModeButton.BorderColor3 = Color3.new(0, 0, 0)
-360ModeButton.AnchorPoint = Vector2.new(0.5, 0.5)
-360ModeButton.Transparency = 0.75
-360ModeButton.Text = "Mode:
-Limit"
-360ModeButton.TextColor3 = Color3.new(1, 1, 1)
-360ModeButton.TextSize = 14
-360ModeButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-360ModeButton.TextScaled = true
-360ModeButton.TextWrapped = true
-360ModeButton.Parent = Combat
+local d360ModeButton = Instance.new("TextButton")
+d360ModeButton.Name = "360ModeButton"
+d360ModeButton.Position = UDim2.new(0.85, 0, 0.4, 0)
+d360ModeButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+d360ModeButton.BackgroundColor3 = Color3.new(0.564706, 0, 1)
+d360ModeButton.BackgroundTransparency = 0.75
+d360ModeButton.BorderSizePixel = 0
+d360ModeButton.BorderColor3 = Color3.new(0, 0, 0)
+d360ModeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+d360ModeButton.Transparency = 0.75
+d360ModeButton.Text = "Mode:/nLimit"
+d360ModeButton.TextColor3 = Color3.new(1, 1, 1)
+d360ModeButton.TextSize = 14
+d360ModeButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+d360ModeButton.TextScaled = true
+d360ModeButton.TextWrapped = true
+d360ModeButton.Parent = Combat
 
 local UIStroke27 = Instance.new("UIStroke")
 UIStroke27.Name = "UIStroke"
 UIStroke27.Color = Color3.new(0.564706, 0, 1)
 UIStroke27.Thickness = 2
 UIStroke27.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke27.Parent = 360ModeButton
+UIStroke27.Parent = d360ModeButton
 
 local SilentAimBox = Instance.new("TextBox")
 SilentAimBox.Name = "SilentAimBox"
@@ -985,9 +984,7 @@ NotificationBlackTitle.BorderColor3 = Color3.new(0, 0, 0)
 NotificationBlackTitle.ZIndex = 3
 NotificationBlackTitle.AnchorPoint = Vector2.new(0.5, 0.5)
 NotificationBlackTitle.Transparency = 0.05000000074505806
-NotificationBlackTitle.Text = "Exploid currently does not support this functionality; please use an exploid that does.
-
-(Examples: Bunni, Delta, Velocity, etc.)"
+NotificationBlackTitle.Text = "Exploid currently does not support this functionality; please use an exploid that does./n(Examples: Bunni, Delta, Velocity, etc.)"
 NotificationBlackTitle.TextColor3 = Color3.new(0.921569, 0, 0.392157)
 NotificationBlackTitle.TextSize = 14
 NotificationBlackTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -1002,8 +999,8 @@ task.spawn(function()
 		local allOk = true
 		for _, obj in ipairs(Frame:GetDescendants()) do
 			if obj:IsA("TextLabel")
-			or obj:IsA("TextBox")
-			or obj:IsA("TextButton") then
+				or obj:IsA("TextBox")
+				or obj:IsA("TextButton") then
 				if obj.TextTransparency ~= 0 then
 					obj.TextTransparency = 0
 					allOk = false
