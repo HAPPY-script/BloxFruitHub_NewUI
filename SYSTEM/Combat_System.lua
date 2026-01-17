@@ -1,4 +1,4 @@
-print("Testing... v6")
+print("testing... v7")
 --=== FOLLOW PLAYER =========================================================================================--
 
 do
@@ -1932,11 +1932,11 @@ do
         end
     end
 
-    -- ===== Cached target (update OUTSIDE hook) =====
+    -- ===== Cached target (update OUTSIDE hook, giống code mẫu) =====
     local Camera = workspace.CurrentCamera
     local CACHE_INTERVAL = 0.12
-    local cachedNearestPos = nil
-    local lastCacheTick = 0
+    local cachedTarget = nil
+    local cachedAt = 0
 
     local function isInFOV_screen(screenPos, radius)
         if not screenPos or not Camera then return false end
@@ -1944,15 +1944,15 @@ do
         return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= radius
     end
 
-    local function updateNearestCached()
+    local function updateNearest()
         if not Camera then
-            cachedNearestPos = nil
+            cachedTarget = nil
             return
         end
 
         local camPos = Camera.CFrame and Camera.CFrame.Position or Vector3.new(0,0,0)
         local bestD2 = math.huge
-        local bestPos = nil
+        local bestChar = nil
 
         local playersList = Players:GetPlayers()
         for i = 1, #playersList do
@@ -1967,11 +1967,11 @@ do
                         if mode == "360" then
                             consider = true
                         else
-                            local ok, v3, onScreen = pcall(function()
+                            local ok, screenV3, onScreen = pcall(function()
                                 local v, vis = Camera:WorldToScreenPoint(hrp.Position)
                                 return v, vis
                             end)
-                            if ok and v3 and onScreen and isInFOV_screen(v3, getRadius()) then
+                            if ok and screenV3 and onScreen and isInFOV_screen(screenV3, getRadius()) then
                                 consider = true
                             end
                         end
@@ -1981,8 +1981,7 @@ do
                             local d2 = dx*dx + dy*dy + dz*dz
                             if d2 < bestD2 then
                                 bestD2 = d2
-                                local head = ch:FindFirstChild("Head")
-                                bestPos = (head and head.Position) or hrp.Position
+                                bestChar = ch
                             end
                         end
                     end
@@ -1990,14 +1989,14 @@ do
             end
         end
 
-        cachedNearestPos = bestPos
+        cachedTarget = bestChar
     end
 
     local cacheConn = RunService.Heartbeat:Connect(function()
         local now = tick()
-        if (now - lastCacheTick) >= CACHE_INTERVAL then
-            lastCacheTick = now
-            pcall(updateNearestCached)
+        if (now - cachedAt) >= CACHE_INTERVAL then
+            cachedAt = now
+            pcall(updateNearest)
         end
     end)
 
@@ -2012,54 +2011,66 @@ do
         return
     end
 
-    -- ===== Minimal Namecall hook (AN TOÀN, theo code mẫu) =====
-    local oldNamecall
+    -- ===== Hook __index trên Mouse (giống code mẫu, an toàn) =====
+    local oldIndex
     local okHook, hookErr = pcall(function()
-        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            -- giữ an toàn: nếu tính năng tắt hoặc gọi từ script của client thì trả về gốc
-            if not silentEnabled or checkcaller() then
-                return oldNamecall(self, ...)
-            end
+        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+            -- chỉ can thiệp khi không phải gọi bởi chúng ta và feature bật, và đối tượng là Mouse
+            if not checkcaller() and silentEnabled and self == Mouse then
+                -- tìm target (theo cachedTarget) giống code mẫu
+                local target = nil
+                if _G and _G.SilentAimMode == "Static" and _G._SilentAimTarget then
+                    -- nếu có static target (global) dùng luôn (cần tương thích nếu bạn đang dùng _G)
+                    target = _G._SilentAimTarget
+                else
+                    local char = cachedTarget
+                    if char then
+                        target = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                    end
+                end
 
-            local method = getnamecallmethod()
-            -- chỉ can thiệp với workspace:FindPartOnRayWithIgnoreList
-            if self ~= workspace or method ~= "FindPartOnRayWithIgnoreList" then
-                return oldNamecall(self, ...)
-            end
-
-            local args = {...}
-            local ray = args[1]
-            if typeof(ray) ~= "Ray" or not Camera then
-                return oldNamecall(self, ...)
-            end
-
-            -- đảm bảo đây là ray xuất phát từ camera (cheap check)
-            local camPos = Camera.CFrame and Camera.CFrame.Position or Vector3.new(0,0,0)
-            local dx = ray.Origin.X - camPos.X
-            local dy = ray.Origin.Y - camPos.Y
-            local dz = ray.Origin.Z - camPos.Z
-            if (dx*dx + dy*dy + dz*dz) > 1 then
-                return oldNamecall(self, ...)
-            end
-
-            -- chọn target dùng cache (nếu có)
-            local targetPos = cachedNearestPos
-            if targetPos then
-                local dir = (targetPos - ray.Origin)
-                local mag = ray.Direction and ray.Direction.Magnitude or 0
-                if mag > 0 then
-                    args[1] = Ray.new(ray.Origin, dir.Unit * mag)
-                    return oldNamecall(self, table.unpack(args))
+                if target then
+                    -- xử lý các key cần override
+                    if key == "Hit" then
+                        if typeof(target) == "Vector3" then
+                            return CFrame.new(target)
+                        elseif typeof(target) == "Instance" then
+                            -- trả CFrame (nhiều game mong CFrame cho Hit)
+                            return (target.CFrame or CFrame.new(target.Position))
+                        end
+                    elseif key == "Target" then
+                        if typeof(target) == "Instance" then
+                            return target
+                        end
+                    elseif key == "X" or key == "Y" then
+                        if typeof(target) == "Vector3" then
+                            local ok, sp, onScreen = pcall(function() return Camera:WorldToScreenPoint(target) end)
+                            if ok and sp then
+                                return (key == "X") and sp.X or sp.Y
+                            end
+                        elseif typeof(target) == "Instance" then
+                            local pos = target.Position or (target.CFrame and target.CFrame.Position)
+                            if pos then
+                                local ok, sp, onScreen = pcall(function() return Camera:WorldToScreenPoint(pos) end)
+                                if ok and sp then
+                                    return (key == "X") and sp.X or sp.Y
+                                end
+                            end
+                        end
+                    end
                 end
             end
 
-            return oldNamecall(self, ...)
+            -- fallback an toàn: trả kết quả __index gốc (đóng gói bằng pcall)
+            local ok, res = pcall(oldIndex, self, key)
+            if ok then return res end
+            return nil
         end))
     end)
 
-    if not okHook or type(oldNamecall) ~= "function" then
+    if not okHook or type(oldIndex) ~= "function" then
         setNotificationVisible(true)
-        warn("[SilentAim] Hook namecall không thành công -> dừng. Lỗi:", hookErr)
+        warn("[SilentAim] Hook __index không thành công -> dừng. Lỗi:", hookErr)
         if cacheConn then cacheConn:Disconnect() end
         return
     else
