@@ -289,7 +289,7 @@ AimbotTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AimbotTitle.BorderSizePixel = 0
 AimbotTitle.BorderColor3 = Color3.new(0, 0, 0)
 AimbotTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-AimbotTitle.Text = "Aimbot player"
+AimbotTitle.Text = "Aimbot lock camera"
 AimbotTitle.TextColor3 = Color3.new(1, 1, 1)
 AimbotTitle.TextSize = 14
 AimbotTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -767,6 +767,233 @@ UIStroke22.Color = Color3.new(0, 0.784314, 1)
 UIStroke22.Thickness = 2
 UIStroke22.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke22.Parent = StyleFastAttackEnemyButton
+
+local StrokeFrameSilentAim = Instance.new("Frame")
+StrokeFrameSilentAim.Name = "StrokeFrameSilentAim"
+StrokeFrameSilentAim.Position = UDim2.new(0.485, 0, 0.375, 0)
+StrokeFrameSilentAim.Size = UDim2.new(0.95, 0, 0.1, 0)
+StrokeFrameSilentAim.BackgroundColor3 = Color3.new(1, 1, 1)
+StrokeFrameSilentAim.BackgroundTransparency = 1
+StrokeFrameSilentAim.BorderSizePixel = 0
+StrokeFrameSilentAim.BorderColor3 = Color3.new(0, 0, 0)
+StrokeFrameSilentAim.AnchorPoint = Vector2.new(0.5, 0.5)
+StrokeFrameSilentAim.Transparency = 1
+StrokeFrameSilentAim.Parent = Combat
+
+local UIStroke23 = Instance.new("UIStroke")
+UIStroke23.Name = "UIStroke"
+UIStroke23.Color = Color3.new(0.8, 0, 1)
+UIStroke23.Parent = StrokeFrameSilentAim
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Position = UDim2.new(0.5, 0, -0.05, 0)
+Title.Size = UDim2.new(0.25, 0, 0.15, 0)
+Title.BackgroundColor3 = Color3.new(0.156863, 0, 0.235294)
+Title.BorderSizePixel = 0
+Title.BorderColor3 = Color3.new(0, 0, 0)
+Title.AnchorPoint = Vector2.new(0.5, 0.5)
+Title.Text = "Silent aim"
+Title.TextColor3 = Color3.new(0.8, 0, 1)
+Title.TextSize = 14
+Title.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Title.TextScaled = true
+Title.TextWrapped = true
+Title.Parent = StrokeFrameSilentAim
+
+local SilentAimButton = Instance.new("TextButton")
+SilentAimButton.Name = "SilentAimButton"
+SilentAimButton.Position = UDim2.new(0.85, 0, 0.35, 0)
+SilentAimButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+SilentAimButton.BackgroundColor3 = Color3.new(1, 0, 0)
+SilentAimButton.BackgroundTransparency = 0.75
+SilentAimButton.BorderSizePixel = 0
+SilentAimButton.BorderColor3 = Color3.new(0, 0, 0)
+SilentAimButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SilentAimButton.Transparency = 0.75
+SilentAimButton.Text = ""
+SilentAimButton.TextColor3 = Color3.new(0, 0, 0)
+SilentAimButton.TextSize = 14
+SilentAimButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SilentAimButton.Parent = Combat
+
+local UICorner11 = Instance.new("UICorner")
+UICorner11.Name = "UICorner"
+UICorner11.CornerRadius = UDim.new(1, 0)
+UICorner11.Parent = SilentAimButton
+
+local UIStroke24 = Instance.new("UIStroke")
+UIStroke24.Name = "UIStroke"
+UIStroke24.Color = Color3.new(1, 0, 0)
+UIStroke24.Thickness = 2
+UIStroke24.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke24.Parent = SilentAimButton
+
+local Dot6 = Instance.new("Frame")
+Dot6.Name = "Dot"
+Dot6.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot6.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot6.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot6.BackgroundTransparency = 1
+Dot6.BorderSizePixel = 0
+Dot6.BorderColor3 = Color3.new(0, 0, 0)
+Dot6.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot6.Transparency = 1
+Dot6.Parent = SilentAimButton
+
+local UIAspectRatioConstraint6 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint6.Parent = Dot6
+
+local UICorner12 = Instance.new("UICorner")
+UICorner12.Name = "UICorner"
+UICorner12.CornerRadius = UDim.new(1, 0)
+UICorner12.Parent = Dot6
+
+local OnIcon6 = Instance.new("ImageLabel")
+OnIcon6.Name = "OnIcon"
+OnIcon6.Size = UDim2.new(1, 0, 1, 0)
+OnIcon6.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon6.BackgroundTransparency = 1
+OnIcon6.BorderSizePixel = 0
+OnIcon6.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon6.Transparency = 1
+OnIcon6.Image = "rbxassetid://133446041443660"
+OnIcon6.ImageTransparency = 1
+OnIcon6.Parent = Dot6
+
+local OffIcon6 = Instance.new("ImageLabel")
+OffIcon6.Name = "OffIcon"
+OffIcon6.Size = UDim2.new(1, 0, 1, 0)
+OffIcon6.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon6.BackgroundTransparency = 1
+OffIcon6.BorderSizePixel = 0
+OffIcon6.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon6.Transparency = 1
+OffIcon6.Image = "rbxassetid://109833067427302"
+OffIcon6.Parent = Dot6
+
+local SilentAimTitle = Instance.new("TextLabel")
+SilentAimTitle.Name = "SilentAimTitle"
+SilentAimTitle.Position = UDim2.new(0.375, 0, 0.35, 0)
+SilentAimTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+SilentAimTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+SilentAimTitle.BorderSizePixel = 0
+SilentAimTitle.BorderColor3 = Color3.new(0, 0, 0)
+SilentAimTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+SilentAimTitle.Text = "Silent aim"
+SilentAimTitle.TextColor3 = Color3.new(1, 1, 1)
+SilentAimTitle.TextSize = 14
+SilentAimTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SilentAimTitle.TextScaled = true
+SilentAimTitle.TextWrapped = true
+SilentAimTitle.Parent = Combat
+
+local UIStroke25 = Instance.new("UIStroke")
+UIStroke25.Name = "UIStroke"
+UIStroke25.Color = Color3.new(1, 1, 1)
+UIStroke25.Thickness = 2
+UIStroke25.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke25.Parent = SilentAimTitle
+
+local SilentAimModeTitle = Instance.new("TextLabel")
+SilentAimModeTitle.Name = "SilentAimModeTitle"
+SilentAimModeTitle.Position = UDim2.new(0.275, 0, 0.4, 0)
+SilentAimModeTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+SilentAimModeTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+SilentAimModeTitle.BorderSizePixel = 0
+SilentAimModeTitle.BorderColor3 = Color3.new(0, 0, 0)
+SilentAimModeTitle.ZIndex = 2
+SilentAimModeTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+SilentAimModeTitle.Text = "Aim limit"
+SilentAimModeTitle.TextColor3 = Color3.new(1, 1, 1)
+SilentAimModeTitle.TextSize = 14
+SilentAimModeTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SilentAimModeTitle.TextScaled = true
+SilentAimModeTitle.TextWrapped = true
+SilentAimModeTitle.Parent = Combat
+
+local UIStroke26 = Instance.new("UIStroke")
+UIStroke26.Name = "UIStroke"
+UIStroke26.Color = Color3.new(1, 1, 1)
+UIStroke26.Thickness = 2
+UIStroke26.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke26.Parent = SilentAimModeTitle
+
+local 360ModeButton = Instance.new("TextButton")
+360ModeButton.Name = "360ModeButton"
+360ModeButton.Position = UDim2.new(0.85, 0, 0.4, 0)
+360ModeButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+360ModeButton.BackgroundColor3 = Color3.new(0.564706, 0, 1)
+360ModeButton.BackgroundTransparency = 0.75
+360ModeButton.BorderSizePixel = 0
+360ModeButton.BorderColor3 = Color3.new(0, 0, 0)
+360ModeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+360ModeButton.Transparency = 0.75
+360ModeButton.Text = "Mode:
+Limit"
+360ModeButton.TextColor3 = Color3.new(1, 1, 1)
+360ModeButton.TextSize = 14
+360ModeButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+360ModeButton.TextScaled = true
+360ModeButton.TextWrapped = true
+360ModeButton.Parent = Combat
+
+local UIStroke27 = Instance.new("UIStroke")
+UIStroke27.Name = "UIStroke"
+UIStroke27.Color = Color3.new(0.564706, 0, 1)
+UIStroke27.Thickness = 2
+UIStroke27.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke27.Parent = 360ModeButton
+
+local SilentAimBox = Instance.new("TextBox")
+SilentAimBox.Name = "SilentAimBox"
+SilentAimBox.Position = UDim2.new(0.638, 0, 0.4, 0)
+SilentAimBox.Size = UDim2.new(0.19, 0, 0.03, 0)
+SilentAimBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
+SilentAimBox.BackgroundTransparency = 0.75
+SilentAimBox.BorderSizePixel = 0
+SilentAimBox.BorderColor3 = Color3.new(0, 0, 0)
+SilentAimBox.AnchorPoint = Vector2.new(0.5, 0.5)
+SilentAimBox.Transparency = 0.75
+SilentAimBox.Text = ""
+SilentAimBox.TextColor3 = Color3.new(1, 1, 1)
+SilentAimBox.TextSize = 14
+SilentAimBox.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SilentAimBox.TextScaled = true
+SilentAimBox.TextWrapped = true
+SilentAimBox.PlaceholderText = "Radius"
+SilentAimBox.PlaceholderColor3 = Color3.new(1, 1, 1)
+SilentAimBox.Parent = Combat
+
+local UIStroke28 = Instance.new("UIStroke")
+UIStroke28.Name = "UIStroke"
+UIStroke28.Color = Color3.new(0.784314, 0.784314, 0.784314)
+UIStroke28.Thickness = 2
+UIStroke28.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke28.Parent = SilentAimBox
+
+local NotificationBlackTitle = Instance.new("TextLabel")
+NotificationBlackTitle.Name = "NotificationBlackTitle"
+NotificationBlackTitle.Position = UDim2.new(0.485, 0, 0.375, 0)
+NotificationBlackTitle.Size = UDim2.new(0.95, 0, 0.095, 0)
+NotificationBlackTitle.BackgroundColor3 = Color3.new(0, 0, 0)
+NotificationBlackTitle.BackgroundTransparency = 0.05000000074505806
+NotificationBlackTitle.BorderSizePixel = 0
+NotificationBlackTitle.BorderColor3 = Color3.new(0, 0, 0)
+NotificationBlackTitle.ZIndex = 3
+NotificationBlackTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+NotificationBlackTitle.Transparency = 0.05000000074505806
+NotificationBlackTitle.Text = "Exploid currently does not support this functionality; please use an exploid that does.
+
+(Examples: Bunni, Delta, Velocity, etc.)"
+NotificationBlackTitle.TextColor3 = Color3.new(0.921569, 0, 0.392157)
+NotificationBlackTitle.TextSize = 14
+NotificationBlackTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+NotificationBlackTitle.TextScaled = true
+NotificationBlackTitle.TextWrapped = true
+NotificationBlackTitle.Parent = Combat
 
 local Frame = Combat
 if not Frame then return end
