@@ -1817,7 +1817,7 @@ do
 
     if not clientSupports() then
         setNotificationVisible(true)
-        warn("[SilentAim] Client không hỗ trợ hook -> dừng.")
+        warn("[SilentAim] Exploid không hỗ trợ hook")
         return
     else
         setNotificationVisible(false)
@@ -2091,6 +2091,4 @@ do
             end
         end
     end)
-
-    -- end do
 end
