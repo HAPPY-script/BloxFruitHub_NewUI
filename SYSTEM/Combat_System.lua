@@ -1774,3 +1774,270 @@ do
         end
     end)
 end
+--=== SILENT AIM =========================================================================================--
+
+do
+    -- SilentAim tích hợp UI sẵn có (rút gọn) + kiểm tra hỗ trợ client
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+
+    local LocalPlayer = Players.LocalPlayer
+    local player = LocalPlayer
+
+    -- Lấy ScrollingTab + Combat frame theo bạn chỉ dẫn
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local combatFrame = ScrollingTab:FindFirstChild("Combat", true)
+        or ScrollingTab:FindFirstChild("Combat")
+
+    if not combatFrame then
+        warn("Không tìm thấy Combat frame trong ScrollingTab")
+        return
+    end
+
+    -- Notification (nút/label thông báo client không hỗ trợ)
+    local Notification = combatFrame:FindFirstChild("NotificationBlackTitle", true)
+        or combatFrame:FindFirstChild("NotificationBlackTitle")
+
+    local function setNotificationVisible(state)
+        if Notification and typeof(Notification) == "Instance" then
+            -- đảm bảo property tồn tại
+            pcall(function() Notification.Visible = state end)
+        end
+    end
+
+    -- Kiểm tra client có hỗ trợ các API cần thiết để hook không
+    local function clientSupports()
+        -- kiểm tra đơn giản: hàm hookmetamethod và newcclosure phải tồn tại
+        if type(hookmetamethod) ~= "function" then
+            return false
+        end
+        if type(newcclosure) ~= "function" then
+            return false
+        end
+        -- (Drawing optional) nếu thiếu Drawing thì FOV chỉ bị ẩn chứ ko gây crash
+        return true
+    end
+
+    -- Nếu không hỗ trợ: bật notification và dừng toàn bộ (tránh lỗi)
+    if not clientSupports() then
+        setNotificationVisible(true)
+        warn("[SilentAim] Client không hỗ trợ chức năng hook required -> tạm dừng SilentAim để tránh lỗi.")
+        return
+    else
+        setNotificationVisible(false)
+    end
+
+    -- Tìm UI controls
+    local SilentAimButton = combatFrame:FindFirstChild("SilentAimButton", true) or combatFrame:FindFirstChild("SilentAimButton")
+    local ModeButton = combatFrame:FindFirstChild("360ModeButton", true) or combatFrame:FindFirstChild("360ModeButton")
+    local RadiusBox = combatFrame:FindFirstChild("SilentAimBox", true) or combatFrame:FindFirstChild("SilentAimBox")
+    local ModeTitle = combatFrame:FindFirstChild("SilentAimModeTitle", true) or combatFrame:FindFirstChild("SilentAimModeTitle")
+
+    if not (SilentAimButton and ModeButton and RadiusBox and ModeTitle) then
+        warn("Thiếu UI: SilentAimButton/360ModeButton/SilentAimBox/SilentAimModeTitle required")
+        return
+    end
+
+    -- ToggleUI (theo mẫu bạn đưa)
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    local BUTTON_NAME = SilentAimButton.Name
+
+    ToggleUI.Refresh()
+    -- set khởi tạo theo màu hiện tại của button (green = on)
+    local function isButtonOn(btn)
+        local c = btn.BackgroundColor3
+        return (math.floor(c.R*255) == 0 and math.floor(c.G*255) == 255 and math.floor(c.B*255) == 0)
+    end
+    ToggleUI.Set(BUTTON_NAME, isButtonOn(SilentAimButton))
+
+    SilentAimButton.Activated:Connect(function()
+        -- không thay đổi button, chỉ gửi lệnh cho hệ thống chính
+        ToggleUI.Set(BUTTON_NAME, not isButtonOn(SilentAimButton))
+    end)
+
+    -- Mode handling (Limit <-> 360)
+    local COLOR_360 = Color3.fromRGB(0,255,255)
+    local COLOR_LIMIT = Color3.fromRGB(144,0,255)
+    local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+    local mode = (string.find(ModeButton.Text or "", "360") and "360") or "Limit"
+
+    local function setModeVisuals(newMode)
+        mode = newMode
+        -- tween background + UIStroke if có
+        local targetColor = (mode == "360") and COLOR_360 or COLOR_LIMIT
+        local bgTween = TweenService:Create(ModeButton, tweenInfo, {BackgroundColor3 = targetColor})
+        bgTween:Play()
+        local stroke = ModeButton:FindFirstChildOfClass("UIStroke") or ModeButton:FindFirstChild("UIStroke", true)
+        if stroke then
+            TweenService:Create(stroke, tweenInfo, {Color = targetColor}):Play()
+        end
+
+        -- ẩn text -> đổi -> hiện
+        local txt = ModeButton
+        TweenService:Create(txt, TweenInfo.new(0.12), {TextTransparency = 1}):Play()
+        task.delay(0.13, function()
+            if mode == "360" then
+                txt.Text = "Mode:\n360°"
+            else
+                txt.Text = "Mode:\nLimit"
+            end
+            TweenService:Create(txt, TweenInfo.new(0.12), {TextTransparency = 0}):Play()
+        end)
+
+        -- Tween SilentAimModeTitle position & size
+        local targetPos, targetSize
+        if mode == "Limit" then
+            targetPos = UDim2.new(0.275, 0, 0.4, 0)
+            targetSize = UDim2.new(0.5, 0, 0.03, 0)
+        else
+            targetPos = UDim2.new(0.375, 0, 0.4, 0)
+            targetSize = UDim2.new(0.7, 0, 0.03, 0)
+        end
+        TweenService:Create(ModeTitle, tweenInfo, {Position = targetPos, Size = targetSize}):Play()
+    end
+
+    -- Khởi tạo visuals theo text hiện tại
+    setModeVisuals(mode)
+
+    ModeButton.Activated:Connect(function()
+        setModeVisuals((mode == "360") and "Limit" or "360")
+    end)
+
+    -- SilentAimBox: ensure numeric, default 100
+    local function getRadius()
+        local n = tonumber(RadiusBox.Text)
+        if not n or n <= 0 then
+            return 100
+        end
+        return math.clamp(math.floor(n), 10, 10000)
+    end
+
+    RadiusBox.Focused:Connect(function() end)
+    RadiusBox.FocusLost:Connect(function(enterPressed)
+        local n = tonumber(RadiusBox.Text)
+        if not n then
+            RadiusBox.Text = tostring(100)
+        else
+            RadiusBox.Text = tostring(getRadius())
+        end
+    end)
+    -- set default if empty
+    if RadiusBox.Text == "" or tonumber(RadiusBox.Text) == nil then
+        RadiusBox.Text = "100"
+    end
+
+    -- Drawing FOV circle (Limit mode only)
+    local Drawing_new = Drawing and Drawing.new
+    local FOVCircle = nil
+    if Drawing_new then
+        FOVCircle = Drawing_new("Circle")
+        FOVCircle.Thickness = 2
+        FOVCircle.NumSides = 64
+        FOVCircle.Filled = false
+        FOVCircle.Transparency = 1
+        FOVCircle.Color = Color3.new(1,1,1)
+        FOVCircle.Visible = false
+    end
+
+    -- Target selection (nearest). Cache to reduce cost.
+    local Camera = workspace.CurrentCamera
+    local CACHE_INTERVAL = 0.1
+    local cachedTarget, cachedAt = nil, 0
+
+    local function isInFOV_screen(screenPos, radius)
+        local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+        return dist <= radius
+    end
+
+    local function getNearestCharacter(ignoreOnScreen)
+        local now = tick()
+        if cachedTarget and (now - cachedAt) <= CACHE_INTERVAL then
+            return cachedTarget
+        end
+        local bestChar, bestDist = nil, math.huge
+        local camPos = Camera.CFrame.Position
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LocalPlayer and pl.Character then
+                local hrp = pl.Character:FindFirstChild("HumanoidRootPart")
+                local hum = pl.Character:FindFirstChildOfClass("Humanoid")
+                if hrp and hum and hum.Health > 0 then
+                    local pos = hrp.Position
+                    if ignoreOnScreen then
+                        -- 360 mode: don't require on-screen or FOV check
+                        local d = (pos - camPos).Magnitude
+                        if d < bestDist then
+                            bestDist = d
+                            bestChar = pl.Character
+                        end
+                    else
+                        local screenPos, onScreen = Camera:WorldToScreenPoint(pos)
+                        if onScreen then
+                            local radius = getRadius()
+                            if isInFOV_screen(screenPos, radius) then
+                                local d = (pos - camPos).Magnitude
+                                if d < bestDist then
+                                    bestDist = d
+                                    bestChar = pl.Character
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        cachedTarget, cachedAt = bestChar, now
+        return bestChar
+    end
+
+    -- Hook mouse properties to provide silent aim position/target
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if not checkcaller() and SilentAimButton and isButtonOn(SilentAimButton) and self == LocalPlayer:GetMouse() then
+            -- determine target based on mode
+            local targetChar = nil
+            if mode == "360" then
+                targetChar = getNearestCharacter(true)
+            else
+                targetChar = getNearestCharacter(false)
+            end
+            if targetChar then
+                local targetPart = targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart")
+                if targetPart then
+                    if key == "Hit" then
+                        return targetPart.CFrame
+                    elseif key == "Target" then
+                        return targetPart
+                    elseif key == "X" or key == "Y" then
+                        local pos = targetPart.Position
+                        local screenPos = Camera:WorldToScreenPoint(pos)
+                        return (key == "X") and screenPos.X or screenPos.Y
+                    end
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end))
+
+    -- Update loop: FOVCircle position/visibility, clear cache when UI changes
+    RunService.RenderStepped:Connect(function()
+        -- update FOV circle only in Limit mode
+        if FOVCircle then
+            if mode == "Limit" then
+                FOVCircle.Visible = true
+                FOVCircle.Radius = getRadius()
+                FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            else
+                FOVCircle.Visible = false
+            end
+        end
+    end)
+end
