@@ -1,4 +1,4 @@
-print("Testing... v1")
+print("Testing... v2")
 --=== FOLLOW PLAYER =========================================================================================--
 
 do
@@ -1849,16 +1849,43 @@ do
         return (math.floor(c.R*255) == 0 and math.floor(c.G*255) == 255 and math.floor(c.B*255) == 0)
     end
 
-    local silentEnabled = isButtonOn(SilentAimButton)
-    ToggleUI.Set(BUTTON_NAME, silentEnabled)
+    -- ensure ToggleUI state exists
+    ToggleUI.Refresh()
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
-    -- cập nhật trạng thái khi UI thay đổi (hệ thống chính sẽ thay đổi BackgroundColor3)
+    -- helper giống script mẫu
+    local function isButtonOn()
+        local ok, c = pcall(function() return SilentAimButton.BackgroundColor3 end)
+        if not ok or not c then return false end
+        local r = math.floor(c.R * 255 + 0.5)
+        local g = math.floor(c.G * 255 + 0.5)
+        local b = math.floor(c.B * 255 + 0.5)
+        return (r == 0 and g == 255 and b == 0)
+    end
+
+    -- state nội bộ chỉ đọc từ màu
+    local silentEnabled = isButtonOn()
+
+    -- click → yêu cầu ToggleUI đổi state (KHÔNG tự sửa màu)
+    if SilentAimButton.Activated then
+        SilentAimButton.Activated:Connect(function()
+            pcall(function()
+                ToggleUI.Set(BUTTON_NAME, not isButtonOn())
+            end)
+        end)
+    else
+        SilentAimButton.MouseButton1Click:Connect(function()
+            pcall(function()
+                ToggleUI.Set(BUTTON_NAME, not isButtonOn())
+            end)
+        end)
+    end
+
+    -- khi màu thay đổi → cập nhật silentEnabled
     SilentAimButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        silentEnabled = isButtonOn(SilentAimButton)
-        ToggleUI.Set(BUTTON_NAME, silentEnabled)
-    end)
-    SilentAimButton.Activated:Connect(function()
-        ToggleUI.Set(BUTTON_NAME, not silentEnabled)
+        task.delay(0.05, function() -- debounce giống script mẫu
+            silentEnabled = isButtonOn()
+        end)
     end)
 
     -- Mode handling (default 360)
