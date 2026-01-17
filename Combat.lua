@@ -948,8 +948,8 @@ UIStroke27.Parent = d360ModeButton
 
 local SilentAimBox = Instance.new("TextBox")
 SilentAimBox.Name = "SilentAimBox"
-SilentAimBox.Position = UDim2.new(0.638, 0, 0.4, 0)
-SilentAimBox.Size = UDim2.new(0.19, 0, 0.03, 0)
+SilentAimBox.Position = UDim2.new(0.635, 0, 0.4, 0)
+SilentAimBox.Size = UDim2.new(0.185, 0, 0.03, 0)
 SilentAimBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
 SilentAimBox.BackgroundTransparency = 0.75
 SilentAimBox.BorderSizePixel = 0
