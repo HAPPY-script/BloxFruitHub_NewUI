@@ -1581,7 +1581,7 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
--- AutoFarmArena (optimized tween + immediate cancel)
+-- AutoFarmArena (optimized tween + immediate cancel + patrol)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1737,7 +1737,7 @@ do
     -- Tween to position:
     -- - teleport HRP Y to target Y (keep X/Z) before tween
     -- - create tween moving X/Z to target while Y already set
-    -- - support immediate cancel if running == false
+    -- - support immediate cancel if running == false (or external cancel)
     local function tweenTo(pos)
         if not hrp or not hrp.Parent then return end
 
@@ -1943,6 +1943,9 @@ do
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
 
+        -- stop any patrol/tween immediately
+        cancelCurrentTween()
+
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
 
@@ -2041,6 +2044,86 @@ do
         farmPoint = nil
         farmBillboard = nil
         farmCenter = nil
+    end
+
+    -- ===== Patrol logic =====
+    local patrolActive = false
+    local function generatePatrolPoints(centerPos, radius, count)
+        local pts = {}
+        local step = (2 * math.pi) / (count or 8)
+        for i = 0, (count or 8) - 1 do
+            local ang = i * step
+            local x = centerPos.X + math.cos(ang) * radius
+            local z = centerPos.Z + math.sin(ang) * radius
+            local y = centerPos.Y -- keep center's Y; tweenTo will teleport to this Y
+            table.insert(pts, Vector3.new(x, y, z))
+        end
+        return pts
+    end
+
+    local function startPatrol()
+        if not farmCenter or not farmPoint then return end
+        if patrolActive then return end
+        patrolActive = true
+
+        -- patrol params
+        local count = 8
+        local radius = (distanceLimit or 5000) * 0.75
+        local points = generatePatrolPoints(farmCenter, radius, count)
+
+        -- iterate points in circular order; stop early if running turns false or enemy appears
+        for i = 1, #points do
+            if not running then break end
+
+            -- if enemy appears, stop patrol (we rely on outer loop to cancel tween and call follow)
+            local targetNow = getNearestEnemy(farmCenter)
+            if targetNow then
+                break
+            end
+
+            local pt = points[i]
+            -- update farmPoint so UI/center reflect current patrol target
+            if farmPoint and farmPoint.Parent then
+                farmPoint.Position = pt
+                farmCenter = pt
+                if farmBillboard and farmBillboard.label then
+                    -- keep label updated immediately
+                    local rawDist = (hrp.Position - farmPoint.Position).Magnitude
+                    local clamped = math.clamp(rawDist, 0, distanceLimit)
+                    local display = math.floor(clamped + 0.5)
+                    farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit)
+                end
+            end
+
+            -- Tween to patrol point (y is already set in pt; tweenTo will teleport Y first)
+            tweenTo(pt + Vector3.new(0, 5, 0))
+
+            -- after arriving, quick scan for enemy before next point
+            if not running then break end
+            local found = getNearestEnemy(farmCenter)
+            if found then
+                break
+            end
+
+            -- small pause between points to be less robotic
+            local pauseUntil = tick() + 0.08
+            while tick() < pauseUntil do
+                if not running then break end
+                if getNearestEnemy(farmCenter) then
+                    break
+                end
+                task.wait(0.01)
+            end
+
+            if not running then break end
+            if getNearestEnemy(farmCenter) then break end
+        end
+
+        -- restore farm center to central farmPoint (if it exists)
+        if farmPoint and farmPoint.Parent then
+            farmCenter = farmPoint.Position
+        end
+        patrolActive = false
     end
 
     -- TextBox change (commit on FocusLost)
@@ -2181,13 +2264,39 @@ do
 
     -- auto farm loop: use farmCenter when available
     task.spawn(function()
+        local lastSeen = tick()
         while true do
             task.wait()
-            if not running or not hrp then continue end
+            if not running or not hrp then
+                lastSeen = tick()
+                continue
+            end
+
             local center = farmCenter or hrp.Position
             local target = getNearestEnemy(center)
             if target then
+                -- Found an enemy: cancel any tween/patrol and follow immediately
+                cancelCurrentTween()
+                lastSeen = tick()
                 followEnemy(target)
+            else
+                -- no target
+                if (tick() - lastSeen) >= 1 then
+                    -- start patrol if not already
+                    if farmPoint == nil then
+                        createFarmPoint(hrp.Position)
+                    end
+                    -- start patrol in its own task (do not block this loop)
+                    if not patrolActive then
+                        task.spawn(function()
+                            startPatrol()
+                        end)
+                    end
+                end
+            end
+
+            if target then
+                lastSeen = tick()
             end
         end
     end)
@@ -2307,7 +2416,9 @@ do
         end
     end
 
+    -- ensure attribute initial value set to default supportStyle (một lần)
     pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+
 end
 
 --=== BRING MOD =====================================================================================================--
