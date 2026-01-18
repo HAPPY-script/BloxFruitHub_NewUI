@@ -179,7 +179,7 @@ local function normalizeStep(entry)
             return { kind = "call", fn = entry.fn }
 
         elseif entry.__type == "teleport" then
-            return { kind = "teleport", pos = entry.pos }
+            return { kind = "teleport", pos = entry.pos, count = entry.count, duration = entry.duration }
 
         elseif entry.pos and typeof(entry.pos) == "Vector3" then
             return { kind = "move", pos = entry.pos }
@@ -332,7 +332,7 @@ local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(3030.98, 2281.01, -7325.02)),
+        teleportTo(Vector3.new(3030.98, 2281.01, -7325.02), 10, 0.2),
         call(function()
             task.spawn(function()
                 local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
@@ -392,6 +392,40 @@ end
 
 local function teleport(pos)
     getHRP().CFrame = CFrame.new(pos)
+end
+
+local function teleportBurst(pos, burstCount, burstDuration)
+    local hrp = getHRP()
+    local myToken = movementToken
+
+    local count = 0
+    local interval = (burstDuration or 0.2) / math.max(1, burstCount or 10)
+    local elapsed = 0
+    local done = false
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function(dt)
+        if myToken ~= movementToken then
+            conn:Disconnect()
+            done = true
+            return
+        end
+        elapsed = elapsed + dt
+        if elapsed >= interval then
+            elapsed = 0
+            count = count + 1
+            hrp.CFrame = CFrame.new(pos)
+            if count >= (burstCount or 10) then
+                conn:Disconnect()
+                done = true
+            end
+        end
+    end)
+
+    while not done and myToken == movementToken do
+        task.wait()
+    end
+    return myToken == movementToken
 end
 
 local function teleportSpam(pos)
@@ -825,10 +859,17 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
                     pendingSetY = st
 
                 elseif st.kind == "teleport" then
-                    -- teleportTo: chỉ teleport 1 lần, không spam
-                    teleport(st.pos)
-                    -- rất nhẹ: cho engine 1 tick để áp dụng CFrame (có thể bỏ nếu bạn muốn không delay)
-                    task.wait(0.01)
+                    -- nếu step chứa count/duration -> dùng burst teleport
+                    if st.count or st.duration then
+                        local ok = teleportBurst(st.pos, st.count or 10, st.duration or 0.2)
+                        if not ok or movementToken ~= myToken then
+                            return false
+                        end
+                    else
+                        -- fallback: single instant teleport (1 tick delay)
+                        teleport(st.pos)
+                        task.wait(0.01)
+                    end
 
                 elseif st.kind == "call" then
                     local ok, err = pcall(st.fn)
