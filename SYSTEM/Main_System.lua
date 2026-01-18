@@ -1581,6 +1581,7 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
+-- AutoFarmArena (tween + immediate cancel + dynamic patrol + camera behavior fixed)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1624,6 +1625,30 @@ do
         else
             restoreCameraToPlayer()
         end
+    end
+
+    -- helpers to set camera quickly
+    local function setCameraToPlayer()
+        if player and player.Character and player.Character.Parent then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                camera.CameraType = Enum.CameraType.Custom
+                camera.CameraSubject = hum
+                return true
+            end
+        end
+        return false
+    end
+
+    local function setCameraToEnemy(enemy)
+        if not enemy then return false end
+        local hum = enemy:FindFirstChildOfClass("Humanoid")
+        if hum then
+            camera.CameraType = Enum.CameraType.Custom
+            camera.CameraSubject = hum
+            return true
+        end
+        return false
     end
 
     -- chờ ToggleUI helper (theo mẫu của bạn)
@@ -1679,17 +1704,11 @@ do
     local distanceLimit = 2500
     local farmPoint = nil
     local farmBillboard = nil
+    -- farmCenter will always mirror farmPoint.Position when farmPoint exists
     local farmCenter = nil
 
-    -- anchor/camera follow
-    local anchor = nil
-    local anchorY = nil
-    local lastAnchorUpdate = 0
-    local anchorUpdateInterval = 1
-
-    -- camera follow control
-    local cameraConn = nil
-    local currentFollowEnemy = nil -- currently followed enemy (may be nil)
+    -- camera follow control state
+    local currentFollowEnemy = nil -- enemy whose humanoid will be camera subject when close
 
     -- Support style config
     local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
@@ -1707,25 +1726,6 @@ do
         if n and n > 0 then distanceLimit = math.floor(n) else distanceBox.Text = tostring(distanceLimit) end
     end
 
-    -- ensure anchor part for camera subject
-    local function ensureAnchor()
-        if not anchor or not anchor.Parent then
-            anchor = Instance.new("Part")
-            anchor.Anchored = true
-            anchor.CanCollide = false
-            anchor.Transparency = 1
-            anchor.Size = Vector3.new(1,1,1)
-            anchor.Name = "CameraAnchor"
-            if hrp and hrp:IsDescendantOf(workspace) then
-                anchor.Position = hrp.Position
-            else
-                anchor.Position = Vector3.new(0,10,0)
-            end
-            anchor.Parent = workspace
-        end
-        return anchor
-    end
-
     -- ===== improved tween management (teleport Y + immediate cancel) =====
     local MOVE_SPEED_OVERRIDE = 300
     local currentTween = nil
@@ -1737,64 +1737,16 @@ do
         end
     end
 
-    -- camera follow implementation: when currentFollowEnemy == nil, camera centers on player fully
-    local function enableCameraFollow()
-        if not anchor then ensureAnchor() end
-        if not anchor or not anchor.Parent then return end
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anchor
-        if cameraConn then return end
-
-        cameraConn = RunService.RenderStepped:Connect(function(dt)
-            if not running or not hrp or not anchor or not anchor.Parent then
-                return
-            end
-
-            -- base follows player
-            local playerPos = hrp.Position
-
-            -- if currently following an enemy, bias toward its position
-            local desired = playerPos
-            if currentFollowEnemy and currentFollowEnemy.Parent then
-                local eHRP = currentFollowEnemy:FindFirstChild("HumanoidRootPart")
-                local eHum = currentFollowEnemy:FindFirstChildOfClass("Humanoid")
-                if eHRP and eHum and eHum.Health > 0 and eHRP.Parent then
-                    local offset = (supportStyle == "Melee") and 25 or 10
-                    local enemyPos = Vector3.new(eHRP.Position.X, eHRP.Position.Y + offset, eHRP.Position.Z)
-                    desired = playerPos:Lerp(enemyPos, 0.45) -- bias stronger when actually following enemy
-                end
-            end
-
-            -- keep stable Y from anchorY if available
-            local y = anchorY or desired.Y
-            desired = Vector3.new(desired.X, y, desired.Z)
-
-            -- smooth movement
-            anchor.Position = anchor.Position:Lerp(desired, math.clamp(0.25 * dt * 60, 0.05, 0.6))
-        end)
-    end
-
-    local function disableCameraFollow()
-        if cameraConn then
-            pcall(function() cameraConn:Disconnect() end)
-            cameraConn = nil
-        end
-    end
-
     -- Tween to position:
-    -- - snap camera anchor to player (full follow) before tween
+    -- - ensure camera is set to player's normal camera during tween
     -- - teleport HRP Y to target Y (keep X/Z) before tween
     -- - create tween moving X/Z to target while Y already set
     -- - support immediate cancel if running == false (or external cancel)
     local function tweenTo(pos)
         if not hrp or not hrp.Parent then return false end
 
-        -- ensure camera is centered to player immediately (snap)
-        if anchor and anchor.Parent then
-            -- snap anchor to player position so camera returns fully to player during tween
-            anchor.Position = hrp.Position
-        end
-        -- clear enemy bias while tweening
+        -- ensure camera is player's normal camera during movement
+        pcall(setCameraToPlayer)
         currentFollowEnemy = nil
 
         local dist = (hrp.Position - pos).Magnitude
@@ -1851,6 +1803,7 @@ do
     -- get nearest enemy that is WITHIN distanceLimit of centerPos,
     -- but prioritized by proximity to the player's hrp.
     local function getNearestEnemy(centerPos)
+        if not centerPos then return nil end
         local folder = workspace:FindFirstChild("Enemies")
         if not folder then return nil end
 
@@ -1989,26 +1942,21 @@ do
         farmBillboard = nil
         farmCenter = nil
 
-        if anchor and anchor.Parent then
-            anchor:Destroy()
-        end
-        anchor = nil
-
-        disableCameraFollow()
+        -- restore camera to original state
+        restoreCameraState()
     end
 
-    -- follow enemy (cập nhật: chỉ bật enemy-follow khi đã tới gần)
+    -- follow enemy (cập nhật: camera switch only when arrived)
     local function followEnemy(enemy)
         if not enemy then return end
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
-        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-        if not hrpEnemy or not humanoid then return end
+        local humanoidEnemy = enemy:FindFirstChildOfClass("Humanoid")
+        if not hrpEnemy or not humanoidEnemy then return end
 
         -- stop any patrol/tween immediately
         cancelCurrentTween()
 
         updateHighlight(enemy)
-        local anchorLocal = ensureAnchor()
 
         local function ensureBeamSource()
             if farmPoint and farmPoint.Parent then
@@ -2022,45 +1970,46 @@ do
             createBeamBetweenParts(beamSource, hrpEnemy)
         end
 
-        -- do NOT set currentFollowEnemy yet — camera should remain fully on player while we approach
-        if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
-            local offset = (supportStyle == "Melee") and 25 or 10
-            anchorY = hrpEnemy.Position.Y + offset
-            lastAnchorUpdate = tick()
-        end
-
-        -- ensure camera follow is enabled (anchor subject) so it updates continuously (but currently centered on player)
-        enableCameraFollow()
+        -- set camera to player's normal camera while approaching
+        pcall(setCameraToPlayer)
+        currentFollowEnemy = nil
 
         local dist = (hrp.Position - hrpEnemy.Position).Magnitude
         if dist > 200 then
             -- approach: tweenTo returns true if completed (not cancelled)
             local arrived = tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
             if arrived and running then
-                -- we have arrived: now allow camera to bias toward enemy
-                currentFollowEnemy = enemy
+                -- we have arrived: now set camera to enemy's humanoid (full switch)
+                if humanoidEnemy and humanoidEnemy.Parent then
+                    pcall(function() setCameraToEnemy(enemy) end)
+                    currentFollowEnemy = enemy
+                end
             else
                 -- cancelled or stopped — cleanup and return
                 currentFollowEnemy = nil
                 destroyCurrentBeam()
+                -- restore camera to player
+                pcall(setCameraToPlayer)
                 return
             end
         else
-            -- already near: set enemy follow immediately
-            currentFollowEnemy = enemy
+            -- already near: set camera to enemy immediately
+            if humanoidEnemy and humanoidEnemy.Parent then
+                pcall(function() setCameraToEnemy(enemy) end)
+                currentFollowEnemy = enemy
+            end
         end
 
-        -- now we are close enough and camera will bias toward enemy while we do the in-place follow loop
-        while humanoid.Health > 0 and running and hrpEnemy.Parent do
+        -- now do in-place follow (player moves around the enemy)
+        while humanoidEnemy.Health > 0 and running and hrpEnemy.Parent do
             updateHighlight(enemy)
             local offset = (supportStyle == "Melee") and 25 or 10
             local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + offset, hrpEnemy.Position.Z)
-            anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
 
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
 
-            if not running or not humanoid.Parent or humanoid.Health <= 0 or not hrpEnemy.Parent then
+            if not running or not humanoidEnemy.Parent or humanoidEnemy.Health <= 0 or not hrpEnemy.Parent then
                 break
             end
 
@@ -2069,6 +2018,8 @@ do
 
         destroyCurrentBeam()
         currentFollowEnemy = nil
+        -- restore camera to player's normal camera after finishing
+        pcall(setCameraToPlayer)
     end
 
     -- create farm point + billboard
@@ -2107,7 +2058,7 @@ do
         label.TextStrokeTransparency = 0.6
 
         farmBillboard = { gui = bb, label = label }
-        farmCenter = farmPoint.Position
+        farmCenter = farmPoint.Position -- keep fixed; do not update elsewhere
     end
 
     local function destroyFarmPoint()
@@ -2123,91 +2074,71 @@ do
     -- ===== Patrol logic (dynamic radii orbit) =====
     local patrolActive = false
 
-    -- generate circular waypoint at angle and radius
+    -- generate circular waypoint at angle and radius (around a fixed center)
     local function circlePoint(center, radius, angleRad)
         return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
     end
 
-    -- orbit one full revolution at given radius: returns true if completed, false if aborted
+    -- orbit one full revolution at given radius percent (center is fixed farmPoint.Position)
     local function orbitOnce(center, radiusPercent)
-        if not farmCenter or not farmPoint then return false end
+        if not farmPoint or not farmPoint.Parent then return false end
         if not running then return false end
-        local radius = math.max(1, (distanceLimit or 5000) * radiusPercent)
-        -- random start angle
+        local radius = math.max(1, (distanceLimit or 2500) * radiusPercent)
         local startAng = math.random() * math.pi * 2
-        local steps = 24 -- number of waypoints for a circle (adjust for smoothness)
+        local steps = 24
         local angStep = (2 * math.pi) / steps
 
         for s = 0, steps - 1 do
             if not running then return false end
-            -- check for enemy frequently
-            if getNearestEnemy(farmCenter) then return false end
+            -- frequently check for enemies (use fixed center)
+            if getNearestEnemy(center) then return false end
 
             local ang = startAng + s * angStep
-            local pt = circlePoint(farmCenter, radius, ang)
-            -- set farmPoint position for UI feedback
-            if farmPoint and farmPoint.Parent then
-                farmPoint.Position = pt
-                farmCenter = pt
-                if farmBillboard and farmBillboard.label and hrp then
-                    local rawDist = (hrp.Position - farmPoint.Position).Magnitude
-                    local clamped = math.clamp(rawDist, 0, distanceLimit)
-                    local display = math.floor(clamped + 0.5)
-                    farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit)
-                end
-            end
+            local pt = circlePoint(center, radius, ang)
 
-            -- Tween between points (use small upward offset)
+            -- Tween to patrol point (do NOT modify farmPoint)
             local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
-            -- quick break between points
+            -- tiny pause and re-check
             local pause = tick() + 0.03
             while tick() < pause do
                 if not running then return false end
-                if getNearestEnemy(farmCenter) then return false end
+                if getNearestEnemy(center) then return false end
                 task.wait(0.01)
             end
         end
         return true
     end
 
-    -- patrol loop: expand radii from 10% to 70% then loop back to 10%
     local function startPatrol()
-        if not farmCenter or not farmPoint then return end
+        if not farmPoint or not farmPoint.Parent then return end
         if patrolActive then return end
         patrolActive = true
 
-        enableCameraFollow()
-
-        -- list of radii in percents (cycle)
         local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
         local idx = 1
-        while patrolActive and running do
-            -- initial move to a random point on current radius before orbiting
-            local radiusPercent = radii[idx]
-            -- pick random angle and point
-            local ang = math.random() * math.pi * 2
-            local startPt = circlePoint(farmCenter, math.max(1, (distanceLimit or 5000) * radiusPercent), ang)
-            -- update UI center
-            if farmPoint and farmPoint.Parent then
-                farmPoint.Position = startPt
-                farmCenter = startPt
-            end
+        local center = farmPoint.Position -- fixed center
 
-            -- Tween to start point
+        while patrolActive and running do
+            local radiusPercent = radii[idx]
+            -- random start angle and startPt around fixed center
+            local ang = math.random() * math.pi * 2
+            local startPt = circlePoint(center, math.max(1, (distanceLimit or 2500) * radiusPercent), ang)
+
+            -- Tween to start point (camera will be player's during tween)
             local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
-            -- after arriving, do one full orbit at this radius
-            local completedOrbit = orbitOnce(farmCenter, radiusPercent)
+
+            -- do orbit at this radius (center fixed)
+            local completedOrbit = orbitOnce(center, radiusPercent)
             if not completedOrbit then break end
 
-            -- move to next radius (wrap to 1)
+            -- next radius
             idx = idx + 1
             if idx > #radii then idx = 1 end
 
-            -- tiny check delay
-            if getNearestEnemy(farmCenter) then break end
+            if getNearestEnemy(center) then break end
             task.wait(0.02)
         end
 
@@ -2229,13 +2160,12 @@ do
         end)
     end
 
-    -- onCharacterDied defined early so we can connect it where needed
+    -- onCharacterDied
     local function onCharacterDied()
         if running then
             running = false
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
         end
-        disableCameraFollow()
         restoreCameraState()
         cleanupOnStop()
     end
@@ -2247,13 +2177,9 @@ do
 
         running = false
 
-        -- force UI OFF khi respawn
         pcall(function()
             ToggleUI.Set(BUTTON_NAME, false)
         end)
-
-        if anchor and anchor.Parent then anchor:Destroy() end
-        anchor = nil
 
         cleanupOnStop()
         restoreCameraToPlayer()
@@ -2261,7 +2187,7 @@ do
         humanoidNew.Died:Connect(onCharacterDied)
     end)
 
-    -- When user clicks the UI toggle: call ToggleUI.Set like mẫu
+    -- When user clicks the UI toggle
     if autoBtn then
         local function onToggleActivated()
             local bg = autoBtn.BackgroundColor3
@@ -2289,7 +2215,6 @@ do
 
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                -- Set style based on current supportStyle (mặc định Melee)
                 player:SetAttribute("FastAttackEnemyStyle", supportStyle)
                 player:SetAttribute("FastAttackEnemy", true)
             end)
@@ -2297,19 +2222,18 @@ do
             saveCameraState()
 
             if hrp then
-                createFarmPoint(hrp.Position)
+                createFarmPoint(hrp.Position) -- farmPoint created once and stays put
             end
 
-            -- enable camera follow immediately when we start running
-            enableCameraFollow()
+            -- ensure camera uses player's normal camera immediately
+            pcall(setCameraToPlayer)
 
         elseif not isOn and running then
             running = false
 
             _G.BringMobGate2 = false
 
-            -- stop camera follow, restore camera, and cleanup
-            disableCameraFollow()
+            -- restore camera and cleanup
             restoreCameraState()
             cleanupOnStop()
         end
@@ -2322,7 +2246,7 @@ do
     -- initial sync
     setRunningFromButtonColor()
 
-    -- update billboard color and farmCenter each frame
+    -- update billboard color and farmCenter each frame (farmCenter stays equal farmPoint.Position)
     do
         local lastRatio = -1
         local colorTween = nil
@@ -2346,7 +2270,9 @@ do
                     colorTween:Play()
                 end
 
-                farmCenter = farmPoint.Position
+                if farmPoint and farmPoint.Parent then
+                    farmCenter = farmPoint.Position -- preserve fixed center
+                end
             end
         end)
     end
@@ -2365,13 +2291,12 @@ do
                 continue
             end
 
-            local center = farmCenter or hrp.Position
+            local center = (farmPoint and farmPoint.Parent) and farmPoint.Position or hrp.Position
             local target = getNearestEnemy(center)
             if target then
                 -- Found an enemy: cancel any tween/patrol and follow immediately
                 cancelCurrentTween()
                 lastSeen = tick()
-                -- ensure patrol stops
                 patrolActive = false
                 followEnemy(target)
             else
@@ -2395,7 +2320,7 @@ do
         end
     end)
 
-    -- auto attack loop (giữ nguyên)
+    -- auto attack loop (unchanged)
     task.spawn(function()
         while true do
             task.wait(0.4)
@@ -2440,23 +2365,16 @@ do
     local function applySupportVisuals(style)
         if not supportBtn then return end
         local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
-        -- tween background
         pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
-        -- tween UIStroke.Color if exists
         local stroke = getUIStroke(supportBtn)
-        if stroke then
-            pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end)
-        end
-        -- text tween: 0 -> 1, change, 1 -> 0
+        if stroke then pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end) end
+
         local textObj = getTextHolder(supportBtn)
         if textObj then
-            -- tween to transparent
             local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
             if t1 then t1.Completed:Wait() end
-            -- change text
             local newText = SUPPORT_TEXT[style] or ("Support: " .. style)
             pcall(function() textObj.Text = newText end)
-            -- tween back to visible
             pcall(function()
                 local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.12)
                 if t2 then t2.Completed:Wait() end
@@ -2464,12 +2382,10 @@ do
         end
     end
 
-    -- set support style (đảm bảo SetAttribute chỉ gọi 1 lần khi thực sự thay đổi)
     local function setSupportStyle(style)
         if not style then return end
         style = (style == "Fruit") and "Fruit" or "Melee"
         if _prevSupportStyle == style then
-            -- vẫn cập nhật visuals để đồng bộ UI nếu cần
             applySupportVisuals(style)
             return
         end
@@ -2478,29 +2394,23 @@ do
         applySupportVisuals(style)
         _prevSupportStyle = style
 
-        -- gọi SetAttribute cho chế độ hiện tại 1 lần
         pcall(function()
             player:SetAttribute("FastAttackEnemyStyle", style)
         end)
     end
 
-    -- khởi tạo supportBtn visuals mặc định Melee
     if supportBtn then
-        -- ensure initial text transparency is 0 (hiển thị)
         local textObj = getTextHolder(supportBtn)
         if textObj then
             pcall(function() textObj.TextTransparency = 0 end)
             pcall(function() textObj.Text = SUPPORT_TEXT[supportStyle] end)
         end
-        -- set initial background & stroke instantly
         pcall(function() supportBtn.BackgroundColor3 = MELEE_COLOR end)
         local stroke = getUIStroke(supportBtn)
         if stroke then pcall(function() stroke.Color = MELEE_COLOR end) end
 
-        -- connect click
         local function onSupportActivated()
             local nextStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
-            -- play transition and set attribute
             setSupportStyle(nextStyle)
         end
         if supportBtn.Activated then
@@ -2510,9 +2420,7 @@ do
         end
     end
 
-    -- ensure attribute initial value set to default supportStyle (một lần)
     pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
-
 end
 
 --=== BRING MOD =====================================================================================================--
