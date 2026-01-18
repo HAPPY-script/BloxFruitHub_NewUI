@@ -822,11 +822,10 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
                     pendingSetY = st
 
                 elseif st.kind == "teleport" then
-                    local ok = teleportSpam(st.pos)
-                    if not ok or movementToken ~= myToken then
-                        return false
-                    end
-                    task.wait(0.05)
+                    -- teleportTo: chỉ teleport 1 lần, không spam
+                    teleport(st.pos)
+                    -- rất nhẹ: cho engine 1 tick để áp dụng CFrame (có thể bỏ nếu bạn muốn không delay)
+                    task.wait(0.01)
 
                 elseif st.kind == "call" then
                     local ok, err = pcall(st.fn)
