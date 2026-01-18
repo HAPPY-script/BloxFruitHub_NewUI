@@ -1581,6 +1581,7 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
+-- AutoFarmArena (optimized tween + immediate cancel)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1619,7 +1620,7 @@ do
     local function restoreCameraState()
         if savedCameraState then
             camera.CameraType = savedCameraState.Type or Enum.CameraType.Custom
-            camera.CameraSubject = savedCameraState.Subject or player.Character and player.Character:FindFirstChildOfClass("Humanoid") or originalCameraState.Subject
+            camera.CameraSubject = savedCameraState.Subject or (player.Character and player.Character:FindFirstChildOfClass("Humanoid")) or originalCameraState.Subject
             savedCameraState = nil
         else
             restoreCameraToPlayer()
@@ -1722,15 +1723,70 @@ do
         return anchor
     end
 
-    -- tweenTo (giữ như bản gốc)
+    -- ===== improved tween management (teleport Y + immediate cancel) =====
     local MOVE_SPEED_OVERRIDE = 300
+    local currentTween = nil
+
+    local function cancelCurrentTween()
+        if currentTween then
+            pcall(function() currentTween:Cancel() end)
+            currentTween = nil
+        end
+    end
+
+    -- Tween to position:
+    -- - teleport HRP Y to target Y (keep X/Z) before tween
+    -- - create tween moving X/Z to target while Y already set
+    -- - support immediate cancel if running == false
     local function tweenTo(pos)
-        if not hrp then return end
+        if not hrp or not hrp.Parent then return end
+
         local dist = (hrp.Position - pos).Magnitude
         if dist > 10000 then return end
-        local tween = TweenService:Create(hrp, TweenInfo.new(dist / MOVE_SPEED_OVERRIDE, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
-        tween:Play()
-        tween.Completed:Wait()
+
+        -- teleport Y only (maintain current X/Z). Reset velocity to avoid physics surprises.
+        local cur = hrp.Position
+        local targetY = pos.Y
+        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
+
+        -- Build target CFrame with correct Y
+        local targetCFrame = CFrame.new(pos.X, targetY, pos.Z)
+
+        -- Cancel any existing tween to avoid overlaps
+        cancelCurrentTween()
+
+        -- compute duration based on planar distance (X/Z difference + small Y already adjusted)
+        local planarDistance = (Vector3.new(cur.X, 0, cur.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
+        local duration = math.max(0.01, planarDistance / MOVE_SPEED_OVERRIDE)
+
+        local ok, tw = pcall(function()
+            return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        end)
+        if not ok or not tw then return end
+
+        currentTween = tw
+        local conn
+        conn = tw.Completed:Connect(function()
+            if conn then conn:Disconnect() end
+            if currentTween == tw then
+                currentTween = nil
+            end
+        end)
+
+        tw:Play()
+
+        -- responsive wait loop: allow immediate cancel when running becomes false
+        while currentTween == tw do
+            if not running then
+                -- cancel and cleanup
+                pcall(function() tw:Cancel() end)
+                currentTween = nil
+                if conn then conn:Disconnect() end
+                break
+            end
+            task.wait(0.01)
+        end
     end
 
     -- get nearest enemy that is WITHIN distanceLimit of centerPos,
@@ -1863,6 +1919,23 @@ do
         return Beam
     end
 
+    -- cleanup function dùng chung để stop mọi thứ ngay
+    local function cleanupOnStop()
+        cancelCurrentTween()
+        destroyCurrentBeam()
+        if farmPoint and farmPoint.Parent then
+            farmPoint:Destroy()
+        end
+        farmPoint = nil
+        farmBillboard = nil
+        farmCenter = nil
+
+        if anchor and anchor.Parent then
+            anchor:Destroy()
+        end
+        anchor = nil
+    end
+
     -- follow enemy (giữ logic), sử dụng supportStyle để đổi offset
     local function followEnemy(enemy)
         if not enemy then return end
@@ -1896,6 +1969,7 @@ do
 
         local dist = (hrp.Position - hrpEnemy.Position).Magnitude
         if dist > 200 then
+            -- sử dụng tweenTo đã cải tiến (teleport Y + cancelable)
             tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
         else
             while humanoid.Health > 0 and running do
@@ -1984,27 +2058,35 @@ do
         end)
     end
 
+    -- onCharacterDied defined early so we can connect it where needed
+    local function onCharacterDied()
+        if running then
+            running = false
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        end
+        restoreCameraState()
+        cleanupOnStop()
+    end
+
     player.CharacterAdded:Connect(function(newChar)
-    	character = newChar
-    	hrp = newChar:WaitForChild("HumanoidRootPart")
-    	local humanoid = newChar:WaitForChild("Humanoid")
+        character = newChar
+        hrp = newChar:WaitForChild("HumanoidRootPart")
+        local humanoidNew = newChar:WaitForChild("Humanoid")
 
-    	running = false
+        running = false
 
-    	-- force UI OFF khi respawn
-    	pcall(function()
-    		ToggleUI.Set(BUTTON_NAME, false)
-    	end)
+        -- force UI OFF khi respawn
+        pcall(function()
+            ToggleUI.Set(BUTTON_NAME, false)
+        end)
 
-    	if anchor and anchor.Parent then anchor:Destroy() end
-    	anchor = nil
-    	destroyFarmPoint()
+        if anchor and anchor.Parent then anchor:Destroy() end
+        anchor = nil
 
-    	-- restore camera to player (Humanoid) on respawn
-    	restoreCameraToPlayer()
+        cleanupOnStop()
+        restoreCameraToPlayer()
 
-    	-- reconnect died event
-    	humanoid.Died:Connect(onCharacterDied)
+        humanoidNew.Died:Connect(onCharacterDied)
     end)
 
     -- When user clicks the UI toggle: call ToggleUI.Set like mẫu
@@ -2052,13 +2134,8 @@ do
             _G.BringMobGate2 = false
 
             restoreCameraState()
-            destroyFarmPoint()
-            destroyCurrentBeam()
-
-            if anchor and anchor.Parent then
-                anchor:Destroy()
-            end
-            anchor = nil
+            -- gọi cleanup để dừng tween & các hiệu ứng ngay lập tức
+            cleanupOnStop()
         end
     end
 
@@ -2098,20 +2175,8 @@ do
         end)
     end
 
-    local function onCharacterDied()
-        if running then
-            running = false
-            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-            restoreCameraState()
-            destroyFarmPoint()
-            destroyCurrentBeam()
-            if anchor and anchor.Parent then anchor:Destroy() end
-            anchor = nil
-        end
-    end
-
     if humanoid then
-    	humanoid.Died:Connect(onCharacterDied)
+        humanoid.Died:Connect(onCharacterDied)
     end
 
     -- auto farm loop: use farmCenter when available
@@ -2242,9 +2307,7 @@ do
         end
     end
 
-    -- ensure attribute initial value set to default supportStyle (một lần)
     pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
-
 end
 
 --=== BRING MOD =====================================================================================================--
