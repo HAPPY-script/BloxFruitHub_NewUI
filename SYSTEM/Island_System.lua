@@ -332,7 +332,9 @@ local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(28611.99, 14896.55, 107.19), 10, 0.2),
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 10, 0.25),
+        Vector3.new(28611.04, 14900.85, 105.37),
+        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 10, 0.2),
 
         call(function()
             task.spawn(function()
@@ -346,7 +348,7 @@ local BUTTON_TARGETS = {
             end)
         end),
 
-        teleportTo(Vector3.new(3030.98, 2281.01, -7325.02), 10, 0.2),
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 10, 0.25),
 
         call(function()
             task.spawn(function()
@@ -365,7 +367,7 @@ local BUTTON_TARGETS = {
     ["Submerged Island"] = {
         setY(),
         Vector3.new(11520.80, 10, 9829.51),
-        teleportTo(Vector3.new(1000, 100, 1000)),
+        teleportTo(Vector3.new(0, 0, 0), 10, 0.2),
         call(function() print("arrived at point1") end),
         setY(),
         Vector3.new(11520.80, -2125.80, 9829.51),
