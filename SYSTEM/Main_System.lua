@@ -1581,7 +1581,7 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
--- AutoFarmArena (optimized tween + immediate cancel + patrol + camera follow updated)
+-- AutoFarmArena (tween + immediate cancel + dynamic patrol + camera snap-to-player during tween)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1691,52 +1691,6 @@ do
     -- camera follow control
     local cameraConn = nil
     local currentFollowEnemy = nil -- currently followed enemy (may be nil)
-    local function enableCameraFollow()
-        if not anchor then ensureAnchor() end
-        if not anchor or not anchor.Parent then return end
-        -- set camera subject to anchor immediately
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anchor
-        -- don't create multiple connections
-        if cameraConn then return end
-
-        cameraConn = RunService.RenderStepped:Connect(function(dt)
-            if not running or not hrp or not anchor or not anchor.Parent then
-                return
-            end
-
-            -- desired base position follows player
-            local playerPos = hrp.Position
-
-            -- if following an enemy, compute enemy influence
-            local desired = playerPos
-            if currentFollowEnemy and currentFollowEnemy.Parent then
-                local eHRP = currentFollowEnemy:FindFirstChild("HumanoidRootPart")
-                local eHum = currentFollowEnemy:FindFirstChildOfClass("Humanoid")
-                if eHRP and eHum and eHum.Health > 0 and eHRP.Parent then
-                    -- enemy target position with offset depending on supportStyle
-                    local offset = (supportStyle == "Melee") and 25 or 10
-                    local enemyPos = Vector3.new(eHRP.Position.X, eHRP.Position.Y + offset, eHRP.Position.Z)
-                    -- lerp between player and enemy so camera remains player-centered but biased to enemy
-                    desired = playerPos:Lerp(enemyPos, 0.35)
-                end
-            end
-
-            -- ensure use anchorY if set (keeps camera height stable)
-            local y = anchorY or desired.Y
-            desired = Vector3.new(desired.X, y, desired.Z)
-
-            -- smooth anchor move
-            anchor.Position = anchor.Position:Lerp(desired, math.clamp(0.15 + (dt * 10), 0.02, 0.35))
-        end)
-    end
-
-    local function disableCameraFollow()
-        if cameraConn then
-            pcall(function() cameraConn:Disconnect() end)
-            cameraConn = nil
-        end
-    end
 
     -- Support style config
     local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
@@ -1784,15 +1738,68 @@ do
         end
     end
 
+    -- camera follow implementation: when currentFollowEnemy == nil, camera centers on player fully
+    local function enableCameraFollow()
+        if not anchor then ensureAnchor() end
+        if not anchor or not anchor.Parent then return end
+        camera.CameraType = Enum.CameraType.Custom
+        camera.CameraSubject = anchor
+        if cameraConn then return end
+
+        cameraConn = RunService.RenderStepped:Connect(function(dt)
+            if not running or not hrp or not anchor or not anchor.Parent then
+                return
+            end
+
+            -- base follows player
+            local playerPos = hrp.Position
+
+            -- if currently following an enemy, bias toward its position
+            local desired = playerPos
+            if currentFollowEnemy and currentFollowEnemy.Parent then
+                local eHRP = currentFollowEnemy:FindFirstChild("HumanoidRootPart")
+                local eHum = currentFollowEnemy:FindFirstChildOfClass("Humanoid")
+                if eHRP and eHum and eHum.Health > 0 and eHRP.Parent then
+                    local offset = (supportStyle == "Melee") and 25 or 10
+                    local enemyPos = Vector3.new(eHRP.Position.X, eHRP.Position.Y + offset, eHRP.Position.Z)
+                    desired = playerPos:Lerp(enemyPos, 0.45) -- bias stronger when actually following enemy
+                end
+            end
+
+            -- keep stable Y from anchorY if available
+            local y = anchorY or desired.Y
+            desired = Vector3.new(desired.X, y, desired.Z)
+
+            -- smooth movement
+            anchor.Position = anchor.Position:Lerp(desired, math.clamp(0.25 * dt * 60, 0.05, 0.6))
+        end)
+    end
+
+    local function disableCameraFollow()
+        if cameraConn then
+            pcall(function() cameraConn:Disconnect() end)
+            cameraConn = nil
+        end
+    end
+
     -- Tween to position:
+    -- - snap camera anchor to player (full follow) before tween
     -- - teleport HRP Y to target Y (keep X/Z) before tween
     -- - create tween moving X/Z to target while Y already set
     -- - support immediate cancel if running == false (or external cancel)
     local function tweenTo(pos)
-        if not hrp or not hrp.Parent then return end
+        if not hrp or not hrp.Parent then return false end
+
+        -- ensure camera is centered to player immediately (snap)
+        if anchor and anchor.Parent then
+            -- snap anchor to player position so camera returns fully to player during tween
+            anchor.Position = hrp.Position
+        end
+        -- clear enemy bias while tweening
+        currentFollowEnemy = nil
 
         local dist = (hrp.Position - pos).Magnitude
-        if dist > 10000 then return end
+        if dist > 10000 then return false end
 
         -- teleport Y only (maintain current X/Z). Reset velocity to avoid physics surprises.
         local cur = hrp.Position
@@ -1806,18 +1813,20 @@ do
         -- Cancel any existing tween to avoid overlaps
         cancelCurrentTween()
 
-        -- compute duration based on planar distance (X/Z difference + small Y already adjusted)
+        -- compute duration based on planar distance
         local planarDistance = (Vector3.new(cur.X, 0, cur.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
         local duration = math.max(0.01, planarDistance / MOVE_SPEED_OVERRIDE)
 
         local ok, tw = pcall(function()
             return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
         end)
-        if not ok or not tw then return end
+        if not ok or not tw then return false end
 
         currentTween = tw
+        local completed = false
         local conn
         conn = tw.Completed:Connect(function()
+            completed = true
             if conn then conn:Disconnect() end
             if currentTween == tw then
                 currentTween = nil
@@ -1829,14 +1838,15 @@ do
         -- responsive wait loop: allow immediate cancel when running becomes false
         while currentTween == tw do
             if not running then
-                -- cancel and cleanup
                 pcall(function() tw:Cancel() end)
                 currentTween = nil
                 if conn then conn:Disconnect() end
-                break
+                return false
             end
             task.wait(0.01)
         end
+
+        return completed
     end
 
     -- get nearest enemy that is WITHIN distanceLimit of centerPos,
@@ -1887,7 +1897,7 @@ do
         return nearest
     end
 
-    -- highlight helper (gốc)
+    -- highlight helper
     local function updateHighlight(enemy)
         if not enemy then return end
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
@@ -1985,11 +1995,10 @@ do
         end
         anchor = nil
 
-        -- stop camera updater
         disableCameraFollow()
     end
 
-    -- follow enemy (giữ logic), sử dụng supportStyle để đổi offset
+    -- follow enemy (cập nhật: chỉ bật enemy-follow khi đã tới gần)
     local function followEnemy(enemy)
         if not enemy then return end
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
@@ -1998,9 +2007,6 @@ do
 
         -- stop any patrol/tween immediately
         cancelCurrentTween()
-
-        -- set currentFollowEnemy so cameraUpdater biases toward enemy
-        currentFollowEnemy = enemy
 
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
@@ -2017,41 +2023,52 @@ do
             createBeamBetweenParts(beamSource, hrpEnemy)
         end
 
+        -- do NOT set currentFollowEnemy yet — camera should remain fully on player while we approach
         if not anchorY or (tick() - lastAnchorUpdate) > anchorUpdateInterval then
             local offset = (supportStyle == "Melee") and 25 or 10
             anchorY = hrpEnemy.Position.Y + offset
             lastAnchorUpdate = tick()
         end
 
-        -- ensure camera follow is enabled (anchor subject) so it updates continuously
+        -- ensure camera follow is enabled (anchor subject) so it updates continuously (but currently centered on player)
         enableCameraFollow()
 
         local dist = (hrp.Position - hrpEnemy.Position).Magnitude
         if dist > 200 then
-            -- sử dụng tweenTo đã cải tiến (teleport Y + cancelable)
-            tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
-        else
-            while humanoid.Health > 0 and running do
-                updateHighlight(enemy)
-
-                -- mỗi vòng lấy offset từ supportStyle (cho phép đổi giữa chặn)
-                local offset = (supportStyle == "Melee") and 25 or 10
-                local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + offset, hrpEnemy.Position.Z)
-                anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
-
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
-
-                if not running or not humanoid.Parent or humanoid.Health <= 0 or not hrpEnemy.Parent then
-                    break
-                end
-
-                RunService.RenderStepped:Wait()
+            -- approach: tweenTo returns true if completed (not cancelled)
+            local arrived = tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
+            if arrived and running then
+                -- we have arrived: now allow camera to bias toward enemy
+                currentFollowEnemy = enemy
+            else
+                -- cancelled or stopped — cleanup and return
+                currentFollowEnemy = nil
+                destroyCurrentBeam()
+                return
             end
+        else
+            -- already near: set enemy follow immediately
+            currentFollowEnemy = enemy
+        end
+
+        -- now we are close enough and camera will bias toward enemy while we do the in-place follow loop
+        while humanoid.Health > 0 and running and hrpEnemy.Parent do
+            updateHighlight(enemy)
+            local offset = (supportStyle == "Melee") and 25 or 10
+            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + offset, hrpEnemy.Position.Z)
+            anchorLocal.Position = anchorLocal.Position:Lerp(targetPos, 0.15)
+
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+
+            if not running or not humanoid.Parent or humanoid.Health <= 0 or not hrpEnemy.Parent then
+                break
+            end
+
+            RunService.RenderStepped:Wait()
         end
 
         destroyCurrentBeam()
-        -- clear follow marker so camera will revert to following player only
         currentFollowEnemy = nil
     end
 
@@ -2104,51 +2121,36 @@ do
         farmCenter = nil
     end
 
-    -- ===== Patrol logic =====
+    -- ===== Patrol logic (dynamic radii orbit) =====
     local patrolActive = false
-    local function generatePatrolPoints(centerPos, radius, count)
-        local pts = {}
-        local step = (2 * math.pi) / (count or 8)
-        for i = 0, (count or 8) - 1 do
-            local ang = i * step
-            local x = centerPos.X + math.cos(ang) * radius
-            local z = centerPos.Z + math.sin(ang) * radius
-            local y = centerPos.Y -- keep center's Y; tweenTo will teleport to this Y
-            table.insert(pts, Vector3.new(x, y, z))
-        end
-        return pts
+
+    -- generate circular waypoint at angle and radius
+    local function circlePoint(center, radius, angleRad)
+        return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
     end
 
-    local function startPatrol()
-        if not farmCenter or not farmPoint then return end
-        if patrolActive then return end
-        patrolActive = true
+    -- orbit one full revolution at given radius: returns true if completed, false if aborted
+    local function orbitOnce(center, radiusPercent)
+        if not farmCenter or not farmPoint then return false end
+        if not running then return false end
+        local radius = math.max(1, (distanceLimit or 5000) * radiusPercent)
+        -- random start angle
+        local startAng = math.random() * math.pi * 2
+        local steps = 24 -- number of waypoints for a circle (adjust for smoothness)
+        local angStep = (2 * math.pi) / steps
 
-        -- patrol params
-        local count = 8
-        local radius = (distanceLimit or 5000) * 0.75
-        local points = generatePatrolPoints(farmCenter, radius, count)
+        for s = 0, steps - 1 do
+            if not running then return false end
+            -- check for enemy frequently
+            if getNearestEnemy(farmCenter) then return false end
 
-        -- ensure camera follows during patrol
-        enableCameraFollow()
-
-        -- iterate points in circular order; stop early if running turns false or enemy appears
-        for i = 1, #points do
-            if not running then break end
-
-            -- if enemy appears, stop patrol (we rely on outer loop to cancel tween and call follow)
-            local targetNow = getNearestEnemy(farmCenter)
-            if targetNow then
-                break
-            end
-
-            local pt = points[i]
-            -- update farmPoint so UI/center reflect current patrol target
+            local ang = startAng + s * angStep
+            local pt = circlePoint(farmCenter, radius, ang)
+            -- set farmPoint position for UI feedback
             if farmPoint and farmPoint.Parent then
                 farmPoint.Position = pt
                 farmCenter = pt
-                if farmBillboard and farmBillboard.label then
-                    -- keep label updated immediately
+                if farmBillboard and farmBillboard.label and hrp then
                     local rawDist = (hrp.Position - farmPoint.Position).Magnitude
                     local clamped = math.clamp(rawDist, 0, distanceLimit)
                     local display = math.floor(clamped + 0.5)
@@ -2156,34 +2158,60 @@ do
                 end
             end
 
-            -- Tween to patrol point (y is already set in pt; tweenTo will teleport Y first)
-            tweenTo(pt + Vector3.new(0, 5, 0))
+            -- Tween between points (use small upward offset)
+            local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
+            if not arrived then return false end
 
-            -- after arriving, quick scan for enemy before next point
-            if not running then break end
-            local found = getNearestEnemy(farmCenter)
-            if found then
-                break
-            end
-
-            -- small pause between points to be less robotic
-            local pauseUntil = tick() + 0.08
-            while tick() < pauseUntil do
-                if not running then break end
-                if getNearestEnemy(farmCenter) then
-                    break
-                end
+            -- quick break between points
+            local pause = tick() + 0.03
+            while tick() < pause do
+                if not running then return false end
+                if getNearestEnemy(farmCenter) then return false end
                 task.wait(0.01)
             end
+        end
+        return true
+    end
 
-            if not running then break end
+    -- patrol loop: expand radii from 10% to 70% then loop back to 10%
+    local function startPatrol()
+        if not farmCenter or not farmPoint then return end
+        if patrolActive then return end
+        patrolActive = true
+
+        enableCameraFollow()
+
+        -- list of radii in percents (cycle)
+        local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
+        local idx = 1
+        while patrolActive and running do
+            -- initial move to a random point on current radius before orbiting
+            local radiusPercent = radii[idx]
+            -- pick random angle and point
+            local ang = math.random() * math.pi * 2
+            local startPt = circlePoint(farmCenter, math.max(1, (distanceLimit or 5000) * radiusPercent), ang)
+            -- update UI center
+            if farmPoint and farmPoint.Parent then
+                farmPoint.Position = startPt
+                farmCenter = startPt
+            end
+
+            -- Tween to start point
+            local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
+            if not ok then break end
+            -- after arriving, do one full orbit at this radius
+            local completedOrbit = orbitOnce(farmCenter, radiusPercent)
+            if not completedOrbit then break end
+
+            -- move to next radius (wrap to 1)
+            idx = idx + 1
+            if idx > #radii then idx = 1 end
+
+            -- tiny check delay
             if getNearestEnemy(farmCenter) then break end
+            task.wait(0.02)
         end
 
-        -- restore farm center to central farmPoint (if it exists)
-        if farmPoint and farmPoint.Parent then
-            farmCenter = farmPoint.Position
-        end
         patrolActive = false
     end
 
@@ -2208,7 +2236,6 @@ do
             running = false
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
         end
-        -- stop camera follow and restore
         disableCameraFollow()
         restoreCameraState()
         cleanupOnStop()
@@ -2345,15 +2372,16 @@ do
                 -- Found an enemy: cancel any tween/patrol and follow immediately
                 cancelCurrentTween()
                 lastSeen = tick()
+                -- ensure patrol stops
+                patrolActive = false
                 followEnemy(target)
             else
                 -- no target
-                if (tick() - lastSeen) >= 1 then
+                if (tick() - lastSeen) >= 0.5 then
                     -- start patrol if not already
                     if farmPoint == nil then
                         createFarmPoint(hrp.Position)
                     end
-                    -- start patrol in its own task (do not block this loop)
                     if not patrolActive then
                         task.spawn(function()
                             startPatrol()
