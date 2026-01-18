@@ -335,29 +335,25 @@ local BUTTON_TARGETS = {
         teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
 
         call(function()
-            task.spawn(function()
-                local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
-                for i = 1, 5 do
-                    pcall(function()
-                        remote:InvokeServer("RaceV4Progress", "TeleportBack")
-                    end)
-                    task.wait(0.25)
-                end
-            end)
+            local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+            for i = 1, 5 do
+                pcall(function()
+                    remote:InvokeServer("RaceV4Progress", "TeleportBack")
+                end)
+                task.wait(0.25)
+            end
         end),
 
         teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 2),
 
         call(function()
-            task.spawn(function()
-                local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
-                for i = 1, 5 do
-                    pcall(function()
-                        remote:InvokeServer("RaceV4Progress", "Teleport")
-                    end)
-                    task.wait(0.25)
-                end
-            end)
+            local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+            for i = 1, 5 do
+                pcall(function()
+                    remote:InvokeServer("RaceV4Progress", "Teleport")
+                end)
+                task.wait(0.25)
+            end
         end),
     },
 
@@ -979,6 +975,3 @@ local function cleanup()
 end
 
 script.Destroying:Connect(cleanup)
-
-print("Island UI controller initialized for folder:", ACTIVE_NAME)
-print("Remember to populate BUTTON_TARGETS table in script with button.Name => Vector3 or steps.")
