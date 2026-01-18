@@ -1,5 +1,3 @@
--- Island UI controller (fixed helpers ordering)
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -332,9 +330,9 @@ local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 10, 0.25),
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 1),
         Vector3.new(28611.04, 14900.85, 105.37),
-        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 10, 0.2),
+        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
 
         call(function()
             task.spawn(function()
@@ -343,12 +341,12 @@ local BUTTON_TARGETS = {
                     pcall(function()
                         remote:InvokeServer("RaceV4Progress", "TeleportBack")
                     end)
-                    task.wait(0.1)
+                    task.wait(0.25)
                 end
             end)
         end),
 
-        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 10, 0.25),
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 2),
 
         call(function()
             task.spawn(function()
@@ -357,7 +355,7 @@ local BUTTON_TARGETS = {
                     pcall(function()
                         remote:InvokeServer("RaceV4Progress", "Teleport")
                     end)
-                    task.wait(0.1)
+                    task.wait(0.25)
                 end
             end)
         end),
