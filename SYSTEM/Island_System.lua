@@ -331,7 +331,7 @@ local BUTTON_TARGETS = {
     ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
-    ["Temple of Time"] = {
+    ["Temple of Time"] = { -- 28611.99, 14896.55, 107.19
         teleportTo(Vector3.new(3030.98, 2281.01, -7325.02), 10, 0.2),
         call(function()
             task.spawn(function()
@@ -345,6 +345,36 @@ local BUTTON_TARGETS = {
                 end
             end)
         end)
+    },
+    
+    ["Temple of Time"] = {
+        teleportTo(Vector3.new(28611.99, 14896.55, 107.19), 10, 0.2),
+
+        call(function()
+            task.spawn(function()
+                local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+                for i = 1, 5 do
+                    pcall(function()
+                        remote:InvokeServer("RaceV4Progress", "TeleportBack")
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        end),
+
+        teleportTo(Vector3.new(3030.98, 2281.01, -7325.02), 10, 0.2),
+
+        call(function()
+            task.spawn(function()
+                local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+                for i = 1, 5 do
+                    pcall(function()
+                        remote:InvokeServer("RaceV4Progress", "Teleport")
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        end),
     },
 
 --[[
