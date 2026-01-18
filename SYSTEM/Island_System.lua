@@ -1,3 +1,5 @@
+-- Island UI controller (fixed helpers ordering)
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -81,7 +83,6 @@ end
 -- ============================================
 
 -- ====== FILTER UI FOLDERS THEME-BASED ON PlaceId ======
-
 local function detectPlaceKey()
     local pid = game.PlaceId
     for key, data in pairs(PLACES) do
@@ -93,7 +94,6 @@ local function detectPlaceKey()
 end
 
 local PLACE_KEY = detectPlaceKey()
-
 if PLACE_KEY then
     local toRemove = {}
 
@@ -107,7 +107,6 @@ if PLACE_KEY then
         toRemove = { "Sea1", "Sea2", "Sea3" }
     end
 
-    -- Destroy folders that are not relevant
     for _, name in ipairs(toRemove) do
         local f = ROOT:FindFirstChild(name)
         if f and f.Parent then
@@ -115,7 +114,6 @@ if PLACE_KEY then
         end
     end
 
-    -- If the detected place has a folder (and is not Dungeon), ensure all direct-button children are visible.
     if PLACE_KEY ~= "Dungeon" then
         local activeFolder = ROOT:FindFirstChild(PLACE_KEY)
         if activeFolder then
@@ -156,7 +154,137 @@ if not ANIMATION_UI_FOLDER then
     return
 end
 
+-- ============== Helpers for new BUTTON_TARGETS format =======================
+-- marker helpers for building steps (MOVED HERE so BUTTON_TARGETS can use them safely)
+local function setY(y)
+    -- returns a marker step; optional explicit y
+    return { __type = "setY", y = y }
+end
+
+local function teleportTo(pos)
+    return { __type = "teleport", pos = pos }
+end
+
+local function call(fn)
+    return { __type = "call", fn = fn }
+end
+
+local function normalizeStep(entry)
+    local t = type(entry)
+    if t == "table" then
+        if entry.__type == "setY" then
+            return { kind = "setY", y = entry.y }
+
+        elseif entry.__type == "call" then
+            return { kind = "call", fn = entry.fn }
+
+        elseif entry.__type == "teleport" then
+            return { kind = "teleport", pos = entry.pos }
+
+        elseif entry.pos and typeof(entry.pos) == "Vector3" then
+            return { kind = "move", pos = entry.pos }
+        elseif typeof(entry) == "Vector3" then
+            return { kind = "move", pos = entry }
+        else
+            -- table but not recognized: try extract Vector3 or function inside table
+            for k,v in pairs(entry) do
+                if typeof(v) == "Vector3" then
+                    return { kind = "move", pos = v }
+                elseif type(v) == "function" then
+                    return { kind = "call", fn = v }
+                end
+            end
+        end
+    elseif t == "function" then
+        return { kind = "call", fn = entry }
+    elseif typeof(entry) == "Vector3" then
+        return { kind = "move", pos = entry }
+    end
+    return nil -- unrecognized
+end
+
+-- build ordered steps from target specification
+local function buildStepsFromSpec(spec)
+    -- returns an ordered list of normalized step objects { kind="move"/"call"/"setY", pos=..., fn=..., y=... }
+    if typeof(spec) == "Vector3" then
+        return { { kind = "move", pos = spec } }
+    end
+    if type(spec) ~= "table" then
+        return nil
+    end
+
+    -- priority: if spec.steps (explicit sequence) exists, use that
+    if spec.steps and type(spec.steps) == "table" and #spec.steps > 0 then
+        local out = {}
+        for i=1,#spec.steps do
+            local st = normalizeStep(spec.steps[i])
+            if st then table.insert(out, st) end
+        end
+        return out
+    end
+
+    -- otherwise, use numeric array entries first (if any), then append named keys sorted lexicographically.
+    local out = {}
+    for i=1,#spec do
+        local st = normalizeStep(spec[i])
+        if st then table.insert(out, st) end
+    end
+
+    -- collect non-numeric keys (fallback)
+    local kv = {}
+    for k,v in pairs(spec) do
+        if type(k) ~= "number" then
+            table.insert(kv, {k = tostring(k), v = v})
+        end
+    end
+    table.sort(kv, function(a,b) return a.k < b.k end)
+    for _,entry in ipairs(kv) do
+        local st = normalizeStep(entry.v)
+        if st then table.insert(out, st) end
+    end
+
+    return out
+end
+
+local function prepareMovePositions(steps, startPos)
+    local pendingSetY = nil
+    local movePositions = {}
+
+    local curPos = startPos
+
+    for _, st in ipairs(steps) do
+        if st.kind == "setY" then
+            pendingSetY = st
+
+        elseif st.kind == "move" then
+            local chosenY
+            if pendingSetY and pendingSetY.y then
+                chosenY = pendingSetY.y
+            elseif pendingSetY then
+                chosenY = st.pos.Y
+            else
+                chosenY = st.pos.Y
+            end
+
+            pendingSetY = nil
+
+            local finalPos = Vector3.new(st.pos.X, chosenY, st.pos.Z)
+            table.insert(movePositions, finalPos)
+            curPos = finalPos
+
+        elseif st.kind == "teleport" then
+            -- teleport KHÔNG được tính vào distance
+            curPos = st.pos
+        end
+    end
+
+    return movePositions
+end
+-- ==============================================================================
+
 -- ============== MAPPING BUTTON NAME ==========
+-- Note: Below you can use either Vector3 or an array of steps for each button.
+-- Helpers setY(y?) and call(fn) are provided above (so they are available at table creation).
 local BUTTON_TARGETS = {
     --=== SEA 1 ===--
     ["Pirate Starter"] = Vector3.new(1073.66, 63.10, 1439.64),
@@ -200,9 +328,31 @@ local BUTTON_TARGETS = {
     ["CandyLand"] = Vector3.new(-1093.69, 62.86, -14508.86),
     ["Tiki Outpost"] = Vector3.new(-16230.67, 10, 436.11),
     ["Submerged Island"] = Vector3.new(11520.80, -2125.80, 9829.51),
-    ["Temple of Time"] = Vector3.new(28388.48, 14903.01, 104.86),
     ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
+
+    -- Example using the helpers (now safe because helpers are defined above)
+    ["Temple of Time"] = {
+        teleportTo(Vector3.new(3030.98, 2281.01, -7325.02)),
+        call(function()
+            task.spawn(function()
+                local args = {"RaceV4Progress", "Teleport"}
+
+                game:GetService("ReplicatedStorage")
+                    .Remotes.CommF_:InvokeServer(unpack(args))
+            end)
+        end)
+    },
+
+--[[
+    ["Submerged Island"] = {
+        setY(),
+        Vector3.new(11520.80, 10, 9829.51),
+        teleportTo(Vector3.new(1000, 100, 1000)),
+        call(function() print("arrived at point1") end),
+        setY(),
+        Vector3.new(11520.80, -2125.80, 9829.51),
+    }, ]]
 }
 -- ==========================================================================
 
@@ -218,7 +368,6 @@ local function vecDistance(a,b)
     return (a - b).Magnitude
 end
 
--- 🔹 Chọn teleport point tối ưu (theo script cũ)
 local function getBestTeleportPoint(fromPos, targetPos)
     local bestPoint, bestDist = nil, math.huge
 
@@ -242,7 +391,6 @@ local function teleport(pos)
     getHRP().CFrame = CFrame.new(pos)
 end
 
--- teleport spam (returns true if completed, false if cancelled)
 local function teleportSpam(pos)
     local hrp = getHRP()
     local myToken = movementToken
@@ -285,12 +433,11 @@ local function xzDistance(a, b)
     return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
 end
 
--- lungeTo that yields until finished or cancelled (giữ như cũ)
 local function lungeTo(targetPos)
     local hrp = getHRP()
     local myToken = movementToken
 
-    -- FIX Y ngay lập tức
+    -- FIX Y ngay lập tức (targetPos.Y được coi là fixedY)
     local fixedY = targetPos.Y
     local startPos = toXZ(hrp.Position, fixedY)
     local endPos = toXZ(targetPos, fixedY)
@@ -337,14 +484,11 @@ local function stopMovement()
     movementToken = movementToken + 1
 end
 
--- executes teleport + lunge -> yields until done or cancelled
--- NOTE: caller should set movementToken to a new token before calling (so cancellation works predictably)
 local function executeMovementTo(targetPos)
-    -- do not call stopMovement() here — caller will create the token
+    -- unchanged: tries teleportPoints first then lunge
     local myToken = movementToken
     local hrp = getHRP()
 
-    -- pick best teleport point if available
     local bestTeleport = getBestTeleportPoint(hrp.Position, targetPos)
     if bestTeleport then
         local ok = teleportSpam(bestTeleport)
@@ -355,7 +499,6 @@ local function executeMovementTo(targetPos)
         if movementToken ~= myToken then return false end
     end
 
-    -- if no bestTeleport found, we will lunge directly
     local ok2 = lungeTo(targetPos)
     return ok2 and movementToken == myToken
 end
@@ -391,7 +534,6 @@ local function restoreButtonUI(btn)
     setButtonDefaults(btn)
 end
 
--- safe find child by name or class
 local function getEffectParts(btn)
     local effect = btn:FindFirstChild("Effect")
     if not effect then return nil end
@@ -420,7 +562,6 @@ local function colorFromProgress(p)
     )
 end
 
--- ============== Animation loader inside LoadFrame ===========================
 local function playAnimationsInLoadFrame(loadFrame, stopFlag)
     if not ANIMATION_UI_FOLDER or not loadFrame then return end
 
@@ -436,7 +577,6 @@ local function playAnimationsInLoadFrame(loadFrame, stopFlag)
     local interval = 1 / ANIM_FPS
     local running = true
 
-    -- clear loadFrame (giữ constraint của chính LoadFrame nếu có)
     for _, c in ipairs(loadFrame:GetChildren()) do
         c:Destroy()
     end
@@ -444,7 +584,6 @@ local function playAnimationsInLoadFrame(loadFrame, stopFlag)
     task.spawn(function()
         local idx = 1
         while running and not stopFlag.cancelled do
-            -- clear frame
             for _, c in ipairs(loadFrame:GetChildren()) do
                 c:Destroy()
             end
@@ -464,7 +603,6 @@ local function playAnimationsInLoadFrame(loadFrame, stopFlag)
             end
         end
 
-        -- cleanup
         for _, c in ipairs(loadFrame:GetChildren()) do
             c:Destroy()
         end
@@ -540,8 +678,8 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
             parts.Name.TextTransparency = 1
         end
 
-        local target = BUTTON_TARGETS[btn.Name]
-        if not target then
+        local targetSpec = BUTTON_TARGETS[btn.Name]
+        if not targetSpec then
             warn("TARGET not set for button:", btn.Name)
             interactionLocked = false
             return
@@ -580,24 +718,47 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
         local myToken = movementToken + 1
         movementToken = myToken
 
-        local fixedY = target.Y
-        local startXZ = toXZ(getHRP().Position, fixedY)
-        local targetXZ = toXZ(target, fixedY)
+        -- Build steps
+        local steps = buildStepsFromSpec(targetSpec)
+        if not steps or #steps == 0 then
+            warn("Invalid target spec for button:", btn.Name)
+            interactionLocked = false
+            return
+        end
 
-        local totalDist = math.max(0.0001, xzDistance(startXZ, targetXZ))
+        -- prepare movePositions list (with Y fixed when setY markers present)
+        local startHRPPos = getHRP().Position
+        local movePositions = prepareMovePositions(steps, startHRPPos)
 
+        -- compute totalDist for progress (sum of xz distances from start to each move)
+        local totalDist = 0.0001
+        do
+            local cur = toXZ(startHRPPos, startHRPPos.Y)
+            for _, mp in ipairs(movePositions) do
+                totalDist = totalDist + xzDistance(cur, toXZ(mp, mp.Y))
+                cur = toXZ(mp, mp.Y)
+            end
+        end
 
+        -- progress updater
         local progressConn
         progressConn = RunService.Heartbeat:Connect(function()
             if movementToken ~= myToken then
                 progressConn:Disconnect()
                 return
             end
-            local curXZ = toXZ(getHRP().Position, fixedY)
-            local prog = 1 - (xzDistance(curXZ, targetXZ) / totalDist)
+            local curPos = getHRP().Position
+            -- remaining distance: sum of xzDistance from current pos to remaining movePositions
+            local rem = 0
+            local cur = toXZ(curPos, curPos.Y) -- Y doesn't matter for xzDistance here
+            for _, mp in ipairs(movePositions) do
+                rem = rem + xzDistance(cur, toXZ(mp, mp.Y))
+                cur = toXZ(mp, mp.Y)
+            end
+            local prog = 1 - (rem / totalDist)
             prog = math.clamp(prog, 0, 1)
             local pct = math.floor(prog * 100)
-                    
+
             if parts.Ratio then
                 parts.Ratio.Visible = true
                 parts.Ratio.Text = pct .. "%"
@@ -609,7 +770,7 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
                     { TextColor3 = targetColor }
                 ):Play()
             end
-                    
+
             if parts.LoadFrame then
                 pcall(function()
                     tween(parts.LoadFrame, {Size = UDim2.new(prog,0,1,0)}, TweenInfo.new(0.12)):Play()
@@ -649,8 +810,53 @@ for _, btn in ipairs(ACTIVE_FOLDER:GetChildren()) do
             end)
         end
 
-        -- run movement using TELEPORT_POINTS logic
-        local success = executeMovementTo(target)
+        local function runSteps()
+            local pendingSetY = nil
+
+            for _, st in ipairs(steps) do
+                if movementToken ~= myToken then
+                    return false
+                end
+
+                if st.kind == "setY" then
+                    pendingSetY = st
+
+                elseif st.kind == "teleport" then
+                    local ok = teleportSpam(st.pos)
+                    if not ok or movementToken ~= myToken then
+                        return false
+                    end
+                    task.wait(0.05)
+
+                elseif st.kind == "call" then
+                    local ok, err = pcall(st.fn)
+                    if not ok then
+                        warn("call step error:", err)
+                    end
+
+                elseif st.kind == "move" then
+                    local chosenY
+                    if pendingSetY and pendingSetY.y then
+                        chosenY = pendingSetY.y
+                    elseif pendingSetY then
+                        chosenY = st.pos.Y
+                    else
+                        chosenY = st.pos.Y
+                    end
+                    pendingSetY = nil
+
+                    local dest = Vector3.new(st.pos.X, chosenY, st.pos.Z)
+                    local ok = executeMovementTo(dest)
+                    if not ok or movementToken ~= myToken then
+                        return false
+                    end
+                end
+            end
+
+            return true
+        end
+
+        local success = runSteps()
 
         stopFlag.cancelled = stopFlag.cancelled or (movementToken ~= myToken) or (not success)
         if stopFlag.cancelled then
@@ -718,4 +924,4 @@ end
 script.Destroying:Connect(cleanup)
 
 print("Island UI controller initialized for folder:", ACTIVE_NAME)
-print("Remember to populate BUTTON_TARGETS table in script with button.Name => Vector3 targets.")
+print("Remember to populate BUTTON_TARGETS table in script with button.Name => Vector3 or steps.")
