@@ -341,6 +341,7 @@ local BUTTON_TARGETS = {
                 task.wait(0.1)
             end
         end),
+    },
 --[[
     ["Submerged Island"] = {
         setY(),
