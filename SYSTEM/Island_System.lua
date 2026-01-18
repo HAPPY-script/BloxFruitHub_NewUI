@@ -331,15 +331,18 @@ local BUTTON_TARGETS = {
     ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
-    -- Example using the helpers (now safe because helpers are defined above)
     ["Temple of Time"] = {
         teleportTo(Vector3.new(3030.98, 2281.01, -7325.02)),
         call(function()
             task.spawn(function()
+                local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
                 local args = {"RaceV4Progress", "Teleport"}
-
-                game:GetService("ReplicatedStorage")
-                    .Remotes.CommF_:InvokeServer(unpack(args))
+                for i = 1, 5 do
+                    pcall(function()
+                        remote:InvokeServer(unpack(args))
+                    end)
+                    task.wait(0.1)
+                end
             end)
         end)
     },
