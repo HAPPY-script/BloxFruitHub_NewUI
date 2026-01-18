@@ -330,7 +330,7 @@ local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 1),
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 2),
         Vector3.new(28611.04, 14900.85, 105.37),
         teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
 
