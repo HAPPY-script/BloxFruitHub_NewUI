@@ -1581,7 +1581,6 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
--- AutoFarmArena (tween + immediate cancel + dynamic patrol + camera snap-to-player during tween)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1677,7 +1676,7 @@ do
     local running = false
 
     -- farm vars
-    local distanceLimit = 5000
+    local distanceLimit = 2500
     local farmPoint = nil
     local farmBillboard = nil
     local farmCenter = nil
