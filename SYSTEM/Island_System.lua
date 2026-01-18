@@ -330,9 +330,9 @@ local BUTTON_TARGETS = {
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
 
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 2),
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 1),
         Vector3.new(28611.04, 14900.85, 105.37),
-        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
+        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 2),
 
         call(function()
             local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
@@ -344,7 +344,19 @@ local BUTTON_TARGETS = {
             end
         end),
 
-        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 2),
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 1),
+
+        call(function()
+            local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+            for i = 1, 5 do
+                pcall(function()
+                    remote:InvokeServer("RaceV4Progress", "Teleport")
+                end)
+                task.wait(0.1)
+            end
+        end),
+
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 100, 3),
 
         call(function()
             local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
