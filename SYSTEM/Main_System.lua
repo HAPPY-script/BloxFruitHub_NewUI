@@ -1581,7 +1581,7 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
--- AutoFarmArena (optimized tween + immediate cancel + patrol)
+-- AutoFarmArena (optimized tween + immediate cancel + patrol + camera follow updated)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1687,6 +1687,56 @@ do
     local anchorY = nil
     local lastAnchorUpdate = 0
     local anchorUpdateInterval = 1
+
+    -- camera follow control
+    local cameraConn = nil
+    local currentFollowEnemy = nil -- currently followed enemy (may be nil)
+    local function enableCameraFollow()
+        if not anchor then ensureAnchor() end
+        if not anchor or not anchor.Parent then return end
+        -- set camera subject to anchor immediately
+        camera.CameraType = Enum.CameraType.Custom
+        camera.CameraSubject = anchor
+        -- don't create multiple connections
+        if cameraConn then return end
+
+        cameraConn = RunService.RenderStepped:Connect(function(dt)
+            if not running or not hrp or not anchor or not anchor.Parent then
+                return
+            end
+
+            -- desired base position follows player
+            local playerPos = hrp.Position
+
+            -- if following an enemy, compute enemy influence
+            local desired = playerPos
+            if currentFollowEnemy and currentFollowEnemy.Parent then
+                local eHRP = currentFollowEnemy:FindFirstChild("HumanoidRootPart")
+                local eHum = currentFollowEnemy:FindFirstChildOfClass("Humanoid")
+                if eHRP and eHum and eHum.Health > 0 and eHRP.Parent then
+                    -- enemy target position with offset depending on supportStyle
+                    local offset = (supportStyle == "Melee") and 25 or 10
+                    local enemyPos = Vector3.new(eHRP.Position.X, eHRP.Position.Y + offset, eHRP.Position.Z)
+                    -- lerp between player and enemy so camera remains player-centered but biased to enemy
+                    desired = playerPos:Lerp(enemyPos, 0.35)
+                end
+            end
+
+            -- ensure use anchorY if set (keeps camera height stable)
+            local y = anchorY or desired.Y
+            desired = Vector3.new(desired.X, y, desired.Z)
+
+            -- smooth anchor move
+            anchor.Position = anchor.Position:Lerp(desired, math.clamp(0.15 + (dt * 10), 0.02, 0.35))
+        end)
+    end
+
+    local function disableCameraFollow()
+        if cameraConn then
+            pcall(function() cameraConn:Disconnect() end)
+            cameraConn = nil
+        end
+    end
 
     -- Support style config
     local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
@@ -1934,6 +1984,9 @@ do
             anchor:Destroy()
         end
         anchor = nil
+
+        -- stop camera updater
+        disableCameraFollow()
     end
 
     -- follow enemy (giữ logic), sử dụng supportStyle để đổi offset
@@ -1945,6 +1998,9 @@ do
 
         -- stop any patrol/tween immediately
         cancelCurrentTween()
+
+        -- set currentFollowEnemy so cameraUpdater biases toward enemy
+        currentFollowEnemy = enemy
 
         updateHighlight(enemy)
         local anchorLocal = ensureAnchor()
@@ -1967,8 +2023,8 @@ do
             lastAnchorUpdate = tick()
         end
 
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anchorLocal
+        -- ensure camera follow is enabled (anchor subject) so it updates continuously
+        enableCameraFollow()
 
         local dist = (hrp.Position - hrpEnemy.Position).Magnitude
         if dist > 200 then
@@ -1995,6 +2051,8 @@ do
         end
 
         destroyCurrentBeam()
+        -- clear follow marker so camera will revert to following player only
+        currentFollowEnemy = nil
     end
 
     -- create farm point + billboard
@@ -2070,6 +2128,9 @@ do
         local count = 8
         local radius = (distanceLimit or 5000) * 0.75
         local points = generatePatrolPoints(farmCenter, radius, count)
+
+        -- ensure camera follows during patrol
+        enableCameraFollow()
 
         -- iterate points in circular order; stop early if running turns false or enemy appears
         for i = 1, #points do
@@ -2147,6 +2208,8 @@ do
             running = false
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
         end
+        -- stop camera follow and restore
+        disableCameraFollow()
         restoreCameraState()
         cleanupOnStop()
     end
@@ -2211,13 +2274,17 @@ do
                 createFarmPoint(hrp.Position)
             end
 
+            -- enable camera follow immediately when we start running
+            enableCameraFollow()
+
         elseif not isOn and running then
             running = false
 
             _G.BringMobGate2 = false
 
+            -- stop camera follow, restore camera, and cleanup
+            disableCameraFollow()
             restoreCameraState()
-            -- gọi cleanup để dừng tween & các hiệu ứng ngay lập tức
             cleanupOnStop()
         end
     end
