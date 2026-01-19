@@ -1,6 +1,4 @@
 --=== FOLLOW PLAYER =========================================================================================--
-print("Test Follow Player v4")
-
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
