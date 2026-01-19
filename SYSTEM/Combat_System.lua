@@ -1,5 +1,5 @@
 --=== FOLLOW PLAYER =========================================================================================--
-print("Test Follow Player v2")
+print("Test Follow Player v3")
 
 do
     local Players = game:GetService("Players")
@@ -193,97 +193,225 @@ do
         hrp.CFrame += Vector3.new(0,3,0)
     end
 
-    -----------------------------------------------------
-    -- SmoothFlyTo
-    -----------------------------------------------------
+    -- ====== global locals used ======
+    local currentTween = nil
+
+    local function cancelCurrentTween()
+        if currentTween then
+            pcall(function() currentTween:Cancel() end)
+            currentTween = nil
+        end
+    end
+
+    -- teleportBurst: spam set HRP to pos repeatedly over burstDuration (doesn't change collisions)
+    local function teleportBurst(pos, burstCount, burstDuration)
+        local hrp = safeHRP()
+        if not hrp then return false end
+        burstCount = burstCount or 10
+        burstDuration = burstDuration or 0.2
+
+        local myCount = 0
+        local interval = burstDuration / math.max(1, burstCount)
+        local elapsed = 0
+        local done = false
+        local token = {} -- simple token to allow cancellation if followEnabled flipped
+        local conn
+        conn = RunService.Heartbeat:Connect(function(dt)
+            if not followEnabled then
+                conn:Disconnect()
+                done = true
+                return
+            end
+            elapsed = elapsed + dt
+            if elapsed >= interval then
+                elapsed = 0
+                myCount = myCount + 1
+                -- put HRP at teleport point Y + offset to avoid ground collision
+                hrp.CFrame = CFrame.new(pos + Vector3.new(0, 60, 0))
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                if myCount >= burstCount then
+                    conn:Disconnect()
+                    done = true
+                end
+            end
+        end)
+
+        while not done and followEnabled do
+            task.wait()
+        end
+
+        return followEnabled -- true if not cancelled externally
+    end
+
+    -- tweenTo: teleport Y then Tween HRP CFrame to pos (XZ movement). 
+    -- Accepts optional checkDuring callback: return teleportPos to interrupt.
+    -- Returns (true) on completed; (false, teleportPos) if interrupted and teleportPos returned.
+    local function tweenTo(pos, opts)
+        if not pos then return false end
+        opts = opts or {}
+        local checkDuring = opts.checkDuring -- function() -> teleportPos or nil
+
+        local hrp = safeHRP()
+        if not hrp or not hrp.Parent then return false end
+
+        local cur = hrp.Position
+        local targetY = pos.Y
+
+        -- teleport Y only (keep XZ)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
+
+        local targetCFrame = CFrame.new(pos.X, targetY, pos.Z)
+
+        -- Cancel any existing tween
+        cancelCurrentTween()
+
+        -- duration by planar distance
+        local planarDistance = (Vector3.new(cur.X,0,cur.Z) - Vector3.new(pos.X,0,pos.Z)).Magnitude
+        local duration = math.max(0.01, planarDistance / 300) -- 300 similar to MOVE_SPEED_OVERRIDE
+
+        local ok, tw = pcall(function()
+            return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        end)
+        if not ok or not tw then return false end
+
+        currentTween = tw
+        local completed = false
+        local conn
+        conn = tw.Completed:Connect(function()
+            completed = true
+            if conn then conn:Disconnect() end
+            if currentTween == tw then currentTween = nil end
+        end)
+
+        tw:Play()
+
+        -- Poll loop while tween alive; allow checkDuring to request an interrupt returning teleportPos
+        local pollTimer = 0
+        while currentTween == tw do
+            if not followEnabled then
+                pcall(function() tw:Cancel() end)
+                currentTween = nil
+                if conn then conn:Disconnect() end
+                return false
+            end
+
+            -- run checkDuring occasionally (not every frame to save perf)
+            pollTimer = pollTimer + 0.05
+            if pollTimer >= 0.05 then
+                pollTimer = 0
+                if type(checkDuring) == "function" then
+                    local ok2, maybeTP = pcall(checkDuring)
+                    if ok2 and maybeTP then
+                        -- interrupt and return teleport point
+                        pcall(function() tw:Cancel() end)
+                        currentTween = nil
+                        if conn then conn:Disconnect() end
+                        return false, maybeTP
+                    end
+                end
+            end
+
+            task.wait(0.01)
+        end
+
+        return completed and followEnabled
+    end
+
+    -- ===== Revised SmoothFlyTo that uses tweenTo + teleportPoints check =====
     local function SmoothFlyTo(targetPos)
         local hrp = safeHRP()
         if not hrp then return false end
 
-        -- nếu target động tồn tại, set Y ban đầu giống target
-        local targetHRP = safeTargetHRP()
-        if targetHRP then
+        -- initial align Y to target if target exists
+        local thrp_init = safeTargetHRP()
+        if thrp_init then
             local p = hrp.Position
-            hrp.CFrame = CFrame.new(p.X, targetHRP.Position.Y, p.Z)
+            hrp.CFrame = CFrame.new(p.X, thrp_init.Position.Y, p.Z)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
             RunService.Heartbeat:Wait()
         end
 
-        local speed = 320          -- planar speed
-        local finalOffset = 3      -- offset trước target (theo XZ)
-        local prevDist = (hrp.Position - targetPos).Magnitude + 1000
-
-        -- helper: planar (XZ) distance / unit
-        local function toXZ(v, y) return Vector3.new(v.X, y, v.Z) end
-        local function planarVec(a, b) return Vector3.new(b.X - a.X, 0, b.Z - a.Z) end
-        local function planarMag(v) return math.sqrt(v.X*v.X + v.Z*v.Z) end
-        local function planarUnit(v)
-            local m = planarMag(v)
-            if m <= 0.0001 then return Vector3.new(0,0,0) end
-            return Vector3.new(v.X / m, 0, v.Z / m)
-        end
-
+        -- main loop: keep attempting small tween segments, but always check teleportPoints
+        local attempts = 0
         while followEnabled do
             hrp = safeHRP()
             if not hrp then break end
 
-            -- lấy vị trí mục tiêu hiện tại; đảm bảo Y được cập nhật
+            -- recompute currentTargetPos (dynamic)
             local thrp = safeTargetHRP()
-            local currentTargetPos
-            if thrp then
-                currentTargetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-            else
-                currentTargetPos = targetPos
-            end
+            local currentTargetPos = (thrp and (thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0))) or targetPos
 
-            -- khóa Y của HRP bằng Y của mục tiêu (đảm bảo không rơi)
-            local targetY = currentTargetPos.Y
-            hrp.CFrame = CFrame.new(hrp.Position.X, targetY, hrp.Position.Z)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
-
-            -- khoảng cách planar tới mục tiêu (tính trên XZ)
+            -- planar distance
             local curXZ = Vector3.new(hrp.Position.X, 0, hrp.Position.Z)
             local tgtXZ = Vector3.new(currentTargetPos.X, 0, currentTargetPos.Z)
-            local curDist = (curXZ - tgtXZ).Magnitude
-
-            if curDist <= STOP_DIST then
+            local planarDistance = (curXZ - tgtXZ).Magnitude
+            if planarDistance <= STOP_DIST then
                 return true
             end
 
-            -- safety: nếu khoảng cách tăng bất thường -> abort
-            if curDist > prevDist + 10 then
-                break
+            -- decide if teleportPoint is better RIGHT NOW
+            -- findNearestTP returns best TP and distance to target
+            local bestTP, bestDist = findNearestTP(currentTargetPos)
+            if bestTP then
+                local d_direct = (hrp.Position - currentTargetPos).Magnitude
+                -- If teleport point is strictly closer to target than we are (with small margin), use it
+                if bestDist + 50 < d_direct then
+                    -- perform teleportBurst to that point (non-blocking check ensures followEnabled still true)
+                    local ok = teleportBurst(bestTP, 10, 0.25)
+                    if not ok then return false end
+                    -- after teleportBurst, continue loop so next iteration recomputes target
+                    attempts = attempts + 1
+                    if attempts > 6 then return false end
+                    continue
+                end
             end
-            prevDist = curDist
 
-            -- hướng planar (XZ)
-            local dirXZ = planarUnit(planarVec(curXZ, tgtXZ))
-            if dirXZ == Vector3.new(0,0,0) then
+            -- otherwise perform a tween segment toward a point in front of target (adjustedTarget)
+            -- compute direction planar
+            local dirXZ = (tgtXZ - curXZ)
+            local dirMag = math.sqrt(dirXZ.X*dirXZ.X + dirXZ.Z*dirXZ.Z)
+            if dirMag < 0.0001 then
                 RunService.Heartbeat:Wait()
                 continue
             end
+            local dirUnit = Vector3.new(dirXZ.X/dirMag, 0, dirXZ.Z/dirMag)
+            local finalOffset = 3
+            local adjustedXZ = tgtXZ - dirUnit * finalOffset
+            local adjustedTarget = Vector3.new(adjustedXZ.X, currentTargetPos.Y, adjustedXZ.Z)
 
-            -- adjusted target (XZ) với finalOffset theo hướng planar
-            local adjustedXZ = tgtXZ - Vector3.new(dirXZ.X, 0, dirXZ.Z) * finalOffset
-            local adjustedTarget = Vector3.new(adjustedXZ.X, targetY, adjustedXZ.Z)
+            -- Call tweenTo with checkDuring: while tweening, if teleportPoint becomes beneficial, return it
+            local function checkDuring()
+                local nowTP, nowDist = findNearestTP((safeTargetHRP() and (safeTargetHRP().Position + Vector3.new(0, HEIGHT_OFFSET, 0))) or targetPos)
+                if nowTP then
+                    local d_direct_now = (safeHRP() and (safeHRP().Position - (safeTargetHRP() and (safeTargetHRP().Position + Vector3.new(0, HEIGHT_OFFSET, 0)) or targetPos)).Magnitude) or math.huge
+                    if nowDist + 50 < d_direct_now then
+                        return nowTP
+                    end
+                end
+                return nil
+            end
 
-            -- planar distance tới adjustedTarget
-            local planarDistance = (Vector3.new(hrp.Position.X,0,hrp.Position.Z) - Vector3.new(adjustedTarget.X,0,adjustedTarget.Z)).Magnitude
-
-            -- frame dt
-            local dt = RunService.Heartbeat:Wait()
-
-            -- alpha dựa trên speed và khoảng cách planar
-            local alpha = math.clamp((dt * speed) / math.max(0.0001, planarDistance), 0, 1)
-
-            -- Lerp trên toàn bộ Vector nhưng Y luôn = targetY
-            local newPosXZ = Vector3.new(hrp.Position.X, 0, hrp.Position.Z):Lerp(Vector3.new(adjustedTarget.X, 0, adjustedTarget.Z), alpha)
-            local newPos = Vector3.new(newPosXZ.X, targetY, newPosXZ.Z)
-
-            -- đặt CFrame nhìn về mục tiêu hiện tại (đảm bảo orientation ổn)
-            hrp.CFrame = CFrame.new(newPos, currentTargetPos)
+            local ok, teleportPoint = tweenTo(adjustedTarget, { checkDuring = checkDuring })
+            if ok then
+                -- completed this segment; continue recomputing target
+                attempts = 0
+                continue
+            else
+                if teleportPoint then
+                    -- was interrupted because teleportPoint is now better
+                    local ok2 = teleportBurst(teleportPoint, 10, 0.25)
+                    if not ok2 then return false end
+                    attempts = attempts + 1
+                    if attempts > 6 then return false end
+                    continue
+                else
+                    -- tween cancelled externally (followEnabled false or something) -> abort
+                    return false
+                end
+            end
         end
 
         return false
