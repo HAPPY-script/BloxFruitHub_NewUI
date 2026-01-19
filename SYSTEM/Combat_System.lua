@@ -1,4 +1,5 @@
 --=== FOLLOW PLAYER =========================================================================================--
+print("Test Follow Player v1")
 
 do
     local Players = game:GetService("Players")
@@ -193,13 +194,13 @@ do
     end
 
     -----------------------------------------------------
-    -- SmoothFlyTo: giữ nguyên logic gốc
+    -- SmoothFlyTo
     -----------------------------------------------------
     local function SmoothFlyTo(targetPos)
         local hrp = safeHRP()
-        local myHum = safeHumanoid()
-        if not hrp then return end
+        if not hrp then return false end
 
+        -- nếu còn target HRP (mục tiêu là player động) thì set initial Y như cũ
         local targetHRP = safeTargetHRP()
         if targetHRP then
             local p = hrp.Position
@@ -209,40 +210,61 @@ do
             RunService.Heartbeat:Wait()
         end
 
-        local startPos = hrp.Position
-        local dist = (startPos - targetPos).Magnitude
-        if dist <= STOP_DIST then return end
+        local speed = 320          -- planar speed used previously (giữ tương tự)
+        local finalOffset = 3      -- keep a small offset in front of target
+        local prevDist = (hrp.Position - targetPos).Magnitude + 1000
 
-        local duration = math.max(0.05, dist / 320)
-        local t = 0
-
-        local dir = (targetPos - startPos).Unit
-        local finalOffset = 3
-        local adjustedTarget = targetPos - dir * finalOffset
-        if adjustedTarget.Y < targetPos.Y - 10 then
-            adjustedTarget = Vector3.new(adjustedTarget.X, targetPos.Y + 2, adjustedTarget.Z)
-        end
-
-        local prevDist = (hrp.Position - targetPos).Magnitude
-
-        while t < 1 and followEnabled do
+        -- Main loop: mỗi frame cập nhật vị trí mục tiêu (nếu targetHRP thay đổi)
+        while followEnabled do
             hrp = safeHRP()
             if not hrp then break end
 
-            local curDist = (hrp.Position - targetPos).Magnitude
-            if curDist <= STOP_DIST then break end
+            -- lấy vị trí mục tiêu hiện tại (nếu mục tiêu là player dynamic thì dùng thrp.Position)
+            local currentTargetPos
+            local thrp = safeTargetHRP()
+            if thrp then
+                currentTargetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
+            else
+                currentTargetPos = targetPos
+            end
 
+            local curDist = (hrp.Position - currentTargetPos).Magnitude
+            if curDist <= STOP_DIST then
+                return true
+            end
+
+            -- nếu khoảng cách tăng bất thường -> thoát (giữ tương tự check cũ)
             if curDist > prevDist + 10 then
                 break
             end
             prevDist = curDist
 
-            t += RunService.Heartbeat:Wait() / duration
-            if t > 1 then t = 1 end
+            -- tính hướng và điểm đích cập nhật mỗi frame
+            local dirVector = (currentTargetPos - hrp.Position)
+            if dirVector.Magnitude == 0 then
+                RunService.Heartbeat:Wait()
+                continue
+            end
+            local dir = dirVector.Unit
 
-            local newPos = startPos:Lerp(adjustedTarget, t)
-            hrp.CFrame = CFrame.new(newPos, targetPos)
+            local adjustedTarget = currentTargetPos - dir * finalOffset
+            if adjustedTarget.Y < currentTargetPos.Y - 10 then
+                adjustedTarget = Vector3.new(adjustedTarget.X, currentTargetPos.Y + 2, adjustedTarget.Z)
+            end
+
+            -- tính planar distance tới adjustedTarget để xác định alpha cho Lerp
+            local planarDistance = (Vector3.new(adjustedTarget.X,0,adjustedTarget.Z) - Vector3.new(hrp.Position.X,0,hrp.Position.Z)).Magnitude
+
+            -- dùng Heartbeat để lấy dt và move mỗi frame theo speed
+            local dt = RunService.Heartbeat:Wait()
+            local alpha = math.clamp((dt * speed) / math.max(0.0001, planarDistance), 0, 1)
+
+            local newPos = hrp.Position:Lerp(adjustedTarget, alpha)
+            -- giữ hướng nhìn về currentTargetPos (mượt mà)
+            hrp.CFrame = CFrame.new(newPos, currentTargetPos)
         end
+
+        return false
     end
 
     -----------------------------------------------------
