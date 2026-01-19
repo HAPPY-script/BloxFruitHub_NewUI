@@ -1,5 +1,5 @@
 --=== FOLLOW PLAYER =========================================================================================--
-print("Test Follow Player v1")
+print("Test Follow Player v2")
 
 do
     local Players = game:GetService("Players")
@@ -200,7 +200,7 @@ do
         local hrp = safeHRP()
         if not hrp then return false end
 
-        -- nếu còn target HRP (mục tiêu là player động) thì set initial Y như cũ
+        -- nếu target động tồn tại, set Y ban đầu giống target
         local targetHRP = safeTargetHRP()
         if targetHRP then
             local p = hrp.Position
@@ -210,57 +210,79 @@ do
             RunService.Heartbeat:Wait()
         end
 
-        local speed = 320          -- planar speed used previously (giữ tương tự)
-        local finalOffset = 3      -- keep a small offset in front of target
+        local speed = 320          -- planar speed
+        local finalOffset = 3      -- offset trước target (theo XZ)
         local prevDist = (hrp.Position - targetPos).Magnitude + 1000
 
-        -- Main loop: mỗi frame cập nhật vị trí mục tiêu (nếu targetHRP thay đổi)
+        -- helper: planar (XZ) distance / unit
+        local function toXZ(v, y) return Vector3.new(v.X, y, v.Z) end
+        local function planarVec(a, b) return Vector3.new(b.X - a.X, 0, b.Z - a.Z) end
+        local function planarMag(v) return math.sqrt(v.X*v.X + v.Z*v.Z) end
+        local function planarUnit(v)
+            local m = planarMag(v)
+            if m <= 0.0001 then return Vector3.new(0,0,0) end
+            return Vector3.new(v.X / m, 0, v.Z / m)
+        end
+
         while followEnabled do
             hrp = safeHRP()
             if not hrp then break end
 
-            -- lấy vị trí mục tiêu hiện tại (nếu mục tiêu là player dynamic thì dùng thrp.Position)
-            local currentTargetPos
+            -- lấy vị trí mục tiêu hiện tại; đảm bảo Y được cập nhật
             local thrp = safeTargetHRP()
+            local currentTargetPos
             if thrp then
                 currentTargetPos = thrp.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
             else
                 currentTargetPos = targetPos
             end
 
-            local curDist = (hrp.Position - currentTargetPos).Magnitude
+            -- khóa Y của HRP bằng Y của mục tiêu (đảm bảo không rơi)
+            local targetY = currentTargetPos.Y
+            hrp.CFrame = CFrame.new(hrp.Position.X, targetY, hrp.Position.Z)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+
+            -- khoảng cách planar tới mục tiêu (tính trên XZ)
+            local curXZ = Vector3.new(hrp.Position.X, 0, hrp.Position.Z)
+            local tgtXZ = Vector3.new(currentTargetPos.X, 0, currentTargetPos.Z)
+            local curDist = (curXZ - tgtXZ).Magnitude
+
             if curDist <= STOP_DIST then
                 return true
             end
 
-            -- nếu khoảng cách tăng bất thường -> thoát (giữ tương tự check cũ)
+            -- safety: nếu khoảng cách tăng bất thường -> abort
             if curDist > prevDist + 10 then
                 break
             end
             prevDist = curDist
 
-            -- tính hướng và điểm đích cập nhật mỗi frame
-            local dirVector = (currentTargetPos - hrp.Position)
-            if dirVector.Magnitude == 0 then
+            -- hướng planar (XZ)
+            local dirXZ = planarUnit(planarVec(curXZ, tgtXZ))
+            if dirXZ == Vector3.new(0,0,0) then
                 RunService.Heartbeat:Wait()
                 continue
             end
-            local dir = dirVector.Unit
 
-            local adjustedTarget = currentTargetPos - dir * finalOffset
-            if adjustedTarget.Y < currentTargetPos.Y - 10 then
-                adjustedTarget = Vector3.new(adjustedTarget.X, currentTargetPos.Y + 2, adjustedTarget.Z)
-            end
+            -- adjusted target (XZ) với finalOffset theo hướng planar
+            local adjustedXZ = tgtXZ - Vector3.new(dirXZ.X, 0, dirXZ.Z) * finalOffset
+            local adjustedTarget = Vector3.new(adjustedXZ.X, targetY, adjustedXZ.Z)
 
-            -- tính planar distance tới adjustedTarget để xác định alpha cho Lerp
-            local planarDistance = (Vector3.new(adjustedTarget.X,0,adjustedTarget.Z) - Vector3.new(hrp.Position.X,0,hrp.Position.Z)).Magnitude
+            -- planar distance tới adjustedTarget
+            local planarDistance = (Vector3.new(hrp.Position.X,0,hrp.Position.Z) - Vector3.new(adjustedTarget.X,0,adjustedTarget.Z)).Magnitude
 
-            -- dùng Heartbeat để lấy dt và move mỗi frame theo speed
+            -- frame dt
             local dt = RunService.Heartbeat:Wait()
+
+            -- alpha dựa trên speed và khoảng cách planar
             local alpha = math.clamp((dt * speed) / math.max(0.0001, planarDistance), 0, 1)
 
-            local newPos = hrp.Position:Lerp(adjustedTarget, alpha)
-            -- giữ hướng nhìn về currentTargetPos (mượt mà)
+            -- Lerp trên toàn bộ Vector nhưng Y luôn = targetY
+            local newPosXZ = Vector3.new(hrp.Position.X, 0, hrp.Position.Z):Lerp(Vector3.new(adjustedTarget.X, 0, adjustedTarget.Z), alpha)
+            local newPos = Vector3.new(newPosXZ.X, targetY, newPosXZ.Z)
+
+            -- đặt CFrame nhìn về mục tiêu hiện tại (đảm bảo orientation ổn)
             hrp.CFrame = CFrame.new(newPos, currentTargetPos)
         end
 
