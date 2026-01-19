@@ -1581,75 +1581,12 @@ end
 
 --=== AUTO FARM ARENA =====================================================================================================--
 
--- AutoFarmArena (tween + immediate cancel + dynamic patrol + camera behavior fixed)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local player = Players.LocalPlayer
-    local camera = workspace.CurrentCamera
-
-    -- lưu trạng thái camera ban đầu để fallback
-    local originalCameraState = {
-        Type = camera.CameraType,
-        Subject = camera.CameraSubject
-    }
-    local savedCameraState = nil
-
-    local function saveCameraState()
-        savedCameraState = {
-            Type = camera.CameraType,
-            Subject = camera.CameraSubject
-        }
-    end
-
-    local function restoreCameraToPlayer()
-        if player and player.Character and player.Character.Parent then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                camera.CameraType = Enum.CameraType.Custom
-                camera.CameraSubject = hum
-                return
-            end
-        end
-        camera.CameraType = originalCameraState.Type or Enum.CameraType.Custom
-        camera.CameraSubject = originalCameraState.Subject
-    end
-
-    local function restoreCameraState()
-        if savedCameraState then
-            camera.CameraType = savedCameraState.Type or Enum.CameraType.Custom
-            camera.CameraSubject = savedCameraState.Subject or (player.Character and player.Character:FindFirstChildOfClass("Humanoid")) or originalCameraState.Subject
-            savedCameraState = nil
-        else
-            restoreCameraToPlayer()
-        end
-    end
-
-    -- helpers to set camera quickly
-    local function setCameraToPlayer()
-        if player and player.Character and player.Character.Parent then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                camera.CameraType = Enum.CameraType.Custom
-                camera.CameraSubject = hum
-                return true
-            end
-        end
-        return false
-    end
-
-    local function setCameraToEnemy(enemy)
-        if not enemy then return false end
-        local hum = enemy:FindFirstChildOfClass("Humanoid")
-        if hum then
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hum
-            return true
-        end
-        return false
-    end
 
     -- chờ ToggleUI helper (theo mẫu của bạn)
     repeat task.wait() until _G.ToggleUI
@@ -1707,9 +1644,6 @@ do
     -- farmCenter will always mirror farmPoint.Position when farmPoint exists
     local farmCenter = nil
 
-    -- camera follow control state
-    local currentFollowEnemy = nil -- enemy whose humanoid will be camera subject when close
-
     -- Support style config
     local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
     local FRUIT_COLOR = Color3.fromRGB(0, 255, 150)
@@ -1738,16 +1672,11 @@ do
     end
 
     -- Tween to position:
-    -- - ensure camera is set to player's normal camera during tween
     -- - teleport HRP Y to target Y (keep X/Z) before tween
     -- - create tween moving X/Z to target while Y already set
     -- - support immediate cancel if running == false (or external cancel)
     local function tweenTo(pos)
         if not hrp or not hrp.Parent then return false end
-
-        -- ensure camera is player's normal camera during movement
-        pcall(setCameraToPlayer)
-        currentFollowEnemy = nil
 
         local dist = (hrp.Position - pos).Magnitude
         if dist > 10000 then return false end
@@ -1941,12 +1870,10 @@ do
         farmPoint = nil
         farmBillboard = nil
         farmCenter = nil
-
-        -- restore camera to original state
-        restoreCameraState()
+        -- camera handling removed -> no restore
     end
 
-    -- follow enemy (cập nhật: camera switch only when arrived)
+    -- follow enemy (camera handling removed)
     local function followEnemy(enemy)
         if not enemy then return end
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
@@ -1970,33 +1897,15 @@ do
             createBeamBetweenParts(beamSource, hrpEnemy)
         end
 
-        -- set camera to player's normal camera while approaching
-        pcall(setCameraToPlayer)
-        currentFollowEnemy = nil
-
+        -- approach
         local dist = (hrp.Position - hrpEnemy.Position).Magnitude
         if dist > 200 then
             -- approach: tweenTo returns true if completed (not cancelled)
             local arrived = tweenTo(hrpEnemy.Position + Vector3.new(0, 5, 0))
-            if arrived and running then
-                -- we have arrived: now set camera to enemy's humanoid (full switch)
-                if humanoidEnemy and humanoidEnemy.Parent then
-                    pcall(function() setCameraToEnemy(enemy) end)
-                    currentFollowEnemy = enemy
-                end
-            else
+            if not arrived or not running then
                 -- cancelled or stopped — cleanup and return
-                currentFollowEnemy = nil
                 destroyCurrentBeam()
-                -- restore camera to player
-                pcall(setCameraToPlayer)
                 return
-            end
-        else
-            -- already near: set camera to enemy immediately
-            if humanoidEnemy and humanoidEnemy.Parent then
-                pcall(function() setCameraToEnemy(enemy) end)
-                currentFollowEnemy = enemy
             end
         end
 
@@ -2017,9 +1926,6 @@ do
         end
 
         destroyCurrentBeam()
-        currentFollowEnemy = nil
-        -- restore camera to player's normal camera after finishing
-        pcall(setCameraToPlayer)
     end
 
     -- create farm point + billboard
@@ -2126,7 +2032,7 @@ do
             local ang = math.random() * math.pi * 2
             local startPt = circlePoint(center, math.max(1, (distanceLimit or 2500) * radiusPercent), ang)
 
-            -- Tween to start point (camera will be player's during tween)
+            -- Tween to start point
             local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
 
@@ -2166,7 +2072,6 @@ do
             running = false
             pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
         end
-        restoreCameraState()
         cleanupOnStop()
     end
 
@@ -2182,7 +2087,6 @@ do
         end)
 
         cleanupOnStop()
-        restoreCameraToPlayer()
 
         humanoidNew.Died:Connect(onCharacterDied)
     end)
@@ -2219,22 +2123,16 @@ do
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
-            saveCameraState()
-
             if hrp then
                 createFarmPoint(hrp.Position) -- farmPoint created once and stays put
             end
-
-            -- ensure camera uses player's normal camera immediately
-            pcall(setCameraToPlayer)
 
         elseif not isOn and running then
             running = false
 
             _G.BringMobGate2 = false
 
-            -- restore camera and cleanup
-            restoreCameraState()
+            -- cleanup
             cleanupOnStop()
         end
     end
