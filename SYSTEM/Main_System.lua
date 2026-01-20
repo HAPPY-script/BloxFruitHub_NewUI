@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (5)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (6)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -927,7 +927,7 @@ do
         },
         {
             MinLevel = 1725,
-            MaxLevel = 1974,
+            MaxLevel = 9999, -- 1974
             MobName = "Marine Rear Admiral",
             FarmPos = Vector3.new(3648.25, 123.98, -7042.48),
             QuestNPCPos = Vector3.new(2495.12, 74.27, -6800.91),
@@ -935,7 +935,7 @@ do
             QuestIndex = 2,
             RewardBeli = 15000
         },
-        {
+--[[        {
             MinLevel = 1975,
             MaxLevel = 1999,
             MobName = "Reborn Skeleton",
@@ -1235,7 +1235,7 @@ do
             QuestIndex = 2,
             RewardBeli = 15700
         }
-    }
+    }]]
 
     local running = false
     local lastLevel = 0
@@ -1261,6 +1261,9 @@ do
 
     -- distanceLimit (dùng cho Billboard)
     local distanceLimit = 2500
+
+    -- default support style to avoid nil in followMob
+    local supportStyle = "Melee"
 
     -- utility safe getters
     local function safeHRP()
@@ -1457,7 +1460,7 @@ do
         cameraLocal.CameraType = Enum.CameraType.Custom
         cameraLocal.CameraSubject = anchor
 
-        local anchorY = mob.HumanoidRootPart.Position.Y + 25
+        local anchorY = (mob:FindFirstChild("HumanoidRootPart") and mob.HumanoidRootPart.Position.Y or hrp.Position.Y) + 25
         local lastUpdate = tick()
 
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
@@ -1581,57 +1584,11 @@ do
         return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
     end
 
-    -- New: moveSegment -> smooth per-frame movement (avoids TweenService jitter when cancelling)
-    local function moveSegment(targetPos, stopDist)
-        stopDist = stopDist or 1
-        local hrp = safeHRP()
-        if not hrp or not hrp.Parent then return false end
-
-        -- teleport Y to target Y to avoid collisions
-        local cur = hrp.Position
-        local targetY = targetPos.Y
-        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
-        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
-
-        local maxIter = 600 -- safety (~10s at 60fps)
-        local iter = 0
-
-        while running and hrp and hrp.Parent do
-            local curPos = hrp.Position
-            local planarCur = Vector3.new(curPos.X, 0, curPos.Z)
-            local planarTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
-            local toTarget = planarTarget - planarCur
-            local dist = toTarget.Magnitude
-            if dist <= stopDist then
-                return true
-            end
-
-            -- move step per frame
-            local dt = RunService.Heartbeat:Wait()
-            local step = math.min(dist, MOVE_SPEED_OVERRIDE * dt)
-            local dir = (toTarget.Magnitude > 0) and toTarget.Unit or Vector3.new(0,0,0)
-            local newPlanar = planarCur + dir * step
-            local newPos = Vector3.new(newPlanar.X, targetY, newPlanar.Z)
-
-            -- orientation look at targetPos for smoothness
-            pcall(function()
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.CFrame = CFrame.new(newPos, targetPos)
-            end)
-
-            iter = iter + 1
-            if iter > maxIter then
-                return false
-            end
-        end
-
-        return false
-    end
-
+    -- *** dùng logic orbit từ code mẫu (không chỉnh center trong quá trình orbit) ***
     local function orbitOnce(center, radiusPercent, zoneMobName)
         if not farmPoint or not farmPoint.Parent then return false end
         if not running then return false end
-        local radius = math.max(1, (distanceLimit) * radiusPercent)
+        local radius = math.max(1, (distanceLimit or 2500) * radiusPercent)
         local startAng = math.random() * math.pi * 2
         local steps = 24
         local angStep = (2 * math.pi) / steps
@@ -1644,27 +1601,11 @@ do
             local ang = startAng + s * angStep
             local pt = circlePoint(center, radius, ang)
 
-            -- avoid extremely close points
-            local hrp = safeHRP()
-            if not hrp then return false end
-            local planarDist = (Vector3.new(hrp.Position.X,0,hrp.Position.Z) - Vector3.new(pt.X,0,pt.Z)).Magnitude
-            if planarDist < 1 then
-                -- tiny skip to avoid micro jitter
-                local pause = 0.01
-                local e = 0
-                while e < pause do
-                    if not running then return false end
-                    if getNearestMob(zoneMobName) then return false end
-                    e = e + RunService.Heartbeat:Wait()
-                end
-                continue
-            end
-
-            -- Move smoothly per-frame instead of using TweenService (more cancel-friendly)
-            local arrived = moveSegment(pt + Vector3.new(0, 5, 0), 1)
+            -- Tween to patrol point (do NOT modify farmPoint)
+            local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
-            -- tiny smooth pause using Heartbeat
+            -- tiny smooth pause using Heartbeat (thay cho task.wait để tránh jitter)
             local pauseTime = 0.03
             local elapsed = 0
             while elapsed < pauseTime do
@@ -1683,15 +1624,14 @@ do
 
         local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
         local idx = 1
-        local center = farmPoint.Position -- fixed center
+        local center = farmPoint.Position -- fixed center: important to avoid jitter
 
         while patrolActive and running do
             local radiusPercent = radii[idx]
             local ang = math.random() * math.pi * 2
             local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
 
-            -- use moveSegment to go to start point
-            local ok = moveSegment(startPt + Vector3.new(0, 5, 0), 1)
+            local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
 
             local completedOrbit = orbitOnce(center, radiusPercent, zoneMobName)
@@ -1805,7 +1745,7 @@ do
             lastLevel = getLevel()
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                player:SetAttribute("FastAttackEnemyStyle", supportStyle)
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
