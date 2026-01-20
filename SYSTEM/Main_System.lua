@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (6)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (7)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -337,7 +337,6 @@ end
 
 --=== AUTO FARM LVL =====================================================================================================--
 
--- AutoFarmLvl (nâng cấp: FarmPos làm farmPoint + patrol + improved tween)
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -1262,9 +1261,6 @@ do
     -- distanceLimit (dùng cho Billboard)
     local distanceLimit = 2500
 
-    -- default support style to avoid nil in followMob
-    local supportStyle = "Melee"
-
     -- utility safe getters
     local function safeHRP()
         local char = player.Character
@@ -1460,7 +1456,7 @@ do
         cameraLocal.CameraType = Enum.CameraType.Custom
         cameraLocal.CameraSubject = anchor
 
-        local anchorY = (mob:FindFirstChild("HumanoidRootPart") and mob.HumanoidRootPart.Position.Y or hrp.Position.Y) + 25
+        local anchorY = mob.HumanoidRootPart.Position.Y + 25
         local lastUpdate = tick()
 
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
@@ -1584,11 +1580,10 @@ do
         return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
     end
 
-    -- *** dùng logic orbit từ code mẫu (không chỉnh center trong quá trình orbit) ***
     local function orbitOnce(center, radiusPercent, zoneMobName)
         if not farmPoint or not farmPoint.Parent then return false end
         if not running then return false end
-        local radius = math.max(1, (distanceLimit or 2500) * radiusPercent)
+        local radius = math.max(1, (distanceLimit) * radiusPercent)
         local startAng = math.random() * math.pi * 2
         local steps = 24
         local angStep = (2 * math.pi) / steps
@@ -1605,7 +1600,7 @@ do
             local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
-            -- tiny smooth pause using Heartbeat (thay cho task.wait để tránh jitter)
+            -- tiny smooth pause using Heartbeat
             local pauseTime = 0.03
             local elapsed = 0
             while elapsed < pauseTime do
@@ -1624,7 +1619,7 @@ do
 
         local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
         local idx = 1
-        local center = farmPoint.Position -- fixed center: important to avoid jitter
+        local center = farmPoint.Position -- fixed center
 
         while patrolActive and running do
             local radiusPercent = radii[idx]
@@ -1745,7 +1740,7 @@ do
             lastLevel = getLevel()
             pcall(function()
                 player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", supportStyle)
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
