@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (3)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (4)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -1259,6 +1259,9 @@ do
     local STOP_DIST = 4
     local HEIGHT_OFFSET = 6
 
+    -- distanceLimit (dùng cho Billboard)
+    local distanceLimit = 2500
+
     -- utility safe getters
     local function safeHRP()
         local char = player.Character
@@ -1294,7 +1297,7 @@ do
         return closest
     end
 
-    -- ===== improved tween management (teleport Y + immediate cancel) from mẫu =====
+    -- ===== improved tween management (teleport Y + immediate cancel) =====
     local currentTween = nil
     local function cancelCurrentTween()
         if currentTween then
@@ -1303,6 +1306,7 @@ do
         end
     end
 
+    -- improved tweenTo: smoother polling via Heartbeat, responsive cancel
     local function tweenTo(pos)
         local hrp = safeHRP()
         if not hrp or not hrp.Parent then return false end
@@ -1344,7 +1348,9 @@ do
 
         tw:Play()
 
-        -- responsive wait loop: allow immediate cancel when running becomes false
+        -- smoother poll using Heartbeat
+        local pollAcc = 0
+        local pollInterval = 0.05 -- kiểm tra mỗi 0.05s
         while currentTween == tw do
             if not running then
                 pcall(function() tw:Cancel() end)
@@ -1352,7 +1358,13 @@ do
                 if conn then conn:Disconnect() end
                 return false
             end
-            task.wait(0.01)
+
+            local dt = RunService.Heartbeat:Wait()
+            pollAcc = pollAcc + dt
+            if pollAcc >= pollInterval then
+                pollAcc = 0
+                -- placeholder nếu muốn checkDuring sau này
+            end
         end
 
         return completed and running
@@ -1511,7 +1523,7 @@ do
         label.BackgroundTransparency = 1
         label.TextScaled = true
         label.Font = Enum.Font.SourceSansBold
-        label.Text = "0/2500"
+        label.Text = "0/" .. tostring(distanceLimit)
         label.TextColor3 = Color3.fromRGB(0,255,0)
         label.TextStrokeTransparency = 0.6
 
@@ -1528,6 +1540,40 @@ do
         farmCenter = nil
     end
 
+    -- update farmBillboard text & color each frame (like mẫu)
+    do
+        local lastRatio = -1
+        local colorTween = nil
+        RunService.RenderStepped:Connect(function()
+            if farmPoint and farmPoint.Parent and farmBillboard and farmBillboard.label and safeHRP() then
+                local hrp = safeHRP()
+                local rawDist = (hrp.Position - farmPoint.Position).Magnitude
+                local clamped = math.clamp(rawDist, 0, distanceLimit)
+                local display = math.floor(clamped + 0.5)
+                pcall(function() farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit) end)
+
+                local ratio = (distanceLimit > 0) and (clamped / distanceLimit) or 0
+                if math.abs(ratio - lastRatio) > 0.01 then
+                    lastRatio = ratio
+                    local r = math.floor(255 * ratio)
+                    local g = math.floor(255 * (1 - ratio))
+                    local targetColor = Color3.fromRGB(r, g, 0)
+                    if colorTween then
+                        pcall(function() colorTween:Cancel() end)
+                    end
+                    pcall(function()
+                        colorTween = TweenService:Create(farmBillboard.label, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {TextColor3 = targetColor})
+                        colorTween:Play()
+                    end)
+                end
+
+                if farmPoint and farmPoint.Parent then
+                    farmCenter = farmPoint.Position
+                end
+            end
+        end)
+    end
+
     -- patrol logic (orbit around farmCenter)
     local patrolActive = false
 
@@ -1538,7 +1584,7 @@ do
     local function orbitOnce(center, radiusPercent, zoneMobName)
         if not farmPoint or not farmPoint.Parent then return false end
         if not running then return false end
-        local radius = math.max(1, (2500) * radiusPercent)
+        local radius = math.max(1, (distanceLimit) * radiusPercent)
         local startAng = math.random() * math.pi * 2
         local steps = 24
         local angStep = (2 * math.pi) / steps
@@ -1555,12 +1601,13 @@ do
             local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
-            -- tiny pause and re-check
-            local pause = tick() + 0.03
-            while tick() < pause do
+            -- tiny smooth pause using Heartbeat
+            local pauseTime = 0.03
+            local elapsed = 0
+            while elapsed < pauseTime do
                 if not running then return false end
                 if getNearestMob(zoneMobName) then return false end
-                task.wait(0.01)
+                elapsed = elapsed + RunService.Heartbeat:Wait()
             end
         end
         return true
@@ -1578,7 +1625,7 @@ do
         while patrolActive and running do
             local radiusPercent = radii[idx]
             local ang = math.random() * math.pi * 2
-            local startPt = circlePoint(center, math.max(1, (2500) * radiusPercent), ang)
+            local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
 
             local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
@@ -1590,7 +1637,13 @@ do
             if idx > #radii then idx = 1 end
 
             if getNearestMob(zoneMobName) then break end
-            task.wait(0.02)
+            -- small idle to avoid busy loop
+            local idle = 0.02
+            local e = 0
+            while e < idle do
+                if not running then break end
+                e = e + RunService.Heartbeat:Wait()
+            end
         end
 
         patrolActive = false
@@ -1632,15 +1685,9 @@ do
                 acceptQuest(zone)
             end
 
-            -- ensure farmPoint is placed at zone.FarmPos
-            if not farmPoint or not farmPoint.Parent or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 1) then
+            -- ensure farmPoint is placed at zone.FarmPos (ngưỡng nhỏ tránh recreate liên tục)
+            if not farmPoint or not farmPoint.Parent or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
                 createFarmPoint(zone.FarmPos)
-            end
-
-            local hrp = safeHRP()
-            if hrp and (hrp.Position - zone.FarmPos).Magnitude > 50 then
-                -- move to farm area center (use improved tween)
-                tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
             end
 
             -- check for nearest mob of this zone
@@ -1652,9 +1699,18 @@ do
                 followMob(mob)
                 currentQuestKills = currentQuestKills + 1
                 lastSeen = tick()
+                -- after finishing an enemy, immediately continue the loop to search for next enemy
+                continue
             else
-                -- no mob found: after short idle, start patrol if not already
+                -- no mob found: only move to farm area center or start patrol if idle >= 0.5s
                 if (tick() - lastSeen) >= 0.5 then
+                    -- Move to farm center if far
+                    local hrp = safeHRP()
+                    if hrp and (hrp.Position - zone.FarmPos).Magnitude > 50 then
+                        tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                    end
+
+                    -- start patrol if not active
                     if not patrolActive then
                         task.spawn(function()
                             startPatrol(zone.MobName)
