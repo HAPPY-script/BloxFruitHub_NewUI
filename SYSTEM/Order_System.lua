@@ -26,8 +26,6 @@ task.spawn(function()
 
 	if not CommF then
 		warn("[Order] CommF_ remote not found, Buy system disabled.")
-	else
-		print("[Order] CommF_ connected")
 	end
 end)
 
