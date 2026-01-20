@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("[[[[[[[ FIX FARM LVL ]]]]]]] (1)")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (1)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
