@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (4)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (5)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -1581,6 +1581,53 @@ do
         return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
     end
 
+    -- New: moveSegment -> smooth per-frame movement (avoids TweenService jitter when cancelling)
+    local function moveSegment(targetPos, stopDist)
+        stopDist = stopDist or 1
+        local hrp = safeHRP()
+        if not hrp or not hrp.Parent then return false end
+
+        -- teleport Y to target Y to avoid collisions
+        local cur = hrp.Position
+        local targetY = targetPos.Y
+        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
+        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
+
+        local maxIter = 600 -- safety (~10s at 60fps)
+        local iter = 0
+
+        while running and hrp and hrp.Parent do
+            local curPos = hrp.Position
+            local planarCur = Vector3.new(curPos.X, 0, curPos.Z)
+            local planarTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
+            local toTarget = planarTarget - planarCur
+            local dist = toTarget.Magnitude
+            if dist <= stopDist then
+                return true
+            end
+
+            -- move step per frame
+            local dt = RunService.Heartbeat:Wait()
+            local step = math.min(dist, MOVE_SPEED_OVERRIDE * dt)
+            local dir = (toTarget.Magnitude > 0) and toTarget.Unit or Vector3.new(0,0,0)
+            local newPlanar = planarCur + dir * step
+            local newPos = Vector3.new(newPlanar.X, targetY, newPlanar.Z)
+
+            -- orientation look at targetPos for smoothness
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(newPos, targetPos)
+            end)
+
+            iter = iter + 1
+            if iter > maxIter then
+                return false
+            end
+        end
+
+        return false
+    end
+
     local function orbitOnce(center, radiusPercent, zoneMobName)
         if not farmPoint or not farmPoint.Parent then return false end
         if not running then return false end
@@ -1597,8 +1644,24 @@ do
             local ang = startAng + s * angStep
             local pt = circlePoint(center, radius, ang)
 
-            -- Tween to patrol point (do NOT modify farmPoint)
-            local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
+            -- avoid extremely close points
+            local hrp = safeHRP()
+            if not hrp then return false end
+            local planarDist = (Vector3.new(hrp.Position.X,0,hrp.Position.Z) - Vector3.new(pt.X,0,pt.Z)).Magnitude
+            if planarDist < 1 then
+                -- tiny skip to avoid micro jitter
+                local pause = 0.01
+                local e = 0
+                while e < pause do
+                    if not running then return false end
+                    if getNearestMob(zoneMobName) then return false end
+                    e = e + RunService.Heartbeat:Wait()
+                end
+                continue
+            end
+
+            -- Move smoothly per-frame instead of using TweenService (more cancel-friendly)
+            local arrived = moveSegment(pt + Vector3.new(0, 5, 0), 1)
             if not arrived then return false end
 
             -- tiny smooth pause using Heartbeat
@@ -1627,7 +1690,8 @@ do
             local ang = math.random() * math.pi * 2
             local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
 
-            local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
+            -- use moveSegment to go to start point
+            local ok = moveSegment(startPt + Vector3.new(0, 5, 0), 1)
             if not ok then break end
 
             local completedOrbit = orbitOnce(center, radiusPercent, zoneMobName)
