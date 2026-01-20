@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (1)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (2)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -418,7 +418,7 @@ local FarmZones = {
             MinLevel = 15,
             MaxLevel = 29,
             MobName = "Gorilla",
-            FarmPos = Vector3.new(-1307.42, 18.66, -401.41),
+            FarmPos = Vector3.new(-1131.05, 40.83, -523.17),
             QuestNPCPos = Vector3.new(-1610.07, 20.89, 130.48),
             QuestName = "JungleQuest",
             QuestIndex = 2,
