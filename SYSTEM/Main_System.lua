@@ -1234,8 +1234,8 @@ do
             QuestName = "SubmergedQuest3",
             QuestIndex = 2,
             RewardBeli = 15700
-        }
-    }]]
+        }]]
+    }
 
     local running = false
     local lastLevel = 0
