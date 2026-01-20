@@ -605,7 +605,12 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFrui
 print("Fruit tab System 7/8✅")
 shared.load(0.9)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Visual_System.lua"))()
+local ok, err = pcall(function()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Visual_System.lua"))()
+end)
+if not ok then
+	warn("[Visual tab]: ", err)
+end
 
 print("Visual tab System 8/8✅")
 shared.load(0.95)
