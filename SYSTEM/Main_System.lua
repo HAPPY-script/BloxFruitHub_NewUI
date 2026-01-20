@@ -1,5 +1,4 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (8)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -927,7 +926,7 @@ do
         },
         {
             MinLevel = 1725,
-            MaxLevel = 9999, -- 1974
+            MaxLevel = 1774,
             MobName = "Marine Rear Admiral",
             FarmPos = Vector3.new(3648.25, 123.98, -7042.48),
             QuestNPCPos = Vector3.new(2495.12, 74.27, -6800.91),
@@ -935,7 +934,67 @@ do
             QuestIndex = 2,
             RewardBeli = 15000
         },
---[[        {
+        {
+            MinLevel = 1775,
+            MaxLevel = 1799,
+            MobName = "Fishman Raider",
+            FarmPos = Vector3.new(-10426.78, 357.46, -8389.51),
+            QuestNPCPos = Vector3.new(-10580.99, 331.80, -8764.03),
+            QuestName = "DeepForestIsland3",
+            QuestIndex = 1,
+            RewardBeli = 13000
+        },
+        {
+            MinLevel = 1800,
+            MaxLevel = 1824,
+            MobName = "Fishman Captain",
+            FarmPos = Vector3.new(-11004.37, 355.23, -8940.80),
+            QuestNPCPos = Vector3.new(-10580.99, 331.80, -8764.03),
+            QuestName = "DeepForestIsland3",
+            QuestIndex = 2,
+            RewardBeli = 15000
+        },
+        {
+            MinLevel = 1825,
+            MaxLevel = 1849,
+            MobName = "Forest Pirate",
+            FarmPos = Vector3.new(-13415.68, 338.38, -7796.47),
+            QuestNPCPos = Vector3.new(-13233.32, 332.42, -7627.81),
+            QuestName = "DeepForestIsland",
+            QuestIndex = 1,
+            RewardBeli = 13000
+        },
+        {
+            MinLevel = 1850,
+            MaxLevel = 1874,
+            MobName = "Mythological Pirate",
+            FarmPos = Vector3.new(-13572.07, 491.16, -6900.90),
+            QuestNPCPos = Vector3.new(2495.12, 74.27, -6800.91),
+            QuestName = "DeepForestIsland",
+            QuestIndex = 2,
+            RewardBeli = 13000
+        },
+        {
+            MinLevel = 1900,
+            MaxLevel = 1924,
+            MobName = "Jungle Pirate",
+            FarmPos = Vector3.new(-11981.76, 361.18, -10562.85),
+            QuestNPCPos = Vector3.new(-12682.71, 390.90, -9902.72),
+            QuestName = "DeepForestIsland2",
+            QuestIndex = 1,
+            RewardBeli = 13000
+        },
+        {
+            MinLevel = 1925,
+            MaxLevel = 1974,
+            MobName = "Musketeer Pirates",
+            FarmPos = Vector3.new(-13349.61, 421.47, -9797.77),
+            QuestNPCPos = Vector3.new(-12682.71, 390.90, -9902.72),
+            QuestName = "DeepForestIsland2",
+            QuestIndex = 2,
+            RewardBeli = 15000
+        },
+        {
             MinLevel = 1975,
             MaxLevel = 1999,
             MobName = "Reborn Skeleton",
@@ -1234,7 +1293,7 @@ do
             QuestName = "SubmergedQuest3",
             QuestIndex = 2,
             RewardBeli = 15700
-        }]]
+        }
     }
 
     local running = false
