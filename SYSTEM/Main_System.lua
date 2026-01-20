@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (7)🔴")
+print("🔴[[[[[[[ FIX FARM LVL ]]]]]]] (8)🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -337,6 +337,7 @@ end
 
 --=== AUTO FARM LVL =====================================================================================================--
 
+-- AutoFarmLvl (nâng cấp: FarmPos làm farmPoint + patrol + improved tween)
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -1703,10 +1704,19 @@ do
             else
                 -- no mob found: only move to farm area center or start patrol if idle >= 0.5s
                 if (tick() - lastSeen) >= 0.5 then
-                    -- Move to farm center if far
+                    -- Move to farm center if too far (> distanceLimit) or just reposition if moderately far
                     local hrp = safeHRP()
-                    if hrp and (hrp.Position - zone.FarmPos).Magnitude > 50 then
-                        tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                    if hrp then
+                        local distToFarm = (hrp.Position - zone.FarmPos).Magnitude
+                        if distToFarm > distanceLimit then
+                            -- too far: cancel patrols and return to farm center immediately
+                            cancelCurrentTween()
+                            patrolActive = false
+                            tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                        elseif distToFarm > 50 then
+                            -- minor reposition inside farm area
+                            tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                        end
                     end
 
                     -- start patrol if not active
