@@ -1048,7 +1048,7 @@ do
     local enemyStyle = "Melee"
     local playerStyle = "Melee"
 
-    local radius = 2000
+    local radius = 5000
     local delay = 0.01
     local maxhit = 5
 
