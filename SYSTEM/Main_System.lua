@@ -2628,6 +2628,774 @@ do
     pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
 end
 
+--=== Auto Farm Cake Prince =====================================================================================================--
+
+-- AutoFarmCakePrince (tween + immediate cancel + dynamic patrol + mirror watcher + cake remote)
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local player = Players.LocalPlayer
+    local camera = workspace.CurrentCamera
+
+    -- chờ ToggleUI helper (theo mẫu của bạn)
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+
+    -- đường dẫn tới ScrollingTab -> tìm Main bên trong
+    local ScrollingTab = Players.LocalPlayer
+        .PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local uiMain = ScrollingTab:FindFirstChild("Main", true)
+    if not uiMain then
+        warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
+        return
+    end
+
+    -- tên UI do bạn đặt
+    local BUTTON_NAME = "AutoFarmCakePrinceButton"
+    local BOX_NAME    = "AutoFarmArenaBox" -- giữ textbox cũ nếu muốn chỉnh distance thủ công
+    local SUPPORT_BTN_NAME = "SupportStyleButton" -- optional
+
+    -- find controls (đệ quy)
+    local autoBtn = uiMain:FindFirstChild(BUTTON_NAME, true)
+    local distanceBox = uiMain:FindFirstChild(BOX_NAME, true)
+    local supportBtn = uiMain:FindFirstChild(SUPPORT_BTN_NAME, true)
+
+    if not autoBtn then
+        warn("Không tìm thấy button:", BUTTON_NAME)
+        return
+    end
+    -- distanceBox optional but recommended
+    if not distanceBox then
+        warn("Không tìm thấy textbox:", BOX_NAME, "- dùng giá trị mặc định.")
+    end
+
+    -- ensure ToggleUI state initial
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+    -- game state
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+    local running = false
+
+    -- farm vars (Cake Prince)
+    local distanceLimit = 1000 -- default requested
+    local farmPoint = nil
+    local farmBillboard = nil
+    local farmCenter = nil
+
+    -- FARM POS DEFAULTS
+    local FARM_POS_DEFAULT = Vector3.new(-2144.48, 71.08, -12327.09)
+    local FARM_POS_MIRROR   = Vector3.new(-2036.09, 4670.61, -14804.91)
+    local currentFarmPos = FARM_POS_DEFAULT
+
+    -- allowed PlaceIds
+    local ALLOWED_PLACEIDS = {
+        [7449423635] = true,
+        [100117331123089] = true
+    }
+
+    -- remote name / safe invoke
+    local function safeInvokeRemote(...)
+        local ok, err = pcall(function()
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            if not remotes then error("Remotes folder missing") end
+            local comm = remotes:FindFirstChild("CommF_")
+            if not comm then error("CommF_ missing") end
+            comm:InvokeServer(...)
+        end)
+        if not ok then
+            warn("[AutoFarmCakePrince] Remote call failed:", err)
+        end
+    end
+
+    -- Support style config (kept for compatibility)
+    local MELEE_COLOR = Color3.fromRGB(0, 200, 255)
+    local FRUIT_COLOR = Color3.fromRGB(0, 255, 150)
+    local SUPPORT_TEXT = { Melee = "Support: Melee", Fruit = "Support: Fruit" }
+
+    local supportStyle = "Melee" -- default
+    local _prevSupportStyle = nil
+
+    -- helper: normalize textbox initial value
+    if distanceBox then
+        if not distanceBox.Text or distanceBox.Text == "" then
+            distanceBox.Text = tostring(distanceLimit)
+        else
+            local n = tonumber(distanceBox.Text)
+            if n and n > 0 then distanceLimit = math.floor(n) else distanceBox.Text = tostring(distanceLimit) end
+        end
+    end
+
+    -- ===== tween management (teleport Y + immediate cancel) =====
+    local MOVE_SPEED_OVERRIDE = 300
+    local currentTween = nil
+
+    local function cancelCurrentTween()
+        if currentTween then
+            pcall(function() currentTween:Cancel() end)
+            currentTween = nil
+        end
+    end
+
+    local function tweenTo(pos)
+        if not hrp or not hrp.Parent then return false end
+
+        local dist = (hrp.Position - pos).Magnitude
+        if dist > 10000 then return false end
+
+        -- teleport Y only
+        local cur = hrp.Position
+        local targetY = pos.Y
+        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
+
+        local targetCFrame = CFrame.new(pos.X, targetY, pos.Z)
+
+        cancelCurrentTween()
+
+        local planarDistance = (Vector3.new(cur.X, 0, cur.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
+        local duration = math.max(0.01, planarDistance / MOVE_SPEED_OVERRIDE)
+
+        local ok, tw = pcall(function()
+            return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        end)
+        if not ok or not tw then return false end
+
+        currentTween = tw
+        local completed = false
+        local conn
+        conn = tw.Completed:Connect(function()
+            completed = true
+            if conn then conn:Disconnect() end
+            if currentTween == tw then currentTween = nil end
+        end)
+
+        tw:Play()
+
+        while currentTween == tw do
+            if not running then
+                pcall(function() tw:Cancel() end)
+                currentTween = nil
+                if conn then conn:Disconnect() end
+                return false
+            end
+            task.wait(0.01)
+        end
+
+        return completed
+    end
+
+    -- simple enemy search (kept in case map has Enemies)
+    local function getNearestEnemy(centerPos)
+        if not centerPos then return nil end
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return nil end
+
+        local candidates = {}
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                local hp = mob:FindFirstChildOfClass("Humanoid")
+                local part = mob:FindFirstChild("HumanoidRootPart")
+                if hp and hp.Health > 0 and part then
+                    local distToCenter = (centerPos - part.Position).Magnitude
+                    if distToCenter <= (distanceLimit or 0) then
+                        table.insert(candidates, {model = mob, part = part, distCenter = distToCenter})
+                    end
+                end
+            end
+        end
+
+        if #candidates == 0 then return nil end
+
+        if hrp and hrp.Parent then
+            local best, bestDist
+            for _, c in ipairs(candidates) do
+                local dPlayer = (hrp.Position - c.part.Position).Magnitude
+                if not bestDist or dPlayer < bestDist then
+                    best = c.model
+                    bestDist = dPlayer
+                end
+            end
+            return best
+        end
+
+        local nearest, nearestDist
+        for _, c in ipairs(candidates) do
+            if not nearestDist or c.distCenter < nearestDist then
+                nearest = c.model
+                nearestDist = c.distCenter
+            end
+        end
+        return nearest
+    end
+
+    -- highlight + beam helpers (kept)
+    local function updateHighlight(enemy)
+        if not enemy then return end
+        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+
+        if not enemy:FindFirstChild("HomeHighlight") then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "HomeHighlight"
+            highlight.FillTransparency = 0.2
+            highlight.OutlineTransparency = 0.9
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Adornee = enemy
+            highlight.Parent = enemy
+        end
+
+        local highlight = enemy:FindFirstChild("HomeHighlight")
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            if not running or not humanoid.Parent or humanoid.Health <= 0 or not highlight or highlight.Parent ~= enemy then
+                if highlight then highlight:Destroy() end
+                conn:Disconnect()
+                return
+            end
+            local percent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            highlight.FillColor = Color3.fromRGB(255 * (1 - percent), 255 * percent, 0)
+        end)
+    end
+
+    local currentBeam = nil
+    local currentBeamAttachments = {}
+
+    local function destroyCurrentBeam()
+        if currentBeam then pcall(function() currentBeam:Destroy() end) end
+        currentBeam = nil
+        if currentBeamAttachments then
+            for _, a in ipairs(currentBeamAttachments) do pcall(function() a:Destroy() end) end
+        end
+        currentBeamAttachments = {}
+    end
+
+    local function createBeamBetweenParts(a,b)
+        if not (a and b and a.Parent and b.Parent) then return nil end
+        destroyCurrentBeam()
+        local att0 = Instance.new("Attachment"); att0.Parent = a; att0.Position = Vector3.new(0,0.7,0)
+        local att1 = Instance.new("Attachment"); att1.Parent = b; att1.Position = Vector3.new(0,1.5,0)
+        local Beam = Instance.new("Beam")
+        Beam.Name = "FastTargetBeam"
+        Beam.FaceCamera = true
+        Beam.Color = ColorSequence.new(Color3.fromRGB(140,0,255), Color3.fromRGB(140,0,255))
+        Beam.Attachment0 = att0
+        Beam.Attachment1 = att1
+        Beam.Texture = "rbxassetid://78520400570887"
+        Beam.TextureLength = 100
+        Beam.LightEmission = 1
+        Beam.Width0 = 2.0
+        Beam.Width1 = 1.6
+        Beam.Transparency = NumberSequence.new(0)
+        Beam.Parent = workspace
+        currentBeam = Beam
+        currentBeamAttachments = {att0, att1}
+        return Beam
+    end
+
+    local function cleanupOnStop()
+        cancelCurrentTween()
+        destroyCurrentBeam()
+        if farmPoint and farmPoint.Parent then farmPoint:Destroy() end
+        farmPoint = nil; farmBillboard = nil; farmCenter = nil
+    end
+
+    -- follow enemy (keep approach behaviour)
+    local function followEnemy(enemy)
+        if not enemy then return end
+        local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
+        local humanoidEnemy = enemy:FindFirstChildOfClass("Humanoid")
+        if not hrpEnemy or not humanoidEnemy then return end
+
+        cancelCurrentTween()
+        updateHighlight(enemy)
+
+        local function beamSource() return (farmPoint and farmPoint.Parent) and farmPoint or hrp end
+        local bs = beamSource()
+        if bs and bs.Parent and hrpEnemy and hrpEnemy.Parent then createBeamBetweenParts(bs, hrpEnemy) end
+
+        local dist = (hrp.Position - hrpEnemy.Position).Magnitude
+        if dist > 200 then
+            local arrived = tweenTo(hrpEnemy.Position + Vector3.new(0,5,0))
+            if not arrived or not running then destroyCurrentBeam(); return end
+        end
+
+        while humanoidEnemy.Health > 0 and running and hrpEnemy.Parent do
+            updateHighlight(enemy)
+            local offset = (supportStyle == "Melee") and 25 or 10
+            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + offset, hrpEnemy.Position.Z)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+            if not running or not humanoidEnemy.Parent or humanoidEnemy.Health <= 0 or not hrpEnemy.Parent then break end
+            RunService.RenderStepped:Wait()
+        end
+
+        destroyCurrentBeam()
+    end
+
+    -- create farmPoint at a FIXED position (currentFarmPos)
+    local function createFarmPointFixed(pos)
+        if farmPoint and farmPoint.Parent then
+            farmPoint:Destroy()
+            farmPoint = nil
+            farmBillboard = nil
+        end
+
+        farmPoint = Instance.new("Part")
+        farmPoint.Name = "FarmPoint"
+        farmPoint.Size = Vector3.new(1,1,1)
+        farmPoint.Anchored = true
+        farmPoint.CanCollide = false
+        farmPoint.Transparency = 1
+        farmPoint.Position = pos
+        farmPoint.Parent = workspace
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "FarmDistanceUI"
+        bb.Adornee = farmPoint
+        bb.Size = UDim2.new(0,120,0,40)
+        bb.StudsOffset = Vector3.new(0,2,0)
+        bb.AlwaysOnTop = true
+        bb.Parent = farmPoint
+
+        local label = Instance.new("TextLabel", bb)
+        label.Name = "DistanceLabel"
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Font = Enum.Font.SourceSansBold
+        label.Text = "0/" .. tostring(distanceLimit)
+        label.TextColor3 = Color3.fromRGB(0,255,0)
+        label.TextStrokeTransparency = 0.6
+
+        farmBillboard = { gui = bb, label = label }
+        farmCenter = farmPoint.Position
+    end
+
+    local function destroyFarmPoint()
+        destroyCurrentBeam()
+        if farmPoint and farmPoint.Parent then farmPoint:Destroy() end
+        farmPoint = nil; farmBillboard = nil; farmCenter = nil
+    end
+
+    -- patrol (orbit around fixed center = farmPoint.Position)
+    local patrolActive = false
+    local function circlePoint(center, radius, angleRad)
+        return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
+    end
+
+    local function orbitOnce(center, radiusPercent)
+        if not farmPoint or not farmPoint.Parent then return false end
+        if not running then return false end
+        local radius = math.max(1, (distanceLimit or 1000) * radiusPercent)
+        local startAng = math.random() * math.pi * 2
+        local steps = 24
+        local angStep = (2 * math.pi) / steps
+
+        for s = 0, steps - 1 do
+            if not running then return false end
+            if getNearestEnemy(center) then return false end
+            local ang = startAng + s * angStep
+            local pt = circlePoint(center, radius, ang)
+            local arrived = tweenTo(pt + Vector3.new(0,5,0))
+            if not arrived then return false end
+            local pause = tick() + 0.03
+            while tick() < pause do
+                if not running then return false end
+                if getNearestEnemy(center) then return false end
+                task.wait(0.01)
+            end
+        end
+        return true
+    end
+
+    local function startPatrol()
+        if not farmPoint or not farmPoint.Parent then return end
+        if patrolActive then return end
+        patrolActive = true
+        local radii = {0.10,0.20,0.30,0.40,0.50,0.60,0.70}
+        local idx = 1
+        local center = farmPoint.Position
+        while patrolActive and running do
+            local radiusPercent = radii[idx]
+            local ang = math.random() * math.pi * 2
+            local startPt = circlePoint(center, math.max(1, (distanceLimit or 1000) * radiusPercent), ang)
+            local ok = tweenTo(startPt + Vector3.new(0,5,0))
+            if not ok then break end
+            local completed = orbitOnce(center, radiusPercent)
+            if not completed then break end
+            idx = idx + 1
+            if idx > #radii then idx = 1 end
+            if getNearestEnemy(center) then break end
+            task.wait(0.02)
+        end
+        patrolActive = false
+    end
+
+    -- textbox commit
+    if distanceBox then
+        distanceBox.FocusLost:Connect(function(enterPressed)
+            local val = tonumber(distanceBox.Text)
+            if val and val > 0 then
+                distanceLimit = math.floor(val)
+            else
+                distanceBox.Text = tostring(distanceLimit)
+            end
+            if farmBillboard and farmBillboard.label then
+                farmBillboard.label.Text = "0/" .. tostring(distanceLimit)
+            end
+        end)
+    end
+
+    -- character death handling
+    local function onCharacterDied()
+        if running then
+            running = false
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        end
+        cleanupOnStop()
+    end
+
+    player.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        hrp = newChar:WaitForChild("HumanoidRootPart")
+        local humanoidNew = newChar:WaitForChild("Humanoid")
+        running = false
+        pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        cleanupOnStop()
+        humanoidNew.Died:Connect(onCharacterDied)
+    end)
+
+    -- UI helpers
+    local function inferToggleOn(btn)
+        local bg
+        pcall(function() bg = btn.BackgroundColor3 end)
+        if not bg then return false end
+        return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
+    end
+
+    local function getUIStroke(btn)
+        if not btn then return nil end
+        return btn:FindFirstChildOfClass("UIStroke") or btn:FindFirstChild("UIStroke")
+    end
+
+    local function tweenProperty(instance, props, time)
+        if not instance then return end
+        local ok, t = pcall(function()
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            tw:Play()
+            return tw
+        end)
+        if ok then return t end
+        return nil
+    end
+
+    -- Warning animation when place not allowed
+    local function playPlaceNotAllowedAnim()
+        local stroke = getUIStroke(autoBtn)
+        local red = Color3.fromRGB(255,0,0)
+        local yellow = Color3.fromRGB(255,255,0)
+        -- set immediately to red (safety)
+        pcall(function() autoBtn.BackgroundColor3 = red end)
+        if stroke then pcall(function() stroke.Color = red end) end
+
+        local t1 = tweenProperty(autoBtn, {BackgroundColor3 = yellow}, 0.25)
+        local t2 = stroke and tweenProperty(stroke, {Color = yellow}, 0.25) or nil
+        if t1 then t1.Completed:Wait() end
+        if t2 then t2.Completed:Wait() end
+
+        task.wait(1)
+
+        local t3 = tweenProperty(autoBtn, {BackgroundColor3 = red}, 0.25)
+        local t4 = stroke and tweenProperty(stroke, {Color = red}, 0.25) or nil
+        if t3 then t3.Completed:Wait() end
+        if t4 then t4.Completed:Wait() end
+    end
+
+    -- Toggle behavior: intercept when place not allowed
+    local function onToggleActivated()
+        local bg = autoBtn.BackgroundColor3
+        local currentlyOn = inferToggleOn(autoBtn)
+        local target = not currentlyOn
+
+        -- if user wants to enable, check place id
+        if target then
+            local pid = game.PlaceId
+            if not ALLOWED_PLACEIDS[pid] then
+                -- play warning animation and do NOT toggle on
+                task.spawn(playPlaceNotAllowedAnim)
+                return
+            end
+        end
+
+        pcall(function() ToggleUI.Set(BUTTON_NAME, target) end)
+    end
+
+    if autoBtn.Activated then
+        autoBtn.Activated:Connect(onToggleActivated)
+    else
+        autoBtn.MouseButton1Click:Connect(onToggleActivated)
+    end
+
+    -- respond when ToggleUI changes the visual color (same mechanism as before)
+    local function setRunningFromButtonColor()
+        if not autoBtn then return end
+
+        local bg = autoBtn.BackgroundColor3
+        local isOn = (bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5)
+
+        if isOn and not running then
+            -- also double-check place id safety
+            if not ALLOWED_PLACEIDS[game.PlaceId] then
+                -- shouldn't happen normally because we check on click, but safe-guard
+                task.spawn(playPlaceNotAllowedAnim)
+                pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                return
+            end
+
+            running = true
+            _G.BringMobGate2 = true
+
+            pcall(function()
+                player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", supportStyle)
+                player:SetAttribute("FastAttackEnemy", true)
+            end)
+
+            -- create farmPoint at currentFarmPos (fixed)
+            createFarmPointFixed(currentFarmPos)
+
+        elseif not isOn and running then
+            running = false
+            _G.BringMobGate2 = false
+            cleanupOnStop()
+        end
+    end
+
+    autoBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, setRunningFromButtonColor)
+    end)
+
+    -- initial sync
+    setRunningFromButtonColor()
+
+    -- keep farmBillboard updated each frame
+    do
+        local lastRatio = -1
+        local colorTween = nil
+        RunService.RenderStepped:Connect(function()
+            if farmPoint and farmPoint.Parent and farmBillboard and farmBillboard.label and hrp then
+                local rawDist = (hrp.Position - farmPoint.Position).Magnitude
+                local clamped = math.clamp(rawDist, 0, distanceLimit)
+                local display = math.floor(clamped + 0.5)
+                farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit)
+
+                local ratio = distanceLimit > 0 and (clamped / distanceLimit) or 0
+                if math.abs(ratio - lastRatio) > 0.01 then
+                    lastRatio = ratio
+                    local r = math.floor(255 * ratio)
+                    local g = math.floor(255 * (1 - ratio))
+                    local targetColor = Color3.fromRGB(r, g, 0)
+                    if colorTween then pcall(function() colorTween:Cancel() end) end
+                    colorTween = TweenService:Create(farmBillboard.label, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {TextColor3 = targetColor})
+                    colorTween:Play()
+                end
+
+                if farmPoint and farmPoint.Parent then farmCenter = farmPoint.Position end
+            end
+        end)
+    end
+
+    if humanoid then humanoid.Died:Connect(onCharacterDied) end
+
+    -- Mirror watcher: check workspace.Map.CakeLoaf.BigMirror.Other.Transparency and update currentFarmPos
+    task.spawn(function()
+        local pathOK = true
+        while true do
+            task.wait(0.25)
+            local ok, other = pcall(function()
+                return workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("CakeLoaf")
+                    and workspace.Map.CakeLoaf:FindFirstChild("BigMirror")
+                    and workspace.Map.CakeLoaf.BigMirror:FindFirstChild("Other")
+            end)
+            local otherObj = (ok and other) and other or nil
+            if otherObj and otherObj:IsA("BasePart") then
+                -- transparency 0 => mirror active -> switch farm pos to mirror pos
+                if otherObj.Transparency == 0 then
+                    if currentFarmPos ~= FARM_POS_MIRROR then
+                        currentFarmPos = FARM_POS_MIRROR
+                        if farmPoint and farmPoint.Parent then
+                            farmPoint.Position = currentFarmPos
+                            farmCenter = farmPoint.Position
+                        end
+                    end
+                else
+                    -- return to default
+                    if currentFarmPos ~= FARM_POS_DEFAULT then
+                        currentFarmPos = FARM_POS_DEFAULT
+                        if farmPoint and farmPoint.Parent then
+                            farmPoint.Position = currentFarmPos
+                            farmCenter = farmPoint.Position
+                        end
+                    end
+                end
+            else
+                -- if path missing, keep default
+                if currentFarmPos ~= FARM_POS_DEFAULT then
+                    currentFarmPos = FARM_POS_DEFAULT
+                    if farmPoint and farmPoint.Parent then
+                        farmPoint.Position = currentFarmPos
+                        farmCenter = farmPoint.Position
+                    end
+                end
+            end
+        end
+    end)
+
+    -- auto farm loop: includes enemy follow behavior and patrol; also ensures return to farmPos if leaving
+    task.spawn(function()
+        local lastSeen = tick()
+        -- remote-spawn loop control
+        local lastSpawn = 0
+        while true do
+            task.wait()
+            if not running or not hrp then
+                lastSeen = tick()
+                continue
+            end
+
+            -- if the player is farther than distanceLimit from currentFarmPos -> go back immediately
+            local distToFarm = (hrp.Position - currentFarmPos).Magnitude
+            if distToFarm > distanceLimit then
+                -- cancel patrols and tweens and go home
+                cancelCurrentTween()
+                patrolActive = false
+                tweenTo(currentFarmPos + Vector3.new(0,5,0))
+                -- small wait to stabilize
+                task.wait(0.2)
+            end
+
+            local center = (farmPoint and farmPoint.Parent) and farmPoint.Position or currentFarmPos
+            local target = getNearestEnemy(center)
+            if target then
+                cancelCurrentTween()
+                lastSeen = tick()
+                patrolActive = false
+                followEnemy(target)
+            else
+                -- no enemies: spawn/patrol logic
+                if (tick() - lastSeen) >= 0.5 then
+                    if farmPoint == nil then
+                        createFarmPointFixed(currentFarmPos)
+                    end
+                    if not patrolActive then
+                        task.spawn(function() startPatrol() end)
+                    end
+                end
+            end
+
+            -- remote call every 3s while running
+            if running and (tick() - lastSpawn) >= 3 then
+                lastSpawn = tick()
+                -- call remote: {"CakePrinceSpawner", true}
+                task.spawn(function()
+                    safeInvokeRemote("CakePrinceSpawner", true)
+                end)
+            end
+
+            if target then lastSeen = tick() end
+        end
+    end)
+
+    -- keep auto-attack loop (unchanged)
+    task.spawn(function()
+        while true do
+            task.wait(0.4)
+            if running then
+                pcall(function()
+                    ReplicatedStorage
+                        :WaitForChild("Modules")
+                        :WaitForChild("Net")
+                        :WaitForChild("RE/RegisterAttack")
+                        :FireServer(0.4)
+                end)
+            end
+        end
+    end)
+
+    -- SupportStyle visuals (kept unchanged)
+    local function getTextHolder(btn)
+        if not btn then return nil end
+        if btn:IsA("TextButton") or btn:IsA("TextLabel") then return btn end
+        return btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+    end
+    local function getUIStroke(btn)
+        if not btn then return nil end
+        return btn:FindFirstChildOfClass("UIStroke") or btn:FindFirstChild("UIStroke")
+    end
+    local function tweenProperty(instance, props, time)
+        if not instance then return end
+        local ok, t = pcall(function()
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            tw:Play()
+            return tw
+        end)
+        if ok then return t end
+        return nil
+    end
+    local function applySupportVisuals(style)
+        if not supportBtn then return end
+        local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
+        pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
+        local stroke = getUIStroke(supportBtn)
+        if stroke then pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end) end
+        local textObj = getTextHolder(supportBtn)
+        if textObj then
+            local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
+            if t1 then t1.Completed:Wait() end
+            local newText = SUPPORT_TEXT[style] or ("Support: " .. style)
+            pcall(function() textObj.Text = newText end)
+            pcall(function()
+                local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.12)
+                if t2 then t2.Completed:Wait() end
+            end)
+        end
+    end
+    local function setSupportStyle(style)
+        if not style then return end
+        style = (style == "Fruit") and "Fruit" or "Melee"
+        if _prevSupportStyle == style then
+            applySupportVisuals(style); return
+        end
+        supportStyle = style
+        applySupportVisuals(style)
+        _prevSupportStyle = style
+        pcall(function() player:SetAttribute("FastAttackEnemyStyle", style) end)
+    end
+
+    if supportBtn then
+        local textObj = getTextHolder(supportBtn)
+        if textObj then pcall(function() textObj.TextTransparency = 0 end); pcall(function() textObj.Text = SUPPORT_TEXT[supportStyle] end) end
+        pcall(function() supportBtn.BackgroundColor3 = MELEE_COLOR end)
+        local stroke = getUIStroke(supportBtn); if stroke then pcall(function() stroke.Color = MELEE_COLOR end) end
+        local function onSupportActivated()
+            local nextStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
+            setSupportStyle(nextStyle)
+        end
+        if supportBtn.Activated then supportBtn.Activated:Connect(onSupportActivated) else supportBtn.MouseButton1Click:Connect(onSupportActivated) end
+    end
+
+    pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+end
+
 --=== BRING MOD =====================================================================================================--
 
 do
