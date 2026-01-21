@@ -2703,14 +2703,17 @@ do
     }
 
     -- remote name / safe invoke
-    local function safeInvokeRemote(...)
+    local function safeInvokeRemote(a, b)
         local ok, err = pcall(function()
             local remotes = ReplicatedStorage:FindFirstChild("Remotes")
             if not remotes then error("Remotes folder missing") end
+
             local comm = remotes:FindFirstChild("CommF_")
             if not comm then error("CommF_ missing") end
-            comm:InvokeServer(...)
+
+            comm:InvokeServer(a, b)
         end)
+
         if not ok then
             warn("[AutoFarmCakePrince] Remote call failed:", err)
         end
