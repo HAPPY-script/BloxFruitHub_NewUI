@@ -2630,7 +2630,6 @@ end
 
 --=== Auto Farm Cake Prince =====================================================================================================--
 
--- AutoFarmCakePrince (tween + immediate cancel + dynamic patrol + mirror watcher + cake remote)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -2685,7 +2684,7 @@ do
     local ready = false -- chỉ true khi đã tween tới farm pos và ổn định
 
     -- farm vars (Cake Prince)
-    local distanceLimit = 1000 -- default requested
+    local distanceLimit = 1000
     local farmPoint = nil
     local farmBillboard = nil
     local farmCenter = nil
@@ -2722,16 +2721,6 @@ do
 
     local supportStyle = "Melee" -- default
     local _prevSupportStyle = nil
-
-    -- helper: normalize textbox initial value
-    if distanceBox then
-        if not distanceBox.Text or distanceBox.Text == "" then
-            distanceBox.Text = tostring(distanceLimit)
-        else
-            local n = tonumber(distanceBox.Text)
-            if n and n > 0 then distanceLimit = math.floor(n) else distanceBox.Text = tostring(distanceLimit) end
-        end
-    end
 
     -- ===== tween management (teleport Y + immediate cancel) =====
     local MOVE_SPEED_OVERRIDE = 300
@@ -3040,21 +3029,6 @@ do
             task.wait(0.02)
         end
         patrolActive = false
-    end
-
-    -- textbox commit
-    if distanceBox then
-        distanceBox.FocusLost:Connect(function(enterPressed)
-            local val = tonumber(distanceBox.Text)
-            if val and val > 0 then
-                distanceLimit = math.floor(val)
-            else
-                distanceBox.Text = tostring(distanceLimit)
-            end
-            if farmBillboard and farmBillboard.label then
-                farmBillboard.label.Text = "0/" .. tostring(distanceLimit)
-            end
-        end)
     end
 
     -- character death handling
