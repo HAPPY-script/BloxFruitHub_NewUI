@@ -2780,6 +2780,8 @@ do
         tw:Play()
 
         while currentTween == tw do
+            -- don't cancel tween here just because player is outside distanceLimit;
+            -- only cancel if running becomes false (user toggled off)
             if not running then
                 pcall(function() tw:Cancel() end)
                 currentTween = nil
@@ -2986,7 +2988,7 @@ do
         farmPoint = nil; farmBillboard = nil; farmCenter = nil
     end
 
-    -- patrol (orbit around fixed center = farmPoint.Position)
+    -- Patrol helpers (unchanged)
     local patrolActive = false
     local function circlePoint(center, radius, angleRad)
         return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
@@ -3142,6 +3144,30 @@ do
         autoBtn.MouseButton1Click:Connect(onToggleActivated)
     end
 
+    -- attempt to reach farm pos with retries, fallback teleport if needed
+    local function goToFarmAndSetReady()
+        if not running then return false end
+        local attempts = 3
+        for i = 1, attempts do
+            if not running then return false end
+            local ok = tweenTo(currentFarmPos + Vector3.new(0,5,0))
+            if ok then
+                ready = true
+                return true
+            end
+            task.wait(0.2)
+        end
+        -- fallback: teleport directly (safer than disabling)
+        pcall(function()
+            if hrp and hrp.Parent then
+                hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                hrp.CFrame = CFrame.new(currentFarmPos + Vector3.new(0,5,0))
+            end
+        end)
+        ready = true
+        return true
+    end
+
     -- respond when ToggleUI changes the visual color (same mechanism as before)
     local function setRunningFromButtonColor()
         if not autoBtn then return end
@@ -3166,21 +3192,12 @@ do
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
-            -- create farmPoint at currentFarmPos (fixed)
+            -- create farmPoint at currentFarmPos (fixed) and ensure billboard shows 0/1000
             createFarmPointFixed(currentFarmPos)
 
-            -- immediately fly to farm pos and only set ready = true if arrived
+            -- try to fly to farm pos (with retry+fallback) and only then set ready
             task.spawn(function()
-                local arrived = tweenTo(currentFarmPos + Vector3.new(0,5,0))
-                if arrived and running then
-                    ready = true
-                else
-                    -- failed to reach: stop and cleanup
-                    running = false
-                    _G.BringMobGate2 = false
-                    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
-                    cleanupOnStop()
-                end
+                goToFarmAndSetReady()
             end)
 
         elseif not isOn and running then
@@ -3284,13 +3301,22 @@ do
                 continue
             end
 
-            -- if the player is farther than distanceLimit from currentFarmPos -> go back immediately
+            -- if the player is farther than distanceLimit from currentFarmPos -> go back immediately (retry & fallback)
             local distToFarm = (hrp.Position - currentFarmPos).Magnitude
             if distToFarm > distanceLimit then
                 cancelCurrentTween()
                 patrolActive = false
-                tweenTo(currentFarmPos + Vector3.new(0,5,0))
-                task.wait(0.2)
+                local ok = tweenTo(currentFarmPos + Vector3.new(0,5,0))
+                if not ok then
+                    -- fallback teleport back to farm pos but do NOT disable running
+                    pcall(function()
+                        if hrp and hrp.Parent then
+                            hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                            hrp.CFrame = CFrame.new(currentFarmPos + Vector3.new(0,5,0))
+                        end
+                    end)
+                    task.wait(0.2)
+                end
             end
 
             local center = (farmPoint and farmPoint.Parent) and farmPoint.Position or currentFarmPos
