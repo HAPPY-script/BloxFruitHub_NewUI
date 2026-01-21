@@ -326,7 +326,7 @@ task.spawn(function()
 		local allOk = true
 		for _, obj in ipairs(Frame:GetDescendants()) do
 			if obj:IsA("TextButton")
-			or obj:Isa("TextLabel") then
+			or obj:IsA("TextLabel") then
 				if obj.TextTransparency ~= 0 then
 					obj.TextTransparency = 0
 					allOk = false
