@@ -2637,7 +2637,6 @@ do
     local TweenService = game:GetService("TweenService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local player = Players.LocalPlayer
-    local camera = workspace.CurrentCamera
 
     -- chờ ToggleUI helper (theo mẫu của bạn)
     repeat task.wait() until _G.ToggleUI
@@ -2670,7 +2669,6 @@ do
         warn("Không tìm thấy button:", BUTTON_NAME)
         return
     end
-    -- distanceBox optional but recommended
     if not distanceBox then
         warn("Không tìm thấy textbox:", BOX_NAME, "- dùng giá trị mặc định.")
     end
@@ -2684,6 +2682,7 @@ do
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
     local running = false
+    local ready = false -- chỉ true khi đã bay tới farm pos và ổn định
 
     -- farm vars (Cake Prince)
     local distanceLimit = 1000 -- default requested
@@ -2702,18 +2701,15 @@ do
         [100117331123089] = true
     }
 
-    -- remote name / safe invoke
+    -- remote name / safe invoke (2 args form)
     local function safeInvokeRemote(a, b)
         local ok, err = pcall(function()
             local remotes = ReplicatedStorage:FindFirstChild("Remotes")
             if not remotes then error("Remotes folder missing") end
-
             local comm = remotes:FindFirstChild("CommF_")
             if not comm then error("CommF_ missing") end
-
             comm:InvokeServer(a, b)
         end)
-
         if not ok then
             warn("[AutoFarmCakePrince] Remote call failed:", err)
         end
@@ -2909,6 +2905,7 @@ do
         destroyCurrentBeam()
         if farmPoint and farmPoint.Parent then farmPoint:Destroy() end
         farmPoint = nil; farmBillboard = nil; farmCenter = nil
+        ready = false
     end
 
     -- follow enemy (keep approach behaviour)
@@ -2975,7 +2972,7 @@ do
         label.BackgroundTransparency = 1
         label.TextScaled = true
         label.Font = Enum.Font.SourceSansBold
-        label.Text = "0/" .. tostring(distanceLimit)
+        label.Text = "0/" .. tostring(distanceLimit) -- đảm bảo hiển thị 0/1000 ban đầu
         label.TextColor3 = Color3.fromRGB(0,255,0)
         label.TextStrokeTransparency = 0.6
 
@@ -3106,7 +3103,6 @@ do
         local stroke = getUIStroke(autoBtn)
         local red = Color3.fromRGB(255,0,0)
         local yellow = Color3.fromRGB(255,255,0)
-        -- set immediately to red (safety)
         pcall(function() autoBtn.BackgroundColor3 = red end)
         if stroke then pcall(function() stroke.Color = red end) end
 
@@ -3129,11 +3125,9 @@ do
         local currentlyOn = inferToggleOn(autoBtn)
         local target = not currentlyOn
 
-        -- if user wants to enable, check place id
         if target then
             local pid = game.PlaceId
             if not ALLOWED_PLACEIDS[pid] then
-                -- play warning animation and do NOT toggle on
                 task.spawn(playPlaceNotAllowedAnim)
                 return
             end
@@ -3156,15 +3150,14 @@ do
         local isOn = (bg and bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5)
 
         if isOn and not running then
-            -- also double-check place id safety
             if not ALLOWED_PLACEIDS[game.PlaceId] then
-                -- shouldn't happen normally because we check on click, but safe-guard
                 task.spawn(playPlaceNotAllowedAnim)
                 pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
                 return
             end
 
             running = true
+            ready = false
             _G.BringMobGate2 = true
 
             pcall(function()
@@ -3176,8 +3169,23 @@ do
             -- create farmPoint at currentFarmPos (fixed)
             createFarmPointFixed(currentFarmPos)
 
+            -- immediately fly to farm pos and only set ready = true if arrived
+            task.spawn(function()
+                local arrived = tweenTo(currentFarmPos + Vector3.new(0,5,0))
+                if arrived and running then
+                    ready = true
+                else
+                    -- failed to reach: stop and cleanup
+                    running = false
+                    _G.BringMobGate2 = false
+                    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+                    cleanupOnStop()
+                end
+            end)
+
         elseif not isOn and running then
             running = false
+            ready = false
             _G.BringMobGate2 = false
             cleanupOnStop()
         end
@@ -3221,7 +3229,6 @@ do
 
     -- Mirror watcher: check workspace.Map.CakeLoaf.BigMirror.Other.Transparency and update currentFarmPos
     task.spawn(function()
-        local pathOK = true
         while true do
             task.wait(0.25)
             local ok, other = pcall(function()
@@ -3231,7 +3238,6 @@ do
             end)
             local otherObj = (ok and other) and other or nil
             if otherObj and otherObj:IsA("BasePart") then
-                -- transparency 0 => mirror active -> switch farm pos to mirror pos
                 if otherObj.Transparency == 0 then
                     if currentFarmPos ~= FARM_POS_MIRROR then
                         currentFarmPos = FARM_POS_MIRROR
@@ -3241,7 +3247,6 @@ do
                         end
                     end
                 else
-                    -- return to default
                     if currentFarmPos ~= FARM_POS_DEFAULT then
                         currentFarmPos = FARM_POS_DEFAULT
                         if farmPoint and farmPoint.Parent then
@@ -3251,7 +3256,6 @@ do
                     end
                 end
             else
-                -- if path missing, keep default
                 if currentFarmPos ~= FARM_POS_DEFAULT then
                     currentFarmPos = FARM_POS_DEFAULT
                     if farmPoint and farmPoint.Parent then
@@ -3266,7 +3270,6 @@ do
     -- auto farm loop: includes enemy follow behavior and patrol; also ensures return to farmPos if leaving
     task.spawn(function()
         local lastSeen = tick()
-        -- remote-spawn loop control
         local lastSpawn = 0
         while true do
             task.wait()
@@ -3275,14 +3278,18 @@ do
                 continue
             end
 
+            -- wait until we've arrived and stabilized at farm pos
+            if not ready then
+                task.wait(0.15)
+                continue
+            end
+
             -- if the player is farther than distanceLimit from currentFarmPos -> go back immediately
             local distToFarm = (hrp.Position - currentFarmPos).Magnitude
             if distToFarm > distanceLimit then
-                -- cancel patrols and tweens and go home
                 cancelCurrentTween()
                 patrolActive = false
                 tweenTo(currentFarmPos + Vector3.new(0,5,0))
-                -- small wait to stabilize
                 task.wait(0.2)
             end
 
@@ -3294,7 +3301,6 @@ do
                 patrolActive = false
                 followEnemy(target)
             else
-                -- no enemies: spawn/patrol logic
                 if (tick() - lastSeen) >= 0.5 then
                     if farmPoint == nil then
                         createFarmPointFixed(currentFarmPos)
@@ -3305,10 +3311,9 @@ do
                 end
             end
 
-            -- remote call every 3s while running
-            if running and (tick() - lastSpawn) >= 3 then
+            -- remote call every 3s while running and ready
+            if running and ready and (tick() - lastSpawn) >= 3 then
                 lastSpawn = tick()
-                -- call remote: {"CakePrinceSpawner", true}
                 task.spawn(function()
                     safeInvokeRemote("CakePrinceSpawner", true)
                 end)
