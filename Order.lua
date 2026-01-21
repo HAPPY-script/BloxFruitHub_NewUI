@@ -223,13 +223,110 @@ UIStroke2.Thickness = 1.5
 UIStroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke2.Parent = RandomButton
 
+local RandomBoneButton = Instance.new("TextButton")
+RandomBoneButton.Name = "RandomBoneButton"
+RandomBoneButton.Position = UDim2.new(0.85, 0, 0.15, 0)
+RandomBoneButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+RandomBoneButton.BackgroundColor3 = Color3.new(1, 0, 0)
+RandomBoneButton.BackgroundTransparency = 0.75
+RandomBoneButton.BorderSizePixel = 0
+RandomBoneButton.BorderColor3 = Color3.new(0, 0, 0)
+RandomBoneButton.AnchorPoint = Vector2.new(0.5, 0.5)
+RandomBoneButton.Transparency = 0.75
+RandomBoneButton.Text = ""
+RandomBoneButton.TextColor3 = Color3.new(0, 0, 0)
+RandomBoneButton.TextSize = 14
+RandomBoneButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+RandomBoneButton.Parent = Order
+
+local UICorner2 = Instance.new("UICorner")
+UICorner2.Name = "UICorner"
+UICorner2.CornerRadius = UDim.new(1, 0)
+UICorner2.Parent = RandomBoneButton
+
+local UIStroke3 = Instance.new("UIStroke")
+UIStroke3.Name = "UIStroke"
+UIStroke3.Color = Color3.new(1, 0, 0)
+UIStroke3.Thickness = 2
+UIStroke3.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke3.Parent = RandomBoneButton
+
+local Dot = Instance.new("Frame")
+Dot.Name = "Dot"
+Dot.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot.BackgroundTransparency = 1
+Dot.BorderSizePixel = 0
+Dot.BorderColor3 = Color3.new(0, 0, 0)
+Dot.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot.Transparency = 1
+Dot.Parent = RandomBoneButton
+
+local UIAspectRatioConstraint8 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint8.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint8.Parent = Dot
+
+local UICorner3 = Instance.new("UICorner")
+UICorner3.Name = "UICorner"
+UICorner3.CornerRadius = UDim.new(1, 0)
+UICorner3.Parent = Dot
+
+local OnIcon = Instance.new("ImageLabel")
+OnIcon.Name = "OnIcon"
+OnIcon.Size = UDim2.new(1, 0, 1, 0)
+OnIcon.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon.BackgroundTransparency = 1
+OnIcon.BorderSizePixel = 0
+OnIcon.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon.Transparency = 1
+OnIcon.Image = "rbxassetid://133446041443660"
+OnIcon.ImageTransparency = 1
+OnIcon.Parent = Dot
+
+local OffIcon = Instance.new("ImageLabel")
+OffIcon.Name = "OffIcon"
+OffIcon.Size = UDim2.new(1, 0, 1, 0)
+OffIcon.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon.BackgroundTransparency = 1
+OffIcon.BorderSizePixel = 0
+OffIcon.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon.Transparency = 1
+OffIcon.Image = "rbxassetid://109833067427302"
+OffIcon.Parent = Dot
+
+local RandomBoneTitle = Instance.new("TextLabel")
+RandomBoneTitle.Name = "RandomBoneTitle"
+RandomBoneTitle.Position = UDim2.new(0.375, 0, 0.15, 0)
+RandomBoneTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+RandomBoneTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+RandomBoneTitle.BorderSizePixel = 0
+RandomBoneTitle.BorderColor3 = Color3.new(0, 0, 0)
+RandomBoneTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+RandomBoneTitle.Text = "Auto random bone"
+RandomBoneTitle.TextColor3 = Color3.new(1, 1, 1)
+RandomBoneTitle.TextSize = 14
+RandomBoneTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+RandomBoneTitle.TextScaled = true
+RandomBoneTitle.TextWrapped = true
+RandomBoneTitle.Parent = Order
+
+local UIStroke4 = Instance.new("UIStroke")
+UIStroke4.Name = "UIStroke"
+UIStroke4.Color = Color3.new(1, 1, 1)
+UIStroke4.Thickness = 2
+UIStroke4.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke4.Parent = RandomBoneTitle
+
 local Frame = Order
 if not Frame then return end
 task.spawn(function()
 	while true do
 		local allOk = true
 		for _, obj in ipairs(Frame:GetDescendants()) do
-			if obj:IsA("TextButton") then
+			if obj:IsA("TextButton")
+			or obj:Isa("TextLabel") then
 				if obj.TextTransparency ~= 0 then
 					obj.TextTransparency = 0
 					allOk = false
