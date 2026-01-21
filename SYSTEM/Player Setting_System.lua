@@ -1452,3 +1452,6 @@ do
         btnPirates.MouseButton1Click:Connect(function() handleTeamClick("Pirates") end)
     end
 end
+--[[ HOOK
+game.Players.LocalPlayer:SetAttribute("AutoRandomBone", true) -- true/false
+]]
