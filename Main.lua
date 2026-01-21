@@ -352,7 +352,7 @@ OffIcon3.Parent = Dot3
 
 local BringModTitle = Instance.new("TextLabel")
 BringModTitle.Name = "BringModTitle"
-BringModTitle.Position = UDim2.new(0.375, 0, 0.18, 0)
+BringModTitle.Position = UDim2.new(0.375, 0, 0.23, 0)
 BringModTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
 BringModTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 BringModTitle.BorderSizePixel = 0
@@ -375,7 +375,7 @@ UIStroke9.Parent = BringModTitle
 
 local BringModButton = Instance.new("TextButton")
 BringModButton.Name = "BringModButton"
-BringModButton.Position = UDim2.new(0.85, 0, 0.18, 0)
+BringModButton.Position = UDim2.new(0.85, 0, 0.23, 0)
 BringModButton.Size = UDim2.new(0.175, 0, 0.03, 0)
 BringModButton.BackgroundColor3 = Color3.new(1, 0, 0)
 BringModButton.BackgroundTransparency = 0.75
@@ -470,6 +470,102 @@ UIStroke11.Color = Color3.new(0, 0.784314, 1)
 UIStroke11.Thickness = 2
 UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke11.Parent = SupportStyleButton
+
+local AutoFarmCakePrinceButton = Instance.new("TextButton")
+AutoFarmCakePrinceButton.Name = "AutoFarmCakePrinceButton"
+AutoFarmCakePrinceButton.Position = UDim2.new(0.85, 0, 0.18, 0)
+AutoFarmCakePrinceButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+AutoFarmCakePrinceButton.BackgroundColor3 = Color3.new(1, 0, 0)
+AutoFarmCakePrinceButton.BackgroundTransparency = 0.75
+AutoFarmCakePrinceButton.BorderSizePixel = 0
+AutoFarmCakePrinceButton.BorderColor3 = Color3.new(0, 0, 0)
+AutoFarmCakePrinceButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoFarmCakePrinceButton.Transparency = 0.75
+AutoFarmCakePrinceButton.Text = ""
+AutoFarmCakePrinceButton.TextColor3 = Color3.new(0, 0, 0)
+AutoFarmCakePrinceButton.TextSize = 14
+AutoFarmCakePrinceButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoFarmCakePrinceButton.Parent = Main
+
+local UICorner9 = Instance.new("UICorner")
+UICorner9.Name = "UICorner"
+UICorner9.CornerRadius = UDim.new(1, 0)
+UICorner9.Parent = AutoFarmCakePrinceButton
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(1, 0, 0)
+UIStroke12.Thickness = 2
+UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke12.Parent = AutoFarmCakePrinceButton
+
+local Dot5 = Instance.new("Frame")
+Dot5.Name = "Dot"
+Dot5.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot5.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot5.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot5.BackgroundTransparency = 1
+Dot5.BorderSizePixel = 0
+Dot5.BorderColor3 = Color3.new(0, 0, 0)
+Dot5.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot5.Transparency = 1
+Dot5.Parent = AutoFarmCakePrinceButton
+
+local UIAspectRatioConstraint5 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint5.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint5.Parent = Dot5
+
+local UICorner10 = Instance.new("UICorner")
+UICorner10.Name = "UICorner"
+UICorner10.CornerRadius = UDim.new(1, 0)
+UICorner10.Parent = Dot5
+
+local OnIcon5 = Instance.new("ImageLabel")
+OnIcon5.Name = "OnIcon"
+OnIcon5.Size = UDim2.new(1, 0, 1, 0)
+OnIcon5.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon5.BackgroundTransparency = 1
+OnIcon5.BorderSizePixel = 0
+OnIcon5.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon5.Transparency = 1
+OnIcon5.Image = "rbxassetid://133446041443660"
+OnIcon5.ImageTransparency = 1
+OnIcon5.Parent = Dot5
+
+local OffIcon5 = Instance.new("ImageLabel")
+OffIcon5.Name = "OffIcon"
+OffIcon5.Size = UDim2.new(1, 0, 1, 0)
+OffIcon5.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon5.BackgroundTransparency = 1
+OffIcon5.BorderSizePixel = 0
+OffIcon5.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon5.Transparency = 1
+OffIcon5.Image = "rbxassetid://109833067427302"
+OffIcon5.Parent = Dot5
+
+local AutoFarmCakePrinceTitle = Instance.new("TextLabel")
+AutoFarmCakePrinceTitle.Name = "AutoFarmCakePrinceTitle"
+AutoFarmCakePrinceTitle.Position = UDim2.new(0.375, 0, 0.18, 0)
+AutoFarmCakePrinceTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+AutoFarmCakePrinceTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+AutoFarmCakePrinceTitle.BorderSizePixel = 0
+AutoFarmCakePrinceTitle.BorderColor3 = Color3.new(0, 0, 0)
+AutoFarmCakePrinceTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoFarmCakePrinceTitle.Text = "Auto farm cake prince"
+AutoFarmCakePrinceTitle.TextColor3 = Color3.new(1, 1, 1)
+AutoFarmCakePrinceTitle.TextSize = 14
+AutoFarmCakePrinceTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoFarmCakePrinceTitle.TextScaled = true
+AutoFarmCakePrinceTitle.TextWrapped = true
+AutoFarmCakePrinceTitle.Parent = Main
+
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(1, 1, 1)
+UIStroke13.Thickness = 2
+UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke13.Parent = AutoFarmCakePrinceTitle
 
 local Frame = Main
 if not Frame then return end
