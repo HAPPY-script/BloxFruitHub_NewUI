@@ -3266,49 +3266,49 @@ do
 
     if humanoid then humanoid.Died:Connect(onCharacterDied) end
 
-    -- Mirror watcher: check workspace.Map.CakeLoaf.BigMirror.Other.Transparency and update currentFarmPos
+    -- Mirror watcher with 2s stabilization delay
+    local lastOtherState = nil
+    local pendingChangeId = 0
+    
     task.spawn(function()
         while true do
             task.wait(0.25)
+    
             local ok, other = pcall(function()
-                return workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("CakeLoaf")
+                return workspace:FindFirstChild("Map")
+                    and workspace.Map:FindFirstChild("CakeLoaf")
                     and workspace.Map.CakeLoaf:FindFirstChild("BigMirror")
                     and workspace.Map.CakeLoaf.BigMirror:FindFirstChild("Other")
             end)
+    
             local otherObj = (ok and other) and other or nil
-            if otherObj and otherObj:IsA("BasePart") then
-                if otherObj.Transparency == 0 then
-                    if currentFarmPos ~= FARM_POS_MIRROR then
-                        currentFarmPos = FARM_POS_MIRROR
-                        ready = false -- must tween to new pos before resuming
-                        if farmPoint and farmPoint.Parent then
-                            farmPoint.Position = currentFarmPos
-                            farmCenter = farmPoint.Position
-                        end
-                        -- if currently running, require re-arrival
-                        if running then task.spawn(goToFarmAndSetReady_once) end
-                    end
-                else
-                    if currentFarmPos ~= FARM_POS_DEFAULT then
-                        currentFarmPos = FARM_POS_DEFAULT
+            local newState = (otherObj and otherObj:IsA("BasePart") and otherObj.Transparency == 0) and "MIRROR" or "DEFAULT"
+    
+            -- Nếu trạng thái thay đổi → bắt đầu chờ 2s xác nhận
+            if newState ~= lastOtherState then
+                lastOtherState = newState
+                pendingChangeId += 1
+                local myId = pendingChangeId
+    
+                task.delay(2, function()
+                    -- Nếu trong 2s không bị thay đổi tiếp → xác nhận
+                    if pendingChangeId ~= myId then return end
+                    if not running then return end
+    
+                    local newPos = (newState == "MIRROR") and FARM_POS_MIRROR or FARM_POS_DEFAULT
+    
+                    if currentFarmPos ~= newPos then
+                        currentFarmPos = newPos
                         ready = false
+    
                         if farmPoint and farmPoint.Parent then
                             farmPoint.Position = currentFarmPos
                             farmCenter = farmPoint.Position
                         end
-                        if running then task.spawn(goToFarmAndSetReady_once) end
+    
+                        task.spawn(goToFarmAndSetReady_once)
                     end
-                end
-            else
-                if currentFarmPos ~= FARM_POS_DEFAULT then
-                    currentFarmPos = FARM_POS_DEFAULT
-                    ready = false
-                    if farmPoint and farmPoint.Parent then
-                        farmPoint.Position = currentFarmPos
-                        farmCenter = farmPoint.Position
-                    end
-                    if running then task.spawn(goToFarmAndSetReady_once) end
-                end
+                end)
             end
         end
     end)
