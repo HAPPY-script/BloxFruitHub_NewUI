@@ -2676,6 +2676,19 @@ do
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
     pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
+    -- lưu màu gốc của button + stroke để tween an toàn
+    local function findUIStroke(inst)
+        for _, v in ipairs(inst:GetDescendants()) do
+            if v:IsA("UIStroke") then return v end
+        end
+        return nil
+    end
+    local stroke = findUIStroke(autoBtn)
+    local origBg = autoBtn.BackgroundColor3 or Color3.fromRGB(255, 50, 50)
+    local origStrokeColor = (stroke and stroke.Color) or Color3.fromRGB(255, 0, 0)
+    local warnColor = Color3.fromRGB(255, 255, 0)
+    local animating = false
+
     -- game state
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -3061,72 +3074,66 @@ do
 
     local function getUIStroke(btn)
         if not btn then return nil end
-        -- tìm descendant UIStroke nếu có
-        for _, v in ipairs(btn:GetDescendants()) do
-            if v:IsA("UIStroke") then return v end
-        end
         return btn:FindFirstChildOfClass("UIStroke") or btn:FindFirstChild("UIStroke")
     end
 
-    -- một hàm tween chung cho các instance UI (an toàn hơn)
-    local function tweenButtonToColor(targetColor, duration)
-        duration = duration or 0.25
-        local tweens = {}
-        local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local ok, tw = pcall(function()
-            return TweenService:Create(autoBtn, info, { BackgroundColor3 = targetColor })
+    local function tweenProperty(instance, props, time)
+        if not instance then return end
+        local ok, t = pcall(function()
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            tw:Play()
+            return tw
         end)
-        if ok and tw then table.insert(tweens, tw) end
+        if ok then return t end
+        return nil
+    end
 
-        local stroke = getUIStroke(autoBtn)
+    -- Warning animation when place not allowed (improved, guarded)
+    local function playPlaceNotAllowedAnim()
+        if animating then return end
+        animating = true
+        -- create tweens for both bg and stroke, play simultaneously
+        local dur = 0.25
+        local tweens = {}
+        local ok1, tw1 = pcall(function()
+            return TweenService:Create(autoBtn, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = warnColor })
+        end)
+        if ok1 and tw1 then table.insert(tweens, tw1) end
+
         if stroke then
             local ok2, tw2 = pcall(function()
-                return TweenService:Create(stroke, info, { Color = targetColor })
+                return TweenService:Create(stroke, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Color = warnColor })
             end)
             if ok2 and tw2 then table.insert(tweens, tw2) end
         end
 
-        for _, t in ipairs(tweens) do
-            pcall(function() t:Play() end)
-        end
+        for _, tw in ipairs(tweens) do pcall(function() tw:Play() end) end
+        task.wait(dur + 0.02)
 
-        -- chờ bằng thời lượng, an toàn hơn chờ Completed (tránh deadlock khi Cancel)
-        task.wait(duration)
-    end
-
-    -- Warning animation when place not allowed (sửa để tránh race và overlap)
-    local animating = false
-    local function playPlaceNotAllowedAnim()
-        if animating then return end
-        animating = true
-        -- ghi lại màu gốc để phục hồi chính xác
-        local ok, origBg = pcall(function() return autoBtn.BackgroundColor3 end)
-        local ok2, origStrokeCol = pcall(function()
-            local s = getUIStroke(autoBtn)
-            return s and s.Color or nil
-        end)
-        if not ok or not origBg then origBg = Color3.fromRGB(255,50,50) end
-        if not ok2 or not origStrokeCol then origStrokeCol = origBg end
-
-        local warnColor = Color3.fromRGB(255,255,0)
-
-        -- tween sang vàng
-        pcall(function() tweenButtonToColor(warnColor, 0.25) end)
-
-        -- đứng 1s ở vàng
+        -- hold yellow briefly
         task.wait(1)
 
-        -- tween về màu gốc
-        pcall(function() tweenButtonToColor(origBg, 0.25) end)
+        -- tween back to original colors
+        local tweens2 = {}
+        local ok3, tw3 = pcall(function()
+            return TweenService:Create(autoBtn, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = origBg })
+        end)
+        if ok3 and tw3 then table.insert(tweens2, tw3) end
 
+        if stroke then
+            local ok4, tw4 = pcall(function()
+                return TweenService:Create(stroke, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Color = origStrokeColor })
+            end)
+            if ok4 and tw4 then table.insert(tweens2, tw4) end
+        end
+
+        for _, tw in ipairs(tweens2) do pcall(function() tw:Play() end) end
+        task.wait(dur + 0.02)
         animating = false
     end
 
     -- Toggle behavior: intercept when place not allowed
     local function onToggleActivated()
-        -- debounce: nếu đang animate thì ignore click
-        if animating then return end
-
         local bg = autoBtn.BackgroundColor3
         local currentlyOn = inferToggleOn(autoBtn)
         local target = not currentlyOn
@@ -3231,8 +3238,7 @@ do
                     local r = math.floor(255 * ratio)
                     local g = math.floor(255 * (1 - ratio))
                     local targetColor = Color3.fromRGB(r, g, 0)
-
-                    -- cancel previous tween nếu còn sống, rồi tạo và play tween mới
+                    -- cancel previous tween safely
                     if colorTween then
                         pcall(function() colorTween:Cancel() end)
                         colorTween = nil
@@ -3242,7 +3248,14 @@ do
                     end)
                     if ok and tw then
                         colorTween = tw
-                        pcall(function() tw:Play() end)
+                        colorTween:Play()
+                        -- clear reference after duration so next tween isn't blocked
+                        task.delay(0.14, function()
+                            if colorTween == tw then colorTween = nil end
+                        end)
+                    else
+                        -- fallback: set immediately
+                        pcall(function() farmBillboard.label.TextColor3 = targetColor end)
                     end
                 end
 
@@ -3376,30 +3389,18 @@ do
         end
     end)
 
-    -- SupportStyle visuals (kept unchanged but use single helper getUIStroke/tweenProperty already defined)
+    -- SupportStyle visuals (kept unchanged except using existing helpers)
     local function getTextHolder(btn)
         if not btn then return nil end
         if btn:IsA("TextButton") or btn:IsA("TextLabel") then return btn end
         return btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
     end
-
-    local function tweenProperty(instance, props, time)
-        if not instance then return end
-        local ok, t = pcall(function()
-            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
-            tw:Play()
-            return tw
-        end)
-        if ok then return t end
-        return nil
-    end
-
     local function applySupportVisuals(style)
         if not supportBtn then return end
         local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
         pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
-        local stroke = getUIStroke(supportBtn)
-        if stroke then pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end) end
+        local stroke2 = getUIStroke(supportBtn)
+        if stroke2 then pcall(function() tweenProperty(stroke2, {Color = targetColor}, 0.18) end) end
         local textObj = getTextHolder(supportBtn)
         if textObj then
             local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
@@ -3428,7 +3429,7 @@ do
         local textObj = getTextHolder(supportBtn)
         if textObj then pcall(function() textObj.TextTransparency = 0 end); pcall(function() textObj.Text = SUPPORT_TEXT[supportStyle] end) end
         pcall(function() supportBtn.BackgroundColor3 = MELEE_COLOR end)
-        local stroke = getUIStroke(supportBtn); if stroke then pcall(function() stroke.Color = MELEE_COLOR end) end
+        local stroke3 = getUIStroke(supportBtn); if stroke3 then pcall(function() stroke3.Color = MELEE_COLOR end) end
         local function onSupportActivated()
             local nextStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
             setSupportStyle(nextStyle)
