@@ -476,5 +476,50 @@ do
     	cleanupRows(false)
     end
 
-    script.Destroying:Connect(onCleanup)
+    -- Safe cleanup hookup: prefer script.Destroying, fall back to GUI/player removal detection
+    local function safeHookCleanup()
+        -- prefer script.Destroying if available (normal LocalScript case)
+        if typeof(script) == "Instance" and script.Destroying then
+            pcall(function() script.Destroying:Connect(onCleanup) end)
+            return
+        end
+    
+        -- Fallback A: watch the Visual Frame parent — when it's removed, call cleanup
+        if typeof(Frame) == "Instance" then
+            local frameConn
+            frameConn = Frame:GetPropertyChangedSignal("Parent"):Connect(function()
+                if not Frame.Parent then
+                    pcall(onCleanup)
+                    if frameConn and frameConn.Connected then
+                        pcall(function() frameConn:Disconnect() end)
+                    end
+                end
+            end)
+        end
+    
+        -- Fallback B: watch PlayerGui ancestry — when PlayerGui leaves the DataModel, call cleanup
+        if player and player:FindFirstChild("PlayerGui") then
+            local pg = player.PlayerGui
+            local pgConn
+            pgConn = pg.AncestryChanged:Connect(function()
+                if not pg:IsDescendantOf(game) then
+                    pcall(onCleanup)
+                    if pgConn and pgConn.Connected then
+                        pcall(function() pgConn:Disconnect() end)
+                    end
+                end
+            end)
+        end
+    
+        -- Last resort: try BindToClose (best-effort on client)
+        if type(game.BindToClose) == "function" then
+            pcall(function()
+                game:BindToClose(function()
+                    pcall(onCleanup)
+                end)
+            end)
+        end
+    end
+    
+    safeHookCleanup()
 end
