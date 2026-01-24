@@ -3266,52 +3266,63 @@ do
 
     if humanoid then humanoid.Died:Connect(onCharacterDied) end
 
-    -- Mirror watcher with 2s stabilization delay
-    local lastOtherState = nil
-    local pendingChangeId = 0
+    -- MirrorDimension watcher with 2s stabilization delay
+    do
+        local lastMirrorState = nil
+        local pendingChangeId = 0
     
-    task.spawn(function()
-        while true do
-            task.wait(0.25)
+        task.spawn(function()
+            while true do
+                task.wait(0.25)
     
-            local ok, other = pcall(function()
-                return workspace:FindFirstChild("Map")
-                    and workspace.Map:FindFirstChild("CakeLoaf")
-                    and workspace.Map.CakeLoaf:FindFirstChild("BigMirror")
-                    and workspace.Map.CakeLoaf.BigMirror:FindFirstChild("Other")
-            end)
-    
-            local otherObj = (ok and other) and other or nil
-            local newState = (otherObj and otherObj:IsA("BasePart") and otherObj.Transparency == 0) and "MIRROR" or "DEFAULT"
-    
-            -- Nếu trạng thái thay đổi → bắt đầu chờ 2s xác nhận
-            if newState ~= lastOtherState then
-                lastOtherState = newState
-                pendingChangeId += 1
-                local myId = pendingChangeId
-    
-                task.delay(2, function()
-                    -- Nếu trong 2s không bị thay đổi tiếp → xác nhận
-                    if pendingChangeId ~= myId then return end
-                    if not running then return end
-    
-                    local newPos = (newState == "MIRROR") and FARM_POS_MIRROR or FARM_POS_DEFAULT
-    
-                    if currentFarmPos ~= newPos then
-                        currentFarmPos = newPos
-                        ready = false
-    
-                        if farmPoint and farmPoint.Parent then
-                            farmPoint.Position = currentFarmPos
-                            farmCenter = farmPoint.Position
-                        end
-    
-                        task.spawn(goToFarmAndSetReady_once)
-                    end
+                local ok, found = pcall(function()
+                    local map = workspace:FindFirstChild("Map")
+                    if not map then return false end
+                    local md = map:FindFirstChild("MirrorDimension")
+                    return (md and md:IsA("Model")) and true or false
                 end)
+    
+                local mirrorPresent = (ok and found) and true or false
+                local newState = mirrorPresent and "MIRROR" or "DEFAULT"
+    
+                -- nếu trạng thái thay đổi thì bắt đầu debounce 2s để "xác nhận"
+                if newState ~= lastMirrorState then
+                    lastMirrorState = newState
+                    pendingChangeId = pendingChangeId + 1
+                    local myId = pendingChangeId
+    
+                    task.delay(2, function()
+                        -- nếu trong 2s có thay đổi khác thì hủy
+                        if pendingChangeId ~= myId then return end
+    
+                        -- xác nhận: chọn vị trí tương ứng
+                        local newPos = (newState == "MIRROR") and FARM_POS_MIRROR or FARM_POS_DEFAULT
+    
+                        -- chỉ hành động khi vị trí thực sự thay đổi
+                        if currentFarmPos ~= newPos then
+                            currentFarmPos = newPos
+                            ready = false
+    
+                            -- cập nhật farmPoint (nếu đang có)
+                            if farmPoint and farmPoint.Parent then
+                                pcall(function()
+                                    farmPoint.Position = currentFarmPos
+                                    farmCenter = farmPoint.Position
+                                end)
+                            end
+    
+                            -- nếu đang chạy thì cố gắng tween đến vị trí mới
+                            if running then
+                                task.spawn(function()
+                                    pcall(goToFarmAndSetReady_once)
+                                end)
+                            end
+                        end
+                    end)
+                end
             end
-        end
-    end)
+        end)
+    end
 
     -- auto farm loop: includes enemy follow behavior and patrol; also ensures return to farmPos if leaving
     task.spawn(function()
