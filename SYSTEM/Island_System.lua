@@ -967,4 +967,50 @@ local function cleanup()
     end
 end
 
-script.Destroying:Connect(cleanup)
+-- Safe cleanup hookup: prefer script.Destroying, fall back to GUI/player removal detection
+local function safeHookCleanup()
+    -- if 'script' exists and has Destroying event, use it (typical for normal LocalScript)
+    if typeof(script) == "Instance" and script.Destroying then
+        pcall(function() script.Destroying:Connect(cleanup) end)
+        return
+    end
+
+    -- Fallback 1: watch ROOT parent — when ROOT removed (GUI destroyed), cleanup
+    local ok, rootInst = pcall(function() return ROOT end)
+    if ok and rootInst and rootInst:IsA("Instance") then
+        local rootConn
+        rootConn = rootInst:GetPropertyChangedSignal("Parent"):Connect(function()
+            if not rootInst.Parent then
+                pcall(cleanup)
+                if rootConn and rootConn.Connected then
+                    pcall(function() rootConn:Disconnect() end)
+                end
+            end
+        end)
+    end
+
+    -- Fallback 2: watch PlayerGui ancestry (if PlayerGui removed from game, cleanup)
+    if player and player:FindFirstChild("PlayerGui") then
+        local pg = player.PlayerGui
+        local pgConn
+        pgConn = pg.AncestryChanged:Connect(function()
+            if not pg:IsDescendantOf(game) then
+                pcall(cleanup)
+                if pgConn and pgConn.Connected then
+                    pcall(function() pgConn:Disconnect() end)
+                end
+            end
+        end)
+    end
+
+    -- Last-resort: BindToClose (client-side) to attempt cleanup when client exits
+    if type(game.BindToClose) == "function" then
+        pcall(function()
+            game:BindToClose(function()
+                pcall(cleanup)
+            end)
+        end)
+    end
+end
+
+safeHookCleanup()
