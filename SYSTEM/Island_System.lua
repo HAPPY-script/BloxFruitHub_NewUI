@@ -589,6 +589,26 @@ end)
 
 -- run a spec (used by both GUI and external event)
 local function runSpec(spec)
+    -- resolve string names to BUTTON_TARGETS entries
+    if type(spec) == "string" then
+        local mapped = BUTTON_TARGETS[spec]
+        if not mapped then
+            warn("SupportTweenToCustom: unknown target name:", spec)
+            DoneEvent:Fire(false)
+            return false
+        end
+        spec = mapped
+    end
+
+    -- also support passing { name = "Cafe" } if you like:
+    if type(spec) == "table" and type(spec.name) == "string" then
+        local mapped = BUTTON_TARGETS[spec.name]
+        if mapped then
+            -- allow extra fields in spec (e.g. spec.overrideY = 50) if needed later
+            spec = mapped
+        end
+    end
+
     -- returns boolean success
     if (type(spec) ~= "table" and typeof(spec) ~= "Vector3") then
         return false
@@ -1039,6 +1059,9 @@ local done = pg:WaitForChild("DoneTweenTo")
 done.Event:Connect(function(success)
     print("DoneTweenTo fired, success:", success)
 end)
+
+-- GỌI THEO TÊN
+support:Fire("Cafe")
 
 -- gửi yêu cầu (mẫu theo định dạng bạn đưa)
 support:Fire{
