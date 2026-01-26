@@ -327,21 +327,24 @@ local BUTTON_TARGETS = {
     ["Tiki Outpost"] = Vector3.new(-16230.67, 10, 436.11),
     ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
--- 12082.38, -2080.47, 9817.34
+
     ["Temple of Time"] = {
-        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 100, 1.5),
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 2),
+        Vector3.new(28611.04, 14900.85, 105.37),
+        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
 
         call(function()
             local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
             for i = 1, 5 do
                 pcall(function()
-                    remote:InvokeServer("RaceV4Progress", "Teleport")
+                    remote:InvokeServer("RaceV4Progress", "TeleportBack")
                 end)
-                task.wait(0.1)
+                task.wait(0.25)
             end
         end),
-    },
 
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 1),
+    },
 
     ["Submerged Island"] = {
         setY(),
