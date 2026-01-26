@@ -16,8 +16,8 @@ local ROOT = playerGui
 -- ============== SETTINGS (tùy chỉnh) =================
 local LUNGE_SPEED = 300
 local TELEPORT_HEIGHT = 100
-local TELEPORT_SPAM_COUNT = 10
-local TELEPORT_SPAM_TIME = 1.5
+local TELEPORT_SPAM_COUNT = 120
+local TELEPORT_SPAM_TIME = 2
 local ANIM_FPS = 7 -- 7 animations / second
 -- ====================================================
 
