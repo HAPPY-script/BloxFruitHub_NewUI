@@ -334,7 +334,7 @@ do
                 if d_tp_to_target < d_direct then
                     local hrp_inner = safeHRP()
                     if hrp_inner then
-                        for i = 1, 20 do
+                        for i = 2, 60 do
                             hrp_inner.CFrame = CFrame.new(nearest + Vector3.new(0,60,0))
                             hrp_inner.AssemblyLinearVelocity = Vector3.zero
                             hrp_inner.AssemblyAngularVelocity = Vector3.zero
