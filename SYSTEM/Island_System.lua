@@ -1114,7 +1114,7 @@ SupportTween:Fire("Cafe", "simpleCall")
 -- 3. Gọi nâng cao bằng danh sách lệnh
 SupportTween:Fire({
 	_G.setY(),
-	Vector3.new(11520.80, 10, 9829.51),
+	Vector3.new(0, 100, 0),
 
 	_G.teleportTo(Vector3.new(0, 0, 0), 10, 0.2),
 
@@ -1123,7 +1123,7 @@ SupportTween:Fire({
 	end),
 
 	_G.setY(),
-	Vector3.new(11520.80, -2125.80, 9829.51),
+	Vector3.new(100, 500, 100),
 }, "advancedCall")
 
 -- 4. Hủy tween bất cứ lúc nào
