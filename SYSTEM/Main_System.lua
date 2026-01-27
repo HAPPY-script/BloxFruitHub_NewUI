@@ -1,4 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
+
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -3725,3 +3726,680 @@ end
 _G.BringMobGate2 = true   -- ON
 _G.BringMobGate2 = false  -- OFF
 ]]
+
+--=== AUTO CHEST =====================================================================================================--
+
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local workspace = game:GetService("Workspace")
+
+-- ========== SETTINGS (theo mẫu) ==========
+local LUNGE_SPEED = 300
+local TELEPORT_HEIGHT = 100
+local TELEPORT_SPAM_COUNT = 60
+local TELEPORT_SPAM_TIME = 1
+local CHEST_REACH_DISTANCE = 6
+local SCAN_INTERVAL = 0.2
+local ARENA_LOOP_DELAY = 0.5
+
+local MID_TELEPORT_THRESHOLD = 200
+-- ==============================
+
+-- ========== Movement token (cancel) ==========
+local movementToken = 0
+local function stopMovement()
+    movementToken = movementToken + 1
+end
+
+-- ========== Skip list ==========
+local skippedModels = {}
+local function getModelKey(model)
+    if not model then return nil end
+    local ok, val = pcall(function() return model:GetAttribute("__AutoChestId") end)
+    if ok and type(val) == "string" and #val > 0 then
+        return val
+    end
+    local newId
+    pcall(function() newId = HttpService:GenerateGUID(false) end)
+    if newId then
+        pcall(function() model:SetAttribute("__AutoChestId", newId) end)
+        return newId
+    end
+    return tostring(model)
+end
+
+local function skipModel(modelOrId, duration)
+    duration = duration or 120
+    if not modelOrId then return end
+    local id = (type(modelOrId) == "string") and modelOrId or getModelKey(modelOrId)
+    if not id then return end
+    skippedModels[id] = tick() + duration
+end
+
+local function isSkipped(modelOrId)
+    if not modelOrId then return false end
+    local id = (type(modelOrId) == "string") and modelOrId or getModelKey(modelOrId)
+    if not id then return false end
+    local exp = skippedModels[id]
+    if not exp then return false end
+    if tick() > exp then
+        skippedModels[id] = nil
+        return false
+    end
+    return true
+end
+
+-- ========== Movement helpers ==========
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+local function distance(a,b)
+    return (a - b).Magnitude
+end
+
+-- ========== Teleport points (from sample) ==========
+local PLACES = {
+    Sea1 = {
+        ids = { 85211729168715, 2753915549 },
+        points = {
+            Vector3.new(-7894.62, 5545.49, -380.29),
+            Vector3.new(-4607.82, 872.54, -1667.56),
+            Vector3.new(61163.85, 5.30, 1819.78),
+            Vector3.new(3864.69, 5.37, -1926.21)
+        }
+    },
+
+    Sea2 = {
+        ids = { 79091703265657, 4442272183 },
+        points = {
+            Vector3.new(-286.99, 306.18, 597.75),
+            Vector3.new(-6508.56, 83.24, -132.84),
+            Vector3.new(923.21, 125.11, 32852.83),
+            Vector3.new(2284.91, 15.20, 905.62)
+        }
+    },
+
+    Sea3 = {
+        ids = { 7449423635, 100117331123089 },
+        points = {
+            Vector3.new(-12463.61, 374.91, -7549.53),
+            Vector3.new(-5073.83, 314.51, -3152.52),
+            Vector3.new(5661.53, 1013.04, -334.96),
+            Vector3.new(28286.36, 14896.56, 102.62)
+        }
+    },
+
+    Dungeon = {
+        ids = { 73902483975735 },
+        points = {
+            Vector3.new(0, 100000, 0)
+        }
+    }
+}
+
+local TELEPORT_POINTS = {}
+do
+    local placeId = game.PlaceId
+    for _, data in pairs(PLACES) do
+        if table.find(data.ids, placeId) then
+            TELEPORT_POINTS = data.points
+            break
+        end
+    end
+end
+
+-- ========== Teleport helper (mẫu) ==========
+local function getBestTeleportPoint(fromPos, targetPos)
+    if #TELEPORT_POINTS == 0 then return nil end
+    local bestPoint, bestDist = nil, math.huge
+    for _, p in ipairs(TELEPORT_POINTS) do
+        local d = distance(p, targetPos)
+        if d < bestDist then
+            bestDist = d
+            bestPoint = p
+        end
+    end
+    if not bestPoint then return nil end
+    if distance(fromPos, targetPos) <= bestDist then
+        return nil
+    end
+    return bestPoint
+end
+
+local function teleportSpam(pos, count, time)
+    count = count or TELEPORT_SPAM_COUNT
+    time  = time  or TELEPORT_SPAM_TIME
+    local hrp = getHRP()
+    local myToken = movementToken
+
+    local done = false
+    local sent = 0
+    local interval = time / math.max(1, count)
+    local elapsed = 0
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function(dt)
+        if myToken ~= movementToken then
+            conn:Disconnect()
+            done = true
+            return
+        end
+
+        elapsed = elapsed + dt
+        if elapsed >= interval then
+            elapsed = 0
+            sent = sent + 1
+            pcall(function() hrp.CFrame = CFrame.new(pos) end)
+            if sent >= count then
+                conn:Disconnect()
+                done = true
+            end
+        end
+    end)
+
+    while not done and myToken == movementToken do
+        task.wait()
+    end
+
+    return myToken == movementToken
+end
+
+-- ========== Lunge movement (sửa để set Y ngay khi bắt đầu + hỗ trợ mid-teleport) ==========
+local function lungeTo(targetPos, allowMidTeleport, midTeleportThreshold)
+    allowMidTeleport = allowMidTeleport == true
+    midTeleportThreshold = midTeleportThreshold or MID_TELEPORT_THRESHOLD
+
+    local hrp = getHRP()
+    local myToken = movementToken
+
+    -- **MỚI**: ngay khi bắt đầu, align trục Y với targetPos.Y
+    pcall(function()
+        local cur = hrp.Position
+        -- giữ X,Z hiện tại, set Y = targetPos.Y
+        hrp.CFrame = CFrame.new(cur.X, targetPos.Y, cur.Z)
+    end)
+
+    local startPos = hrp.Position
+    local delta = targetPos - startPos
+    local dist = delta.Magnitude
+    if dist < 0.5 then return true end
+
+    local direction = delta.Unit
+    local duration = math.max(0.01, dist / LUNGE_SPEED)
+    local elapsed = 0
+    local finished = false
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function(dt)
+        if myToken ~= movementToken then
+            conn:Disconnect()
+            finished = false
+            return
+        end
+
+        -- mỗi tick kiểm tra khoảng cách phẳng còn lại
+        local curPos = hrp.Position
+        local flatRemain = (Vector3.new(curPos.X,0,curPos.Z) - Vector3.new(targetPos.X,0,targetPos.Z)).Magnitude
+
+        if allowMidTeleport and flatRemain <= midTeleportThreshold then
+            -- Dừng lunge và teleport thẳng tới targetPos
+            pcall(function()
+                hrp.CFrame = CFrame.new(targetPos)
+            end)
+            conn:Disconnect()
+            finished = true
+            return
+        end
+
+        elapsed = elapsed + dt
+        local alpha = math.clamp(elapsed / duration, 0, 1)
+        local pos = startPos + direction * (dist * alpha)
+        pcall(function() hrp.CFrame = CFrame.new(pos) end)
+
+        if alpha >= 1 then
+            conn:Disconnect()
+            finished = true
+        end
+    end)
+
+    while not finished and myToken == movementToken do
+        task.wait()
+    end
+
+    return myToken == movementToken
+end
+
+-- ========== moveOptimizedTo: (sample behavior) ==========
+local function moveOptimizedTo(targetPos, allowMidTeleport)
+    allowMidTeleport = allowMidTeleport == true
+    local myToken = movementToken
+    local hrp = getHRP()
+    local fromPos = hrp.Position
+
+    -- nếu đã tới gần ngang mặt bằng -> done
+    if (Vector3.new(targetPos.X,0,targetPos.Z) - Vector3.new(fromPos.X,0,fromPos.Z)).Magnitude <= CHEST_REACH_DISTANCE then
+        return true
+    end
+
+    -- chọn teleport point tối ưu nếu có
+    local best = getBestTeleportPoint(fromPos, targetPos)
+    if best then
+        local ok = teleportSpam(best)
+        if not ok or movementToken ~= myToken then return false end
+
+        -- teleport lên cao rồi lunge về target
+        pcall(function() hrp.CFrame = CFrame.new(best + Vector3.new(0, TELEPORT_HEIGHT, 0)) end)
+        task.wait(0.05)
+        if movementToken ~= myToken then return false end
+
+        -- Lunge nhưng vẫn cho phép mid-teleport nếu caller muốn (thường chest sẽ bật)
+        return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD)
+    end
+
+    -- fallback: lunge thẳng (và có thể mid-teleport nếu allowMidTeleport)
+    return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD)
+end
+
+-- wrapper tương thích
+local function executeMovementTo(targetPos, allowMidTeleport)
+    return moveOptimizedTo(targetPos, allowMidTeleport)
+end
+
+-- ========== SupportTween (giữ nguyên nếu dùng các wp có support) ==========
+local SupportTween = nil
+local DoneTween = nil
+local CancelTween = nil
+do
+    SupportTween = playerGui:FindFirstChild("SupportTweenToCustom")
+    DoneTween = playerGui:FindFirstChild("DoneTweenTo")
+    CancelTween = playerGui:FindFirstChild("CancelTweenTo")
+end
+
+local function callSupportAndWait(name, tag, timeout)
+    if not SupportTween or not DoneTween then
+        return true
+    end
+
+    local completed = false
+    local ok = false
+    local conn
+    conn = DoneTween.Event:Connect(function(success, doneTag)
+        if doneTag == tag then
+            completed = true
+            ok = success
+            conn:Disconnect()
+        end
+    end)
+
+    pcall(function() SupportTween:Fire(name, tag) end)
+
+    local t0 = tick()
+    while not completed and (tick() - t0) < (timeout or 20) do
+        task.wait(0.1)
+    end
+
+    if conn and conn.Connected then conn:Disconnect() end
+    return ok or completed
+end
+
+-- ========== Chest helpers (đảm bảo loại bỏ chest đã skip) ==========
+local function findChestModelsFolder()
+    return workspace:FindFirstChild("ChestModels")
+end
+
+local function listChestModels()
+    local f = findChestModelsFolder()
+    if not f then return {} end
+    local out = {}
+    for _, v in ipairs(f:GetChildren()) do
+        if v:IsA("Model") then
+            -- LƯU Ý: không add những model đã bị đánh dấu skip (bảo đảm bỏ qua hoàn toàn)
+            if not isSkipped(v) then
+                table.insert(out, v)
+            end
+        end
+    end
+    return out
+end
+
+local function closestModelToPosition(models, pos)
+    local best, bd = nil, math.huge
+    for _, m in ipairs(models) do
+        if m and m.Parent then
+            local primary = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                local d = (primary.Position - pos).Magnitude
+                if d < bd then
+                    bd = d
+                    best = m
+                end
+            end
+        end
+    end
+    return best, bd
+end
+
+local function findPushBox(model)
+    if not model then return nil end
+    for _, obj in ipairs(model:GetDescendants()) do
+        if obj.Name == "PushBox" and obj:IsA("BasePart") then
+            return obj
+        end
+    end
+    return nil
+end
+
+local function hasTouchInterest(part)
+    if not part then return false end
+    if part:FindFirstChild("TouchInterest") then return true end
+    if part:FindFirstChildOfClass("TouchTransmitter") then return true end
+    for _, d in ipairs(part:GetDescendants()) do
+        if d.Name == "TouchInterest" or d.ClassName == "TouchTransmitter" then
+            return true
+        end
+    end
+    return false
+end
+
+-- ========== Main approach logic (sửa: cho phép mid-teleport khi tới chest) ==========
+local function approachAndProcessModel(model)
+    if not model or not model.Parent then return false end
+    if isSkipped(model) then return true end -- bỏ qua nếu đã skip
+
+    local hrp = getHRP()
+    local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if not primary then
+        skipModel(model, 120)
+        return true
+    end
+
+    local myToken = movementToken
+    local d = (hrp.Position - primary.Position).Magnitude
+
+    if d > CHEST_REACH_DISTANCE then
+        -- CHÚ Ý: cho phép mid-teleport khi tới chest (true)
+        local ok = executeMovementTo(primary.Position, true)
+        if not ok or movementToken ~= myToken then return false end
+    end
+
+    -- Đã tới -> đánh dấu skip để không target lại
+    skipModel(model, 120)
+
+    if not model.Parent then return true end
+
+    local pushBox = findPushBox(model)
+    if not pushBox then
+        return true
+    end
+
+    if hasTouchInterest(pushBox) then
+        return true
+    end
+
+    return true
+end
+
+-- ========== scanAndCollectInFolder (giữ logic nhưng listChestModels đã loại skip) ==========
+local movingToWaypoint = false
+
+local function scanAndCollectInFolder()
+    local f = findChestModelsFolder()
+    if not f then return false end
+
+    local hrp = getHRP()
+    local iterSafeguard = 0
+
+    local myToken = movementToken
+    while myToken == movementToken do
+        if movingToWaypoint then
+            return false
+        end
+
+        iterSafeguard = iterSafeguard + 1
+        if iterSafeguard > 400 then break end
+
+        local currentModels = listChestModels()
+        for i = #currentModels, 1, -1 do
+            local m = currentModels[i]
+            if not m or not m.Parent then
+                table.remove(currentModels, i)
+            end
+        end
+
+        if #currentModels == 0 then
+            return false
+        end
+
+        local closest, dist = closestModelToPosition(currentModels, hrp.Position)
+        if not closest then return false end
+
+        local ok = approachAndProcessModel(closest)
+        if not ok then
+            return false
+        end
+
+        task.wait(SCAN_INTERVAL)
+    end
+
+    return false
+end
+
+-- ========== ARENA waypoints (giữ dữ liệu) ==========
+local function TweenPoint(x,y,z, supportName, supportTag)
+    return {
+        pos = Vector3.new(x or 0, y or 0, z or 0),
+        support = (supportName and tostring(supportName)) or nil,
+        supportTag = supportTag
+    }
+end
+
+local AREA_DATA = {
+    Sea1 = {
+        ids = { 85211729168715, 2753915549 },
+        arena = {
+            TweenPoint(-689.79, 15.52, 1583.28),
+            TweenPoint(1038.53, 80.89, 1289.06),
+            TweenPoint(-2987.78, 64.65, 2118.18),
+            TweenPoint(-1447.33, 62.01, -28.98),
+            TweenPoint(-1063.14, 60.27, 4032.97),
+            TweenPoint(1131.20, 20.75, 4342.33),
+            TweenPoint(1397.80, 88.27, -1344.01),
+            TweenPoint(-4937.35, 157.95, 4321.52),
+            TweenPoint(-4824.34, 789.57, -2593.36),
+            TweenPoint(-7704.47, 5545.65, -811.10),
+            TweenPoint(5238.61, 95.83, 744.30),
+            TweenPoint(61014.82, 96.51, 1316.77),
+            TweenPoint(5706.35, 188.92, 4364.42),
+            TweenPoint(-1716.87, 105.53, -3169.11),
+        }
+    },
+
+    Sea2 = {
+        ids = { 79091703265657, 4442272183 },
+        arena = {
+            TweenPoint(-380.09, 227.12, 648.07),
+            TweenPoint(-2190.19, 201.88, -3226.08),
+            TweenPoint(916.50, 181.60, 33320.61),
+            TweenPoint(-5635.31, 187.16, -866.97),
+            TweenPoint(-6480.40, 305.54, -4733.06),
+            TweenPoint(-5167.09, 91.70, -5311.48),
+            TweenPoint(-2990.85, 27.13, -9849.51),
+            TweenPoint(-3181.70, 298.83, -10547.10),
+            TweenPoint(-3711.94, 77.45, -11469.75),
+            TweenPoint(3780.60, 119.36, -3499.44),
+            TweenPoint(432.57, 401.58, -5442.55),
+            TweenPoint(1293.03, 429.58, -5200.26),
+            TweenPoint(6561.01, 439.59, -6999.93),
+        
+        --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
+        }
+    },
+
+    Sea3 = {
+        ids = { 7449423635, 100117331123089 },
+        arena = {
+            TweenPoint(-445.27, 108.73, 5929.45),
+            TweenPoint(5183.74, 22.43, 76.54),
+            TweenPoint(2895.32, 509.45, -7346.18),
+            TweenPoint(-12553.24, 459.64, -7496.05),
+            TweenPoint(-10990.16, 551.82, -10179.43),
+            TweenPoint(-9514.80, 164.14, 5786.82),
+            TweenPoint(-1615.79, 87.40, -11072.71),
+            TweenPoint(291.32, 28.47, -12711.65),
+            TweenPoint(-16560.40, 201.88, 413.13),
+            TweenPoint(-5107.22, 443.48, -2967.22),
+            TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"),
+        }
+    },
+
+    Dungeon = {
+        ids = { 73902483975735 },
+        arena = {
+            TweenPoint(0, 100, 0),
+        }
+    }
+}
+
+local ARENA = {}
+
+do
+    local pid = game.PlaceId
+
+    for areaID, data in pairs(AREA_DATA) do
+        if table.find(data.ids, pid) then
+            ARENA = data.arena or {}
+            print("[ARENA] Loaded for:", areaID, "#", #ARENA)
+            break
+        end
+    end
+
+    if #ARENA == 0 then
+        warn("[ARENA] No arena points for this PlaceId:", pid)
+    end
+end
+
+-- ========== Main automation loop (ToggleUI-based) ==========
+local running = false
+local uiToggleButton = nil
+local antiSitEnabled = false
+
+-- Wait for ToggleUI helper (from other scripts)
+repeat task.wait() until _G.ToggleUI
+local ToggleUI = _G.ToggleUI
+pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+local BUTTON_NAME = "AutoChestButton"
+
+-- ScrollingTab path (same UI root as other scripts)
+local ScrollingTab = player
+    .PlayerGui
+    :WaitForChild("BloxFruitHubGui")
+    :WaitForChild("Main")
+    :WaitForChild("ScrollingTab")
+
+-- find button anywhere under ScrollingTab
+local button = ScrollingTab:FindFirstChild(BUTTON_NAME, true)
+if not button then
+    warn("AutoChest: couldn't find button '" .. BUTTON_NAME .. "' under ScrollingTab")
+else
+    uiToggleButton = button
+end
+
+-- ensure ToggleUI state exists (start OFF)
+ToggleUI.Refresh()
+pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+-- helper: exact color check (green = ON)
+local function isButtonOn()
+    if not button then return false end
+    local ok, c = pcall(function() return button.BackgroundColor3 end)
+    if not ok or not c then return false end
+    local r = math.floor(c.R * 255 + 0.5)
+    local g = math.floor(c.G * 255 + 0.5)
+    local b = math.floor(c.B * 255 + 0.5)
+    return (r == 0 and g == 255 and b == 0)
+end
+
+-- when UI color changes: start/stop runner accordingly
+local function onToggleStateChanged()
+    local enabled = isButtonOn()
+    if enabled and not running then
+        running = true
+        antiSitEnabled = true
+        task.spawn(function()
+            runner()
+            running = false
+            antiSitEnabled = false
+            -- ensure ToggleUI reflects off if runner finished by itself
+            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+        end)
+    elseif (not enabled) and running then
+        -- stop
+        running = false
+        antiSitEnabled = false
+        stopMovement()
+        if CancelTween and CancelTween.Fire then
+            pcall(function() CancelTween:Fire() end)
+        end
+    end
+end
+
+-- connect activation to request ToggleUI change (do not change color directly)
+if button then
+    if button.Activated then
+        button.Activated:Connect(function()
+            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
+        end)
+    else
+        button.MouseButton1Click:Connect(function()
+            pcall(function() ToggleUI.Set(BUTTON_NAME, not isButtonOn()) end)
+        end)
+    end
+
+    -- color change watcher (small delay for ToggleUI tween)
+    button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, onToggleStateChanged)
+    end)
+
+    -- initialize according to current color
+    task.delay(0.05, function()
+        if isButtonOn() then
+            task.spawn(onToggleStateChanged)
+        end
+    end)
+end
+
+-- ========== Anti-sit (kept) ==========
+local humanoid = nil
+player.CharacterAdded:Connect(function(char)
+    humanoid = char:WaitForChild("Humanoid")
+end)
+if player.Character then
+    humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+end
+
+RunService.Heartbeat:Connect(function()
+    if antiSitEnabled and humanoid then
+        if humanoid.Sit then
+            pcall(function()
+                humanoid.Sit = false
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end)
+        end
+    end
+end)
+
+-- ========== Cleanup (adjusted — do not destroy other UI) ==========
+local function safeCleanup()
+    running = false
+    antiSitEnabled = false
+    stopMovement()
+    -- Do NOT attempt to destroy shared UI in ScrollingTab.
+    -- If we created a ScreenGui earlier we'd remove it here, but now ToggleUI owns the button.
+    uiToggleButton = nil
+end
