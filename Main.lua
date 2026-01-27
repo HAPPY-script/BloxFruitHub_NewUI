@@ -567,6 +567,102 @@ UIStroke13.Thickness = 2
 UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke13.Parent = AutoFarmCakePrinceTitle
 
+local AutoChestButton = Instance.new("TextButton")
+AutoChestButton.Name = "AutoChestButton"
+AutoChestButton.Position = UDim2.new(0.85, 0, 0.28, 0)
+AutoChestButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+AutoChestButton.BackgroundColor3 = Color3.new(1, 0, 0)
+AutoChestButton.BackgroundTransparency = 0.75
+AutoChestButton.BorderSizePixel = 0
+AutoChestButton.BorderColor3 = Color3.new(0, 0, 0)
+AutoChestButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoChestButton.Transparency = 0.75
+AutoChestButton.Text = ""
+AutoChestButton.TextColor3 = Color3.new(0, 0, 0)
+AutoChestButton.TextSize = 14
+AutoChestButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoChestButton.Parent = Main
+
+local UICorner11 = Instance.new("UICorner")
+UICorner11.Name = "UICorner"
+UICorner11.CornerRadius = UDim.new(1, 0)
+UICorner11.Parent = AutoChestButton
+
+local UIStroke14 = Instance.new("UIStroke")
+UIStroke14.Name = "UIStroke"
+UIStroke14.Color = Color3.new(1, 0, 0)
+UIStroke14.Thickness = 2
+UIStroke14.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke14.Parent = AutoChestButton
+
+local Dot6 = Instance.new("Frame")
+Dot6.Name = "Dot"
+Dot6.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot6.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot6.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot6.BackgroundTransparency = 1
+Dot6.BorderSizePixel = 0
+Dot6.BorderColor3 = Color3.new(0, 0, 0)
+Dot6.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot6.Transparency = 1
+Dot6.Parent = AutoChestButton
+
+local UIAspectRatioConstraint6 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint6.Parent = Dot6
+
+local UICorner12 = Instance.new("UICorner")
+UICorner12.Name = "UICorner"
+UICorner12.CornerRadius = UDim.new(1, 0)
+UICorner12.Parent = Dot6
+
+local OnIcon6 = Instance.new("ImageLabel")
+OnIcon6.Name = "OnIcon"
+OnIcon6.Size = UDim2.new(1, 0, 1, 0)
+OnIcon6.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon6.BackgroundTransparency = 1
+OnIcon6.BorderSizePixel = 0
+OnIcon6.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon6.Transparency = 1
+OnIcon6.Image = "rbxassetid://133446041443660"
+OnIcon6.ImageTransparency = 1
+OnIcon6.Parent = Dot6
+
+local OffIcon6 = Instance.new("ImageLabel")
+OffIcon6.Name = "OffIcon"
+OffIcon6.Size = UDim2.new(1, 0, 1, 0)
+OffIcon6.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon6.BackgroundTransparency = 1
+OffIcon6.BorderSizePixel = 0
+OffIcon6.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon6.Transparency = 1
+OffIcon6.Image = "rbxassetid://109833067427302"
+OffIcon6.Parent = Dot6
+
+local AutoChestTitle = Instance.new("TextLabel")
+AutoChestTitle.Name = "AutoChestTitle"
+AutoChestTitle.Position = UDim2.new(0.375, 0, 0.28, 0)
+AutoChestTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+AutoChestTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+AutoChestTitle.BorderSizePixel = 0
+AutoChestTitle.BorderColor3 = Color3.new(0, 0, 0)
+AutoChestTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoChestTitle.Text = "Auto chest"
+AutoChestTitle.TextColor3 = Color3.new(1, 1, 1)
+AutoChestTitle.TextSize = 14
+AutoChestTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoChestTitle.TextScaled = true
+AutoChestTitle.TextWrapped = true
+AutoChestTitle.Parent = Main
+
+local UIStroke15 = Instance.new("UIStroke")
+UIStroke15.Name = "UIStroke"
+UIStroke15.Color = Color3.new(1, 1, 1)
+UIStroke15.Thickness = 2
+UIStroke15.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke15.Parent = AutoChestTitle
+
 local Frame = Main
 if not Frame then return end
 task.spawn(function()
