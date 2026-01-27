@@ -4283,38 +4283,159 @@ do
     end
 end
 
--- ========== Main automation loop (ToggleUI-based) ==========
+-- ========== Main automation loop & UI (giữ nguyên) ==========
 local running = false
 local uiToggleButton = nil
 local antiSitEnabled = false
 
--- Wait for ToggleUI helper (from other scripts)
+-- ========== Arena waypoint skip control (mới) ==========
+-- skippedWaypoints[index] = remainingRounds (integer)
+local skippedWaypoints = {}
+
+local function decrementWaypointSkips()
+    for idx, v in pairs(skippedWaypoints) do
+        skippedWaypoints[idx] = v - 1
+        if skippedWaypoints[idx] <= 0 then
+            skippedWaypoints[idx] = nil
+        end
+    end
+end
+
+-- Tìm waypoint gần nhất không bị skip. Nếu không còn cái nào, trả về nearest ignoring skip.
+local function findNearestAvailableWaypoint(fromPos)
+    if #ARENA == 0 then return nil end
+
+    local bestIdx, bestDist = nil, math.huge
+    -- first pass: look for non-skipped
+    for i = 1, #ARENA do
+        if ARENA[i] and ARENA[i].pos then
+            if not skippedWaypoints[i] then
+                local d = (ARENA[i].pos - fromPos).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    bestIdx = i
+                end
+            end
+        end
+    end
+
+    -- fallback: if all skipped, choose nearest ignoring skip
+    if not bestIdx then
+        for i = 1, #ARENA do
+            if ARENA[i] and ARENA[i].pos then
+                local d = (ARENA[i].pos - fromPos).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    bestIdx = i
+                end
+            end
+        end
+    end
+
+    return bestIdx, bestDist
+end
+
+local function runner()
+    while running do
+        if not findChestModelsFolder() then
+            task.wait(2)
+            if not running then break end
+        end
+
+        local hrp = getHRP()
+        -- chọn waypoint gần nhất không bị skip (hoặc fallback nearest)
+        local wpIndex, wpDist = findNearestAvailableWaypoint(hrp.Position)
+        if not wpIndex then
+            task.wait(1)
+            continue
+        end
+
+        local wp = ARENA[wpIndex]
+        if not wp then
+            task.wait(1)
+            continue
+        end
+
+        -- call support nếu có
+        if wp.support then
+            local tag = wp.supportTag or ("AutoChest_support_"..tostring(wpIndex).."_"..tostring(tick()))
+            callSupportAndWait(wp.support, tag, 25)
+            if not running then break end
+            task.wait(0.12)
+        end
+
+        stopMovement()
+        movingToWaypoint = true
+        local myToken = movementToken
+
+        -- di chuyển tới waypoint (không cần mid-teleport ở waypoint)
+        local arrived = moveOptimizedTo(wp.pos, false)
+        movingToWaypoint = false
+
+        -- nếu thành công (vẫn cùng token), cập nhật skip counts:
+        if arrived and movementToken == myToken then
+            -- giảm mọi skip hiện có (mỗi lần tới 1 waypoint = 1 lượt)
+            decrementWaypointSkips()
+            -- đặt waypoint hiện tại bị skip 10 lượt
+            skippedWaypoints[wpIndex] = 10
+        end
+
+        if not arrived or movementToken ~= myToken then
+            if not running then break end
+            -- nếu di chuyển bị huỷ, vòng lặp tiếp
+            task.wait(0.2)
+            continue
+        end
+
+        -- sau khi tới waypoint, làm nhiệm vụ thu thập
+        repeat
+            if not running then break end
+            local any = scanAndCollectInFolder()
+            if any == false then
+                local modelsNow = listChestModels()
+                if #modelsNow == 0 then break end
+            end
+            task.wait(0.12)
+        until not running
+
+        task.wait(ARENA_LOOP_DELAY)
+    end
+end
+
+-- ===== Replace old UI with ToggleUI integration (uses _G.ToggleUI, Frame "Main", button "AutoChestButton") =====
+-- Wait for ToggleUI helper to be available (blocks until provider registers it)
 repeat task.wait() until _G.ToggleUI
 local ToggleUI = _G.ToggleUI
 pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
 local BUTTON_NAME = "AutoChestButton"
 
--- ScrollingTab path (same UI root as other scripts)
+-- ScrollingTab path (same as your script)
 local ScrollingTab = player
     .PlayerGui
     :WaitForChild("BloxFruitHubGui")
     :WaitForChild("Main")
     :WaitForChild("ScrollingTab")
 
--- find button anywhere under ScrollingTab
-local button = ScrollingTab:FindFirstChild(BUTTON_NAME, true)
+-- find Main frame (search descendants) and the toggle button
+local MainFrame = ScrollingTab:FindFirstChild("Main", true) or ScrollingTab:WaitForChild("Main", 5)
+if not MainFrame then
+    warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
+end
+
+local button = nil
+if MainFrame then
+    button = MainFrame:FindFirstChild(BUTTON_NAME, true)
+end
 if not button then
-    warn("AutoChest: couldn't find button '" .. BUTTON_NAME .. "' under ScrollingTab")
-else
-    uiToggleButton = button
+    warn("Không tìm thấy button:", BUTTON_NAME)
 end
 
 -- ensure ToggleUI state exists (start OFF)
-ToggleUI.Refresh()
+pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
 
--- helper: exact color check (green = ON)
+-- helper: exact color check (0,255,0 => ON)
 local function isButtonOn()
     if not button then return false end
     local ok, c = pcall(function() return button.BackgroundColor3 end)
@@ -4325,20 +4446,19 @@ local function isButtonOn()
     return (r == 0 and g == 255 and b == 0)
 end
 
--- when UI color changes: start/stop runner accordingly
-local function onToggleStateChanged()
-    local enabled = isButtonOn()
-    if enabled and not running then
+-- drive running/antiSit based on button color
+local function setRunningFromButton()
+    local on = isButtonOn()
+    if on and (not running) then
         running = true
         antiSitEnabled = true
+        -- spawn runner, it will clear running/antiSit when done
         task.spawn(function()
             runner()
             running = false
             antiSitEnabled = false
-            -- ensure ToggleUI reflects off if runner finished by itself
-            pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
         end)
-    elseif (not enabled) and running then
+    elseif (not on) and running then
         -- stop
         running = false
         antiSitEnabled = false
@@ -4349,7 +4469,7 @@ local function onToggleStateChanged()
     end
 end
 
--- connect activation to request ToggleUI change (do not change color directly)
+-- clicking the button should request ToggleUI to flip the state (do not change color directly)
 if button then
     if button.Activated then
         button.Activated:Connect(function()
@@ -4361,20 +4481,20 @@ if button then
         end)
     end
 
-    -- color change watcher (small delay for ToggleUI tween)
+    -- when color changes: update internal flag and start/stop runner accordingly
     button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        task.delay(0.05, onToggleStateChanged)
-    end)
-
-    -- initialize according to current color
-    task.delay(0.05, function()
-        if isButtonOn() then
-            task.spawn(onToggleStateChanged)
-        end
+        -- small delay to allow ToggleUI animation to finish
+        task.delay(0.05, function()
+            setRunningFromButton()
+        end)
     end)
 end
 
--- ========== Anti-sit (kept) ==========
+-- initialize according to current color
+setRunningFromButton()
+-- =========================================================================================
+
+-- ========== Anti-sit ==========
 local humanoid = nil
 player.CharacterAdded:Connect(function(char)
     humanoid = char:WaitForChild("Humanoid")
@@ -4394,12 +4514,30 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ========== Cleanup (adjusted — do not destroy other UI) ==========
+-- ========== Cleanup ==========
 local function safeCleanup()
     running = false
     antiSitEnabled = false
     stopMovement()
-    -- Do NOT attempt to destroy shared UI in ScrollingTab.
-    -- If we created a ScreenGui earlier we'd remove it here, but now ToggleUI owns the button.
-    uiToggleButton = nil
+    if uiToggleButton and uiToggleButton.Parent then
+        pcall(function()
+            local parent = uiToggleButton.Parent.Parent
+            if parent and parent:IsA("ScreenGui") then parent:Destroy() end
+        end)
+    end
 end
+
+if typeof(script) == "Instance" and script.Destroying then
+    pcall(function() script.Destroying:Connect(safeCleanup) end)
+end
+if player and player:FindFirstChild("PlayerGui") then
+    local pg = player.PlayerGui
+    pcall(function()
+        pg.AncestryChanged:Connect(function()
+            if not pg:IsDescendantOf(game) then
+                safeCleanup()
+            end
+        end)
+    end)
+end
+-- End of script
