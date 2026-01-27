@@ -316,7 +316,6 @@ local BUTTON_TARGETS = {
     --=== SEA 3 ===--
     ["Port Town"] = Vector3.new(-444.92, 108.57, 5926.82),
     ["Hydra Island"] = Vector3.new(5293.66, 1032.16, 368.10),
-    ["Great Tree"] = Vector3.new(2850.98, 513.49, -7228.15),
     ["Mansion"] = Vector3.new(-12540.31, 381.95, -7516.82),
     ["Haunted Castle"] = Vector3.new(-9516.39, 153.77, 5510.51),
     ["IcecreamLand"] = Vector3.new(-740.71, 212.90, -10947.48),
@@ -325,6 +324,27 @@ local BUTTON_TARGETS = {
     ["Tiki Outpost"] = Vector3.new(-16230.67, 10, 436.11),
     ["Dojo"] = Vector3.new(5705.36, 1207.08, 916.71),
     ["Castle on the Sea"] = Vector3.new(-4992.52, 357.78, -3051.24),
+
+    ["Great Tree"] = {
+        teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 2),
+        Vector3.new(28611.04, 14900.85, 105.37),
+        teleportTo(Vector3.new(28611.04, 14900.85, 105.37), 60, 1),
+
+        call(function()
+            local remote = game:GetService("ReplicatedStorage").Remotes.CommF_
+            for i = 1, 5 do
+                pcall(function()
+                    remote:InvokeServer("RaceV4Progress", "TeleportBack")
+                end)
+                task.wait(0.25)
+            end
+        end),
+
+        teleportTo(Vector3.new(3028.84, 2280.90, -7324.78), 60, 1),
+
+		setY()
+		Vector3.new(2850.98, 513.49, -7228.15),
+	},
 
     ["Temple of Time"] = {
         teleportTo(Vector3.new(28286.36, 14896.55, 102.62), 60, 2),
