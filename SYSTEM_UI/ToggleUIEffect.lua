@@ -292,6 +292,57 @@ function ToggleUI.Set(buttonName, isOn)
 	data.State = isOn
 end
 
+-- ===== NEW: SetDefault -> set instantly without animation =====
+-- Usage: ToggleUI.SetDefault("ButtonName", true/false)
+function ToggleUI.SetDefault(buttonName, isOn)
+	local data = buttonMap[buttonName]
+	if not data then
+		scanUI()
+		data = buttonMap[buttonName]
+		if not data then
+			warn("[ToggleUI] Button not found (SetDefault):", buttonName)
+			return
+		end
+	end
+
+	-- Ensure we cancel any running tweens/animations first
+	cancelIconTweens(data)
+
+	-- compute targets
+	local base = data.BasePos
+	local targetX = isOn and X_ON or X_OFF
+	local color = isOn and COLOR_ON or COLOR_OFF
+
+	-- set Dot position instantly (no tween)
+	pcall(function()
+		data.Dot.Position = UDim2.new(
+			targetX,
+			base.X.Offset,
+			base.Y.Scale,
+			base.Y.Offset
+		)
+	end)
+
+	-- set button background and stroke instantly
+	pcall(function() data.Button.BackgroundColor3 = color end)
+	pcall(function() data.Stroke.Color = color end)
+
+	-- set icons deterministically (no rotation/animation)
+	local onIcon = safeFindIcon(data.Dot, "OnIcon")
+	local offIcon = safeFindIcon(data.Dot, "OffIcon")
+	if onIcon then
+		onIcon.Rotation = 0
+		onIcon.ImageTransparency = isOn and 0 or 1
+	end
+	if offIcon then
+		offIcon.Rotation = 0
+		offIcon.ImageTransparency = isOn and 1 or 0
+	end
+
+	-- set internal state
+	data.State = isOn
+end
+
 function ToggleUI.Refresh()
 	scanUI()
 end
@@ -300,3 +351,11 @@ end
 _G.ToggleUI = ToggleUI
 
 return ToggleUI
+
+--[[HOOK
+_G.ToggleUI.Set("ButtonName", true)   -- tween + animation
+_G.ToggleUI.Set("ButtonName", false)  -- tween + animation
+
+_G.ToggleUI.SetDefault("ButtonName", true)   -- bật ngay lập tức
+_G.ToggleUI.SetDefault("ButtonName", false)  -- tắt ngay lập tức
+]]
