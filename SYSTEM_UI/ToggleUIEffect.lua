@@ -292,8 +292,7 @@ function ToggleUI.Set(buttonName, isOn)
 	data.State = isOn
 end
 
--- ===== NEW: SetDefault -> set instantly without animation =====
--- Usage: ToggleUI.SetDefault("ButtonName", true/false)
+-- ===== NEW: SetDefault (robust, retry until fully applied) =====
 function ToggleUI.SetDefault(buttonName, isOn)
 	local data = buttonMap[buttonName]
 	if not data then
@@ -305,7 +304,7 @@ function ToggleUI.SetDefault(buttonName, isOn)
 		end
 	end
 
-	-- Ensure we cancel any running tweens/animations first
+	-- cancel/normalize any running animations first
 	cancelIconTweens(data)
 
 	-- compute targets
@@ -313,34 +312,100 @@ function ToggleUI.SetDefault(buttonName, isOn)
 	local targetX = isOn and X_ON or X_OFF
 	local color = isOn and COLOR_ON or COLOR_OFF
 
-	-- set Dot position instantly (no tween)
-	pcall(function()
-		data.Dot.Position = UDim2.new(
-			targetX,
-			base.X.Offset,
-			base.Y.Scale,
-			base.Y.Offset
-		)
+	-- bump token so any prior SetDefault loop is invalidated
+	data._setDefaultId = (data._setDefaultId or 0) + 1
+	local myId = data._setDefaultId
+
+	-- helper equality checks
+	local function near(a,b,eps)
+		eps = eps or 0.005
+		return math.abs(a - b) <= eps
+	end
+	local function colorNear(a,b)
+		local eps = 6/255 -- allow small color diff
+		return near(a.R, b.R, eps) and near(a.G, b.G, eps) and near(a.B, b.B, eps)
+	end
+
+	-- run async retry loop (non-blocking)
+	task.spawn(function()
+		-- quick initial apply to reduce visible flicker
+		pcall(function()
+			data.Dot.Position = UDim2.new(targetX, base.X.Offset, base.Y.Scale, base.Y.Offset)
+			data.Button.BackgroundColor3 = color
+			data.Stroke.Color = color
+		end)
+
+		-- icons references (may be nil)
+		local onIcon = safeFindIcon(data.Dot, "OnIcon")
+		local offIcon = safeFindIcon(data.Dot, "OffIcon")
+
+		-- We'll loop until all checks pass or a new SetDefault invalidates us
+		while data._setDefaultId == myId do
+			-- Re-apply deterministic values (instant)
+			pcall(function()
+				data.Dot.Position = UDim2.new(targetX, base.X.Offset, base.Y.Scale, base.Y.Offset)
+				data.Button.BackgroundColor3 = color
+				data.Stroke.Color = color
+			end)
+
+			-- set icons deterministically
+			if onIcon then
+				pcall(function()
+					onIcon.Rotation = 0
+					onIcon.ImageTransparency = isOn and 0 or 1
+				end)
+			end
+			if offIcon then
+				pcall(function()
+					offIcon.Rotation = 0
+					offIcon.ImageTransparency = isOn and 1 or 0
+				end)
+			end
+
+			-- verification: all pieces must match expected
+			local ok = true
+
+			-- verify dot X scale
+			local okPos, curPos = pcall(function() return data.Dot.Position end)
+			if not okPos or not curPos or not near(curPos.X.Scale, targetX, 0.006) then
+				ok = false
+			end
+
+			-- verify button color & stroke color
+			local okBtnCol, curBtnCol = pcall(function() return data.Button.BackgroundColor3 end)
+			if not okBtnCol or not colorNear(curBtnCol, color) then ok = false end
+			local okStrokeCol, curStrokeCol = pcall(function() return data.Stroke.Color end)
+			if not okStrokeCol or not colorNear(curStrokeCol, color) then ok = false end
+
+			-- verify icons
+			if onIcon then
+				local okOn, rotOn = pcall(function() return onIcon.Rotation end)
+				local okOnT, transOn = pcall(function() return onIcon.ImageTransparency end)
+				if (not okOn) or (not okOnT) or (not near((rotOn or 0) % 360, 0, 0.5)) or (not near(transOn or 1, (isOn and 0 or 1), 0.03)) then
+					ok = false
+				end
+			end
+			if offIcon then
+				local okOff, rotOff = pcall(function() return offIcon.Rotation end)
+				local okOffT, transOff = pcall(function() return offIcon.ImageTransparency end)
+				if (not okOff) or (not okOffT) or (not near((rotOff or 0) % 360, 0, 0.5)) or (not near(transOff or 1, (isOn and 1 or 0), 0.03)) then
+					ok = false
+				end
+			end
+
+			-- if everything matches -> success; normalize then exit
+			if ok then
+				-- force-normalize final visuals and state
+				cancelIconTweens(data) -- will set icons/transparencies according to data.State
+				data.State = isOn
+				return
+			end
+
+			-- else: brief wait and retry (allows other tweens to finish or properties to settle)
+			task.wait(0.06)
+		end
+		-- if invalidated by another call, simply exit
 	end)
-
-	-- set button background and stroke instantly
-	pcall(function() data.Button.BackgroundColor3 = color end)
-	pcall(function() data.Stroke.Color = color end)
-
-	-- set icons deterministically (no rotation/animation)
-	local onIcon = safeFindIcon(data.Dot, "OnIcon")
-	local offIcon = safeFindIcon(data.Dot, "OffIcon")
-	if onIcon then
-		onIcon.Rotation = 0
-		onIcon.ImageTransparency = isOn and 0 or 1
-	end
-	if offIcon then
-		offIcon.Rotation = 0
-		offIcon.ImageTransparency = isOn and 1 or 0
-	end
-
-	-- set internal state
-	data.State = isOn
 end
 
 function ToggleUI.Refresh()
