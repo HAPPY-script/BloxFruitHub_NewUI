@@ -4216,7 +4216,7 @@ do
                 TweenPoint(5238.61, 95.83, 744.30),
                 TweenPoint(61014.82, 96.51, 1316.77),
                 TweenPoint(5706.35, 188.92, 4364.42),
-                TweenPoint(-1716.87, 105.53, -3169.11),
+                TweenPoint(-1716.87, 105.53, -3169.11), --14
             }
         },
     
@@ -4235,7 +4235,7 @@ do
                 TweenPoint(3780.60, 119.36, -3499.44),
                 TweenPoint(432.57, 401.58, -5442.55),
                 TweenPoint(1293.03, 429.58, -5200.26),
-                TweenPoint(6561.01, 439.59, -6999.93),
+                TweenPoint(6561.01, 439.59, -6999.93), -- 13
             
             --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
             }
@@ -4254,7 +4254,7 @@ do
                 TweenPoint(291.32, 28.47, -12711.65),
                 TweenPoint(-16560.40, 201.88, 413.13),
                 TweenPoint(-5107.22, 443.48, -2967.22),
-                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"),
+                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
             }
         },
     
@@ -4283,7 +4283,40 @@ do
             warn("[ARENA] No arena points for this PlaceId:", pid)
         end
     end
+
+    -- store area key so we can adjust skip counts per area
+    local CURRENT_AREA_KEY = nil
     
+    do
+        local pid = game.PlaceId
+    
+        for areaID, data in pairs(AREA_DATA) do
+            if table.find(data.ids, pid) then
+                ARENA = data.arena or {}
+                CURRENT_AREA_KEY = areaID  -- <--- store which area we loaded
+                print("[ARENA] Loaded for:", areaID, "#", #ARENA)
+                break
+            end
+        end
+    
+        if #ARENA == 0 then
+            warn("[ARENA] No arena points for this PlaceId:", pid)
+        end
+    end
+    
+    -- return number of skip rounds for given areaKey
+    local function getSkipRounds(areaKey)
+        if areaKey == "Sea1" then
+            return 13
+        elseif areaKey == "Sea2" then
+            return 12
+        elseif areaKey == "Sea3" then
+            return 9
+        else
+            return 10 -- fallback default
+        end
+    end
+
     -- ========== Main automation loop & UI (giữ nguyên) ==========
     local running = false
     local uiToggleButton = nil
@@ -4377,8 +4410,8 @@ do
             if arrived and movementToken == myToken then
                 -- giảm mọi skip hiện có (mỗi lần tới 1 waypoint = 1 lượt)
                 decrementWaypointSkips()
-                -- đặt waypoint hiện tại bị skip 10 lượt
-                skippedWaypoints[wpIndex] = 10
+                -- đặt waypoint hiện tại bị skip N lượt dựa trên area
+                skippedWaypoints[wpIndex] = getSkipRounds(CURRENT_AREA_KEY)
             end
     
             if not arrived or movementToken ~= myToken then
