@@ -681,8 +681,8 @@ do
         return (r == 0 and g == 255 and b == 0)
     end
 
-    -- không tự động thay đổi màu. Yêu cầu: bật mặc định bằng lệnh
-    pcall(function() ToggleUI.Set(BUTTON_NAME, true) end)
+    -- không tự động thay đổi màu. Yêu cầu: bật mặc định bằng lệnh (DÙNG SetDefault để tránh animation bug)
+    pcall(function() ToggleUI.SetDefault(BUTTON_NAME, true) end)
 
     -- trạng thái nội bộ đồng bộ theo màu (không dùng attribute để điều khiển UI)
     local autoBuso = inferToggleOn(button)
@@ -761,14 +761,16 @@ do
 
     -- Expose toggle helper on shared (để các module khác có thể bật/tắt qua ToggleUI)
     shared = shared or {}
+    -- NOTE: SetDefault used here so external modules can set the button instantly (no animation)
     shared.ToggleAutoBuso = function(val)
-        pcall(function() ToggleUI.Set(BUTTON_NAME, val == true) end)
+        pcall(function() ToggleUI.SetDefault(BUTTON_NAME, val == true) end)
     end
 end
     --[[HOOK
 game.Players.LocalPlayer:SetAttribute("AutoBuso", true)  -- bật
 game.Players.LocalPlayer:SetAttribute("AutoBuso", false) -- tắt
     ]]
+
 --=== AUTO OBSERVE =======================================================================================================--
 
 do
