@@ -45,7 +45,7 @@ ScrollingSelectTab.BorderColor3 = Color3.new(0, 0, 0)
 ScrollingSelectTab.AnchorPoint = Vector2.new(0.5, 0.5)
 ScrollingSelectTab.Transparency = 1
 ScrollingSelectTab.Active = true
-ScrollingSelectTab.CanvasPosition = Vector2.new(0, 300)
+ScrollingSelectTab.CanvasSize = UDim2.new(0, 0, 2.5, 0)
 ScrollingSelectTab.ScrollBarImageColor3 = Color3.new(1, 0, 1)
 ScrollingSelectTab.ScrollBarThickness = 5
 ScrollingSelectTab.Parent = Main
@@ -65,7 +65,7 @@ UICorner2.Parent = ScrollingSelectTab
 
 local Main2 = Instance.new("ImageButton")
 Main2.Name = "Main"
-Main2.Position = UDim2.new(0.475, 0, 0.17, 0)
+Main2.Position = UDim2.new(0.475, 0, 0.14, 0)
 Main2.Size = UDim2.new(0.75, 0, 0.75, 0)
 Main2.BackgroundColor3 = Color3.new(1, 1, 1)
 Main2.BackgroundTransparency = 1
@@ -96,7 +96,7 @@ UICorner3.Parent = Main2
 
 local Status = Instance.new("ImageButton")
 Status.Name = "Status"
-Status.Position = UDim2.new(0.475, 0, 0.06, 0)
+Status.Position = UDim2.new(0.475, 0, 0.05, 0)
 Status.Size = UDim2.new(0.75, 0, 0.75, 0)
 Status.BackgroundColor3 = Color3.new(1, 1, 1)
 Status.BackgroundTransparency = 1
@@ -127,7 +127,7 @@ UICorner4.Parent = Status
 
 local Raid = Instance.new("ImageButton")
 Raid.Name = "Raid"
-Raid.Position = UDim2.new(0.475, 0, 0.28, 0)
+Raid.Position = UDim2.new(0.475, 0, 0.23, 0)
 Raid.Size = UDim2.new(0.75, 0, 0.75, 0)
 Raid.BackgroundColor3 = Color3.new(1, 1, 1)
 Raid.BackgroundTransparency = 1
@@ -158,7 +158,7 @@ UICorner5.Parent = Raid
 
 local Fruit = Instance.new("ImageButton")
 Fruit.Name = "Fruit"
-Fruit.Position = UDim2.new(0.475, 0, 0.39, 0)
+Fruit.Position = UDim2.new(0.475, 0, 0.32, 0)
 Fruit.Size = UDim2.new(0.75, 0, 0.75, 0)
 Fruit.BackgroundColor3 = Color3.new(1, 1, 1)
 Fruit.BackgroundTransparency = 1
@@ -189,7 +189,7 @@ UICorner6.Parent = Fruit
 
 local Visual = Instance.new("ImageButton")
 Visual.Name = "Visual"
-Visual.Position = UDim2.new(0.475, 0, 0.5, 0)
+Visual.Position = UDim2.new(0.475, 0, 0.41, 0)
 Visual.Size = UDim2.new(0.75, 0, 0.75, 0)
 Visual.BackgroundColor3 = Color3.new(1, 1, 1)
 Visual.BackgroundTransparency = 1
@@ -220,7 +220,7 @@ UICorner7.Parent = Visual
 
 local Player_Setting = Instance.new("ImageButton")
 Player_Setting.Name = "Player Setting"
-Player_Setting.Position = UDim2.new(0.475, 0, 0.61, 0)
+Player_Setting.Position = UDim2.new(0.475, 0, 0.5, 0)
 Player_Setting.Size = UDim2.new(0.75, 0, 0.75, 0)
 Player_Setting.BackgroundColor3 = Color3.new(1, 1, 1)
 Player_Setting.BackgroundTransparency = 1
@@ -251,7 +251,7 @@ UICorner8.Parent = Player_Setting
 
 local Combat = Instance.new("ImageButton")
 Combat.Name = "Combat"
-Combat.Position = UDim2.new(0.475, 0, 0.72, 0)
+Combat.Position = UDim2.new(0.475, 0, 0.59, 0)
 Combat.Size = UDim2.new(0.75, 0, 0.75, 0)
 Combat.BackgroundColor3 = Color3.new(1, 1, 1)
 Combat.BackgroundTransparency = 1
@@ -282,7 +282,7 @@ UICorner9.Parent = Combat
 
 local Island = Instance.new("ImageButton")
 Island.Name = "Island"
-Island.Position = UDim2.new(0.475, 0, 0.83, 0)
+Island.Position = UDim2.new(0.475, 0, 0.68, 0)
 Island.Size = UDim2.new(0.75, 0, 0.75, 0)
 Island.BackgroundColor3 = Color3.new(1, 1, 1)
 Island.BackgroundTransparency = 1
@@ -313,7 +313,7 @@ UICorner10.Parent = Island
 
 local Order = Instance.new("ImageButton")
 Order.Name = "Order"
-Order.Position = UDim2.new(0.475, 0, 0.94, 0)
+Order.Position = UDim2.new(0.475, 0, 0.86, 0)
 Order.Size = UDim2.new(0.75, 0, 0.75, 0)
 Order.BackgroundColor3 = Color3.new(1, 1, 1)
 Order.BackgroundTransparency = 1
@@ -341,6 +341,37 @@ local UICorner11 = Instance.new("UICorner")
 UICorner11.Name = "UICorner"
 UICorner11.CornerRadius = UDim.new(0.15, 0)
 UICorner11.Parent = Order
+
+local Sea_Even = Instance.new("ImageButton")
+Sea_Even.Name = "Sea Even"
+Sea_Even.Position = UDim2.new(0.475, 0, 0.77, 0)
+Sea_Even.Size = UDim2.new(0.75, 0, 0.75, 0)
+Sea_Even.BackgroundColor3 = Color3.new(1, 1, 1)
+Sea_Even.BackgroundTransparency = 1
+Sea_Even.BorderSizePixel = 0
+Sea_Even.BorderColor3 = Color3.new(0, 0, 0)
+Sea_Even.AnchorPoint = Vector2.new(0.5, 0.5)
+Sea_Even.Transparency = 1
+Sea_Even.Image = "rbxassetid://88579709096116"
+Sea_Even.Parent = ScrollingSelectTab
+
+local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint11.Parent = Sea_Even
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(1, 0, 1)
+UIStroke12.Thickness = 2
+UIStroke12.Transparency = 1
+UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke12.Parent = Sea_Even
+
+local UICorner12 = Instance.new("UICorner")
+UICorner12.Name = "UICorner"
+UICorner12.CornerRadius = UDim.new(0.15, 0)
+UICorner12.Parent = Sea_Even
 
 local TabName = Instance.new("TextLabel")
 TabName.Name = "TabName"
@@ -374,10 +405,10 @@ ScrollingTab.ScrollBarImageColor3 = Color3.new(1, 0, 1)
 ScrollingTab.ScrollBarThickness = 7
 ScrollingTab.Parent = Main
 
-local UICorner12 = Instance.new("UICorner")
-UICorner12.Name = "UICorner"
-UICorner12.CornerRadius = UDim.new(0.025, 0)
-UICorner12.Parent = ScrollingTab
+local UICorner13 = Instance.new("UICorner")
+UICorner13.Name = "UICorner"
+UICorner13.CornerRadius = UDim.new(0.025, 0)
+UICorner13.Parent = ScrollingTab
 
 local UIGradient = Instance.new("UIGradient")
 UIGradient.Name = "UIGradient"
@@ -398,15 +429,15 @@ TopButton.Transparency = 0.25
 TopButton.Image = "rbxassetid://12971937041"
 TopButton.Parent = Main
 
-local UICorner13 = Instance.new("UICorner")
-UICorner13.Name = "UICorner"
-UICorner13.CornerRadius = UDim.new(1, 0)
-UICorner13.Parent = TopButton
+local UICorner14 = Instance.new("UICorner")
+UICorner14.Name = "UICorner"
+UICorner14.CornerRadius = UDim.new(1, 0)
+UICorner14.Parent = TopButton
 
-local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
+local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
 
-UIAspectRatioConstraint11.Parent = TopButton
+UIAspectRatioConstraint12.Parent = TopButton
 
 local Button = Instance.new("ImageButton")
 Button.Name = "Button"
@@ -422,16 +453,16 @@ Button.Transparency = 0.5
 Button.Image = "rbxassetid://134538084411628"
 Button.Parent = BloxFruitHubGui
 
-local UICorner14 = Instance.new("UICorner")
-UICorner14.Name = "UICorner"
-UICorner14.CornerRadius = UDim.new(0.15, 0)
-UICorner14.Parent = Button
+local UICorner15 = Instance.new("UICorner")
+UICorner15.Name = "UICorner"
+UICorner15.CornerRadius = UDim.new(0.15, 0)
+UICorner15.Parent = Button
 
-local UIStroke12 = Instance.new("UIStroke")
-UIStroke12.Name = "UIStroke"
-UIStroke12.Color = Color3.new(1, 0, 1)
-UIStroke12.Transparency = 1
-UIStroke12.Parent = Button
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(1, 0, 1)
+UIStroke13.Transparency = 1
+UIStroke13.Parent = Button
 
 local White = Instance.new("Frame")
 White.Name = "White"
@@ -445,15 +476,15 @@ White.AnchorPoint = Vector2.new(0.5, 0.5)
 White.Transparency = 1
 White.Parent = BloxFruitHubGui
 
-local UICorner15 = Instance.new("UICorner")
-UICorner15.Name = "UICorner"
-UICorner15.CornerRadius = UDim.new(0.025, 0)
-UICorner15.Parent = White
+local UICorner16 = Instance.new("UICorner")
+UICorner16.Name = "UICorner"
+UICorner16.CornerRadius = UDim.new(0.025, 0)
+UICorner16.Parent = White
 
-local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
-UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
-UIAspectRatioConstraint12.AspectRatio = 1.649999976158142
-UIAspectRatioConstraint12.Parent = White
+local UIAspectRatioConstraint13 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint13.Name = "UIAspectRatioConstraint"
+UIAspectRatioConstraint13.AspectRatio = 1.649999976158142
+UIAspectRatioConstraint13.Parent = White
 
 local UIGradient2 = Instance.new("UIGradient")
 UIGradient2.Name = "UIGradient"
