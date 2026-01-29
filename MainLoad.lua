@@ -642,9 +642,9 @@ end
 
 print("Visual tab System 9/10✅")
 shared.load(0.9)
---[[
+
 local ok, err = pcall(function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Sea%20Even.lua"))()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Sea%20Even_System.lua"))()
 end)
 if not ok then
 	warn("[Sea_Even]: ", err)
@@ -652,7 +652,7 @@ end
 
 print("Sea even tab System 10/10✅")
 shared.load(0.95)
-]]
+
 print("✅COMPLETE✅")
 
 -- se
