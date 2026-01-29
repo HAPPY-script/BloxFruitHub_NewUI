@@ -1,4 +1,5 @@
 --=== AUTO BOAT DRIVE =======================================================================================================================--
+--=== AUTO BOAT DRIVE =======================================================================================================================--
 do
     local RunService = game:GetService("RunService")
     local UIS = game:GetService("UserInputService")
@@ -429,12 +430,91 @@ do
     			stopMovement()
     		end
     	end
-    
+
+    	-- ====== NEW: allowed PlaceID check & warning tween setup ======
+    	local ALLOWED_PLACE_IDS = {
+    		[7449423635] = true,
+    		[100117331123089] = true,
+    	}
+    	local function isPlaceAllowed()
+    		return ALLOWED_PLACE_IDS[tonumber(game.PlaceId)] == true
+    	end
+
+    	-- find UIStroke if exists (to tween stroke color too)
+    	local function findStroke(inst)
+    		for _, v in ipairs(inst:GetDescendants()) do
+    			if v:IsA("UIStroke") then return v end
+    		end
+    		return nil
+    	end
+    	local stroke = findStroke(toggleButton)
+    	local origBg = toggleButton.BackgroundColor3 or Color3.fromRGB(255,50,50)
+    	local origStroke = (stroke and stroke.Color) or nil
+    	local warnColor = Color3.fromRGB(255,255,0)
+    	local clickLock = false
+    	local animating = false
+
+    	local function tweenButtonToColor(targetColor, duration)
+    		duration = duration or 0.25
+    		local tweens = {}
+    		local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    		table.insert(tweens, TweenService:Create(toggleButton, info, { BackgroundColor3 = targetColor }))
+    		if stroke then
+    			table.insert(tweens, TweenService:Create(stroke, info, { Color = targetColor }))
+    		end
+    		for _, tw in ipairs(tweens) do pcall(function() tw:Play() end) end
+    		-- wait the duration (simple, reliable)
+    		task.wait(duration)
+    	end
+    	-- ====== END NEW ======
+
     	-- connect button activation to request ToggleUI change
     	if toggleButton.Activated then
-    		toggleButton.Activated:Connect(function() pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, not isButtonOn(toggleButton)) end) end)
+    		toggleButton.Activated:Connect(function()
+    			-- debounce small guard
+    			if clickLock or animating then return end
+    			clickLock = true
+    			task.delay(0.15, function() clickLock = false end)
+
+    			local requested = not isButtonOn(toggleButton)
+    			-- if requested ON but place not allowed -> animate warn and DO NOT toggle
+    			if requested and (not isPlaceAllowed()) then
+    				if animating then return end
+    				animating = true
+    				task.spawn(function()
+    					-- tween to warnColor then back
+    					tweenButtonToColor(warnColor, 0.25)
+    					task.wait(1)
+    					tweenButtonToColor(origBg, 0.25)
+    					animating = false
+    				end)
+    				return
+    			end
+
+    			-- allowed or turning off -> proceed normally
+    			pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, requested) end)
+    		end)
     	else
-    		toggleButton.MouseButton1Click:Connect(function() pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, not isButtonOn(toggleButton)) end) end)
+    		toggleButton.MouseButton1Click:Connect(function()
+    			if clickLock or animating then return end
+    			clickLock = true
+    			task.delay(0.15, function() clickLock = false end)
+
+    			local requested = not isButtonOn(toggleButton)
+    			if requested and (not isPlaceAllowed()) then
+    				if animating then return end
+    				animating = true
+    				task.spawn(function()
+    					tweenButtonToColor(warnColor, 0.25)
+    					task.wait(1)
+    					tweenButtonToColor(origBg, 0.25)
+    					animating = false
+    				end)
+    				return
+    			end
+
+    			pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, requested) end)
+    		end)
     	end
     
     	-- when color changes, update running state after small delay to allow ToggleUI tween
