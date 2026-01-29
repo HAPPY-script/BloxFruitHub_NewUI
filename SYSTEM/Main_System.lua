@@ -3729,9 +3729,6 @@ _G.BringMobGate2 = false  -- OFF
 
 --=== AUTO CHEST =====================================================================================================--
 
--- [Fixed] Arena automation: wait for support BEFORE setting STREAM_Y and moving
--- (places with support will call support and only on success set STREAM_Y = waypoint.Y)
-
 do
     local HttpService = game:GetService("HttpService")
     local RunService = game:GetService("RunService")
