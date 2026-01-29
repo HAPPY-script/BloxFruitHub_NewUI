@@ -19,8 +19,8 @@ do
     -- ==================================================================
     
     -- ===== Slider range / defaults / colors =====
-    local MIN_VAL = 20
-    local MAX_VAL = 300
+    local MIN_VAL = 30
+    local MAX_VAL = 200
     local DEFAULT_INIT = 125
     
     local COLOR_MIN = Color3.fromRGB(255, 0, 255)
