@@ -4201,7 +4201,70 @@ do
     end
     
     local AREA_DATA = {
-        -- (omitted for brevity in this snippet; use your AREA_DATA as before)
+        Sea1 = {
+            ids = { 85211729168715, 2753915549 },
+            arena = {
+                TweenPoint(-689.79, 15.52, 1583.28),
+                TweenPoint(1038.53, 80.89, 1289.06),
+                TweenPoint(-2987.78, 64.65, 2118.18),
+                TweenPoint(-1447.33, 62.01, -28.98),
+                TweenPoint(-1063.14, 60.27, 4032.97),
+                TweenPoint(1131.20, 20.75, 4342.33),
+                TweenPoint(1397.80, 88.27, -1344.01),
+                TweenPoint(-4937.35, 157.95, 4321.52),
+                TweenPoint(-4824.34, 789.57, -2593.36),
+                TweenPoint(-7704.47, 5545.65, -811.10),
+                TweenPoint(5238.61, 95.83, 744.30),
+                TweenPoint(61014.82, 96.51, 1316.77),
+                TweenPoint(5706.35, 188.92, 4364.42),
+                TweenPoint(-1716.87, 105.53, -3169.11), --14
+            }
+        },
+    
+        Sea2 = {
+            ids = { 79091703265657, 4442272183 },
+            arena = {
+                TweenPoint(-380.09, 227.12, 648.07),
+                TweenPoint(-2190.19, 201.88, -3226.08),
+                TweenPoint(916.50, 181.60, 33320.61),
+                TweenPoint(-5635.31, 187.16, -866.97),
+                TweenPoint(-6480.40, 305.54, -4733.06),
+                TweenPoint(-5167.09, 91.70, -5311.48),
+                TweenPoint(-2990.85, 27.13, -9849.51),
+                TweenPoint(-3181.70, 298.83, -10547.10),
+                TweenPoint(-3711.94, 77.45, -11469.75),
+                TweenPoint(3780.60, 119.36, -3499.44),
+                TweenPoint(432.57, 401.58, -5442.55),
+                TweenPoint(1293.03, 429.58, -5200.26),
+                TweenPoint(6561.01, 439.59, -6999.93), -- 13
+            
+            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
+            }
+        },
+    
+        Sea3 = {
+            ids = { 7449423635, 100117331123089 },
+            arena = {
+                TweenPoint(-445.27, 108.73, 5929.45),
+                TweenPoint(5183.74, 22.43, 76.54),
+                TweenPoint(2895.32, 509.45, -7346.18),
+                TweenPoint(-12553.24, 459.64, -7496.05),
+                TweenPoint(-10990.16, 551.82, -10179.43),
+                TweenPoint(-9514.80, 164.14, 5786.82),
+                TweenPoint(-1615.79, 87.40, -11072.71),
+                TweenPoint(291.32, 28.47, -12711.65),
+                TweenPoint(-16560.40, 201.88, 413.13),
+                TweenPoint(-5107.22, 443.48, -2967.22),
+                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
+            }
+        },
+    
+        Dungeon = {
+            ids = { 73902483975735 },
+            arena = {
+                TweenPoint(0, 100, 0),
+            }
+        }
     }
     
     local ARENA = {}
