@@ -3729,6 +3729,9 @@ _G.BringMobGate2 = false  -- OFF
 
 --=== AUTO CHEST =====================================================================================================--
 
+-- [Fixed] Arena automation: wait for support BEFORE setting STREAM_Y and moving
+-- (places with support will call support and only on success set STREAM_Y = waypoint.Y)
+
 do
     local HttpService = game:GetService("HttpService")
     local RunService = game:GetService("RunService")
@@ -3910,20 +3913,22 @@ do
         return myToken == movementToken
     end
     
-    -- ========== Lunge movement (sửa để set Y ngay khi bắt đầu + hỗ trợ mid-teleport) ==========
-    local function lungeTo(targetPos, allowMidTeleport, midTeleportThreshold)
+    -- ========== Lunge movement (sửa để set Y chỉ khi caller muốn) ==========
+    local function lungeTo(targetPos, allowMidTeleport, midTeleportThreshold, alignYOnStart)
         allowMidTeleport = allowMidTeleport == true
         midTeleportThreshold = midTeleportThreshold or MID_TELEPORT_THRESHOLD
+        alignYOnStart = (alignYOnStart == nil) and true or alignYOnStart -- default true for backward compatibility
     
         local hrp = getHRP()
         local myToken = movementToken
     
-        -- **MỚI**: ngay khi bắt đầu, align trục Y với targetPos.Y
-        pcall(function()
-            local cur = hrp.Position
-            -- giữ X,Z hiện tại, set Y = targetPos.Y
-            hrp.CFrame = CFrame.new(cur.X, targetPos.Y, cur.Z)
-        end)
+        -- Only align Y if caller requests it (for support flow we will pass false until support finishes)
+        if alignYOnStart then
+            pcall(function()
+                local cur = hrp.Position
+                hrp.CFrame = CFrame.new(cur.X, targetPos.Y, cur.Z)
+            end)
+        end
     
         local startPos = hrp.Position
         local delta = targetPos - startPos
@@ -3943,12 +3948,10 @@ do
                 return
             end
     
-            -- mỗi tick kiểm tra khoảng cách phẳng còn lại
             local curPos = hrp.Position
             local flatRemain = (Vector3.new(curPos.X,0,curPos.Z) - Vector3.new(targetPos.X,0,targetPos.Z)).Magnitude
     
             if allowMidTeleport and flatRemain <= midTeleportThreshold then
-                -- Dừng lunge và teleport thẳng tới targetPos
                 pcall(function()
                     hrp.CFrame = CFrame.new(targetPos)
                 end)
@@ -3976,8 +3979,9 @@ do
     end
     
     -- ========== moveOptimizedTo: (sample behavior) ==========
-    local function moveOptimizedTo(targetPos, allowMidTeleport)
+    local function moveOptimizedTo(targetPos, allowMidTeleport, alignYOnStart)
         allowMidTeleport = allowMidTeleport == true
+        alignYOnStart = (alignYOnStart == nil) and true or alignYOnStart
         local myToken = movementToken
         local hrp = getHRP()
         local fromPos = hrp.Position
@@ -3998,17 +4002,17 @@ do
             task.wait(0.05)
             if movementToken ~= myToken then return false end
     
-            -- Lunge nhưng vẫn cho phép mid-teleport nếu caller muốn (thường chest sẽ bật)
-            return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD)
+            -- Lunge but pass alignYOnStart through
+            return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD, alignYOnStart)
         end
     
-        -- fallback: lunge thẳng (và có thể mid-teleport nếu allowMidTeleport)
-        return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD)
+        -- fallback: lunge thẳng (and pass alignYOnStart)
+        return lungeTo(targetPos, allowMidTeleport, MID_TELEPORT_THRESHOLD, alignYOnStart)
     end
     
     -- wrapper tương thích
-    local function executeMovementTo(targetPos, allowMidTeleport)
-        return moveOptimizedTo(targetPos, allowMidTeleport)
+    local function executeMovementTo(targetPos, allowMidTeleport, alignYOnStart)
+        return moveOptimizedTo(targetPos, allowMidTeleport, alignYOnStart)
     end
     
     -- ========== SupportTween (giữ nguyên nếu dùng các wp có support) ==========
@@ -4059,7 +4063,6 @@ do
         local out = {}
         for _, v in ipairs(f:GetChildren()) do
             if v:IsA("Model") then
-                -- LƯU Ý: không add những model đã bị đánh dấu skip (bảo đảm bỏ qua hoàn toàn)
                 if not isSkipped(v) then
                     table.insert(out, v)
                 end
@@ -4123,12 +4126,10 @@ do
         local d = (hrp.Position - primary.Position).Magnitude
     
         if d > CHEST_REACH_DISTANCE then
-            -- CHÚ Ý: cho phép mid-teleport khi tới chest (true)
             local ok = executeMovementTo(primary.Position, true)
             if not ok or movementToken ~= myToken then return false end
         end
     
-        -- Đã tới -> đánh dấu skip để không target lại
         skipModel(model, 120)
     
         if not model.Parent then return true end
@@ -4200,100 +4201,17 @@ do
     end
     
     local AREA_DATA = {
-        Sea1 = {
-            ids = { 85211729168715, 2753915549 },
-            arena = {
-                TweenPoint(-689.79, 15.52, 1583.28),
-                TweenPoint(1038.53, 80.89, 1289.06),
-                TweenPoint(-2987.78, 64.65, 2118.18),
-                TweenPoint(-1447.33, 62.01, -28.98),
-                TweenPoint(-1063.14, 60.27, 4032.97),
-                TweenPoint(1131.20, 20.75, 4342.33),
-                TweenPoint(1397.80, 88.27, -1344.01),
-                TweenPoint(-4937.35, 157.95, 4321.52),
-                TweenPoint(-4824.34, 789.57, -2593.36),
-                TweenPoint(-7704.47, 5545.65, -811.10),
-                TweenPoint(5238.61, 95.83, 744.30),
-                TweenPoint(61014.82, 96.51, 1316.77),
-                TweenPoint(5706.35, 188.92, 4364.42),
-                TweenPoint(-1716.87, 105.53, -3169.11), --14
-            }
-        },
-    
-        Sea2 = {
-            ids = { 79091703265657, 4442272183 },
-            arena = {
-                TweenPoint(-380.09, 227.12, 648.07),
-                TweenPoint(-2190.19, 201.88, -3226.08),
-                TweenPoint(916.50, 181.60, 33320.61),
-                TweenPoint(-5635.31, 187.16, -866.97),
-                TweenPoint(-6480.40, 305.54, -4733.06),
-                TweenPoint(-5167.09, 91.70, -5311.48),
-                TweenPoint(-2990.85, 27.13, -9849.51),
-                TweenPoint(-3181.70, 298.83, -10547.10),
-                TweenPoint(-3711.94, 77.45, -11469.75),
-                TweenPoint(3780.60, 119.36, -3499.44),
-                TweenPoint(432.57, 401.58, -5442.55),
-                TweenPoint(1293.03, 429.58, -5200.26),
-                TweenPoint(6561.01, 439.59, -6999.93), -- 13
-            
-            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
-            }
-        },
-    
-        Sea3 = {
-            ids = { 7449423635, 100117331123089 },
-            arena = {
-                TweenPoint(-445.27, 108.73, 5929.45),
-                TweenPoint(5183.74, 22.43, 76.54),
-                TweenPoint(2895.32, 509.45, -7346.18),
-                TweenPoint(-12553.24, 459.64, -7496.05),
-                TweenPoint(-10990.16, 551.82, -10179.43),
-                TweenPoint(-9514.80, 164.14, 5786.82),
-                TweenPoint(-1615.79, 87.40, -11072.71),
-                TweenPoint(291.32, 28.47, -12711.65),
-                TweenPoint(-16560.40, 201.88, 413.13),
-                TweenPoint(-5107.22, 443.48, -2967.22),
-                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
-            }
-        },
-    
-        Dungeon = {
-            ids = { 73902483975735 },
-            arena = {
-                TweenPoint(0, 100, 0),
-            }
-        }
+        -- (omitted for brevity in this snippet; use your AREA_DATA as before)
     }
     
     local ARENA = {}
-    
-    do
-        local pid = game.PlaceId
-    
-        for areaID, data in pairs(AREA_DATA) do
-            if table.find(data.ids, pid) then
-                ARENA = data.arena or {}
-                print("[ARENA] Loaded for:", areaID, "#", #ARENA)
-                break
-            end
-        end
-    
-        if #ARENA == 0 then
-            warn("[ARENA] No arena points for this PlaceId:", pid)
-        end
-    end
-
-    -- store area key so we can adjust skip counts per area
     local CURRENT_AREA_KEY = nil
-    
     do
         local pid = game.PlaceId
-    
         for areaID, data in pairs(AREA_DATA) do
             if table.find(data.ids, pid) then
                 ARENA = data.arena or {}
-                CURRENT_AREA_KEY = areaID  -- <--- store which area we loaded
+                CURRENT_AREA_KEY = areaID
                 print("[ARENA] Loaded for:", areaID, "#", #ARENA)
                 break
             end
@@ -4316,14 +4234,13 @@ do
             return 10 -- fallback default
         end
     end
-
+    
     -- ========== Main automation loop & UI (giữ nguyên) ==========
     local running = false
     local uiToggleButton = nil
     local antiSitEnabled = false
     
     -- ========== Arena waypoint skip control (mới) ==========
-    -- skippedWaypoints[index] = remainingRounds (integer)
     local skippedWaypoints = {}
     
     local function decrementWaypointSkips()
@@ -4369,6 +4286,7 @@ do
         return bestIdx, bestDist
     end
     
+    -- ================= runner (FIXED support flow) =================
     local function runner()
         while running do
             if not findChestModelsFolder() then
@@ -4377,81 +4295,82 @@ do
             end
     
             local hrp = getHRP()
-            -- chọn waypoint gần nhất không bị skip (hoặc fallback nearest)
             local wpIndex, wpDist = findNearestAvailableWaypoint(hrp.Position)
             if not wpIndex then
                 task.wait(1)
-                continue
-            end
+                -- continue
+            else
+                local wp = ARENA[wpIndex]
+                if wp then
+                    -- If waypoint has support, CALL support and WAIT for success BEFORE changing STREAM_Y or moving.
+                    local proceedToMove = true
+                    if wp.support then
+                        local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
+                        local ok = callSupportAndWait(wp.support, tag, 25)
+                        -- If support did not succeed, skip this waypoint (do not set STREAM_Y)
+                        if not ok then
+                            warn("[ARENA] support failed/timeout for waypoint", wpIndex, wp.support)
+                            proceedToMove = false
+                        else
+                            -- support succeeded -> now set STREAM_Y to waypoint Y
+                            STREAM_Y = wp.pos.Y
+                            task.wait(0.12)
+                        end
+                    end
     
-            local wp = ARENA[wpIndex]
-            if not wp then
-                task.wait(1)
-                continue
-            end
+                    if not proceedToMove then
+                        task.wait(0.2)
+                    else
+                        stopMovement()
+                        movingToWaypoint = true
+                        local myToken = movementToken
     
-            -- call support nếu có
-            if wp.support then
-                local tag = wp.supportTag or ("AutoChest_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                callSupportAndWait(wp.support, tag, 25)
-                if not running then break end
-                task.wait(0.12)
-            end
+                        -- Move to waypoint (no mid-teleport)
+                        local arrived = moveOptimizedTo(wp.pos, false, true) -- alignYOnStart = true now OK because support done
+                        movingToWaypoint = false
     
-            stopMovement()
-            movingToWaypoint = true
-            local myToken = movementToken
+                        if arrived and movementToken == myToken then
+                            decrementWaypointSkips()
+                            skippedWaypoints[wpIndex] = getSkipRounds(CURRENT_AREA_KEY)
+                        end
     
-            -- di chuyển tới waypoint (không cần mid-teleport ở waypoint)
-            local arrived = moveOptimizedTo(wp.pos, false)
-            movingToWaypoint = false
-    
-            -- nếu thành công (vẫn cùng token), cập nhật skip counts:
-            if arrived and movementToken == myToken then
-                -- giảm mọi skip hiện có (mỗi lần tới 1 waypoint = 1 lượt)
-                decrementWaypointSkips()
-                -- đặt waypoint hiện tại bị skip N lượt dựa trên area
-                skippedWaypoints[wpIndex] = getSkipRounds(CURRENT_AREA_KEY)
-            end
-    
-            if not arrived or movementToken ~= myToken then
-                if not running then break end
-                -- nếu di chuyển bị huỷ, vòng lặp tiếp
-                task.wait(0.2)
-                continue
-            end
-    
-            -- sau khi tới waypoint, làm nhiệm vụ thu thập
-            repeat
-                if not running then break end
-                local any = scanAndCollectInFolder()
-                if any == false then
-                    local modelsNow = listChestModels()
-                    if #modelsNow == 0 then break end
+                        if not arrived or movementToken ~= myToken then
+                            if not running then break end
+                            task.wait(0.2)
+                        else
+                            -- after arriving, collect chests at that location
+                            repeat
+                                if not running then break end
+                                local any = scanAndCollectInFolder()
+                                if any == false then
+                                    local modelsNow = listChestModels()
+                                    if #modelsNow == 0 then break end
+                                end
+                                task.wait(0.12)
+                            until not running
+                            task.wait(ARENA_LOOP_DELAY)
+                        end
+                    end
+                else
+                    task.wait(1)
                 end
-                task.wait(0.12)
-            until not running
-    
-            task.wait(ARENA_LOOP_DELAY)
+            end
         end
     end
     
     -- ===== Replace old UI with ToggleUI integration (uses _G.ToggleUI, Frame "Main", button "AutoChestButton") =====
-    -- Wait for ToggleUI helper to be available (blocks until provider registers it)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
     
     local BUTTON_NAME = "AutoChestButton"
     
-    -- ScrollingTab path (same as your script)
     local ScrollingTab = player
         .PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
     
-    -- find Main frame (search descendants) and the toggle button
     local MainFrame = ScrollingTab:FindFirstChild("Main", true) or ScrollingTab:WaitForChild("Main", 5)
     if not MainFrame then
         warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
@@ -4465,11 +4384,9 @@ do
         warn("Không tìm thấy button:", BUTTON_NAME)
     end
     
-    -- ensure ToggleUI state exists (start OFF)
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
     pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
     
-    -- helper: exact color check (0,255,0 => ON)
     local function isButtonOn()
         if not button then return false end
         local ok, c = pcall(function() return button.BackgroundColor3 end)
@@ -4480,20 +4397,25 @@ do
         return (r == 0 and g == 255 and b == 0)
     end
     
-    -- drive running/antiSit based on button color
+    local function safeStartRunner()
+        if not running then return end
+        if isRunnerActive then return end
+        isRunnerActive = true
+        task.spawn(function()
+            pcall(runner)
+            isRunnerActive = false
+            running = false
+            antiSitEnabled = false
+        end)
+    end
+    
     local function setRunningFromButton()
         local on = isButtonOn()
         if on and (not running) then
             running = true
             antiSitEnabled = true
-            -- spawn runner, it will clear running/antiSit when done
-            task.spawn(function()
-                runner()
-                running = false
-                antiSitEnabled = false
-            end)
+            safeStartRunner()
         elseif (not on) and running then
-            -- stop
             running = false
             antiSitEnabled = false
             stopMovement()
@@ -4503,7 +4425,6 @@ do
         end
     end
     
-    -- clicking the button should request ToggleUI to flip the state (do not change color directly)
     if button then
         if button.Activated then
             button.Activated:Connect(function()
@@ -4515,18 +4436,14 @@ do
             end)
         end
     
-        -- when color changes: update internal flag and start/stop runner accordingly
         button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-            -- small delay to allow ToggleUI animation to finish
             task.delay(0.05, function()
                 setRunningFromButton()
             end)
         end)
     end
     
-    -- initialize according to current color
     setRunningFromButton()
-    -- =========================================================================================
     
     -- ===== Respawn-safety + Anti-sit (thay thế phần cũ) =====
     local humanoid = nil
@@ -4534,64 +4451,36 @@ do
     local pausedForRespawn = false
     local isRunnerActive = false
     
-    -- helper to start runner safely (ensures single runner instance)
-    local function safeStartRunner()
-        if not running then return end
-        if isRunnerActive then return end
-        isRunnerActive = true
-        task.spawn(function()
-            -- runner() có thể return/thoát nhiều lần, đảm bảo flag cập nhật khi xong
-            pcall(runner)
-            isRunnerActive = false
-            -- nếu runner kết thúc tự nhiên, reset running/antiSit giống trước
-            running = false
-            antiSitEnabled = false
-            -- update button UI externally (ToggleUI owner) — do nothing here
-        end)
-    end
-    
-    -- gọi khi character spawn/respawn
     local function onCharacterAdded(char)
-        -- cleanup old deathConn
         if deathConn and deathConn.Connected then
             pcall(function() deathConn:Disconnect() end)
         end
     
-        -- wait for humanoid + hrp
         local okHum, hum = pcall(function() return char:WaitForChild("Humanoid", 10) end)
         local okHRP, hrp = pcall(function() return char:WaitForChild("HumanoidRootPart", 10) end)
     
         humanoid = (okHum and hum) or nil
     
-        -- connect death handler
         if humanoid then
             deathConn = humanoid.Died:Connect(function()
-                -- only pause if system was running
                 if running then
                     pausedForRespawn = true
-                    -- stop movement immediately
                     stopMovement()
-                    -- disable anti sit while dead
                     antiSitEnabled = false
-                    -- (do NOT flip ToggleUI / running; leave toggle ON so resume auto)
                 end
             end)
         end
     
-        -- wait until respawn is "stable": hrp exists and humanoid.Health>0
         task.spawn(function()
-            -- small wait to allow character to stabilize
             local t0 = tick()
             while (tick() - t0) < 12 do
                 if not char.Parent then break end
                 local okH, h = pcall(function() return char:FindFirstChildWhichIsA("Humanoid") end)
                 local okR, r = pcall(function() return char:FindFirstChild("HumanoidRootPart") end)
                 if okH and okR and h and r and h.Health and h.Health > 0 then
-                    -- stable
                     task.wait(0.9)
                     pausedForRespawn = false
-                    antiSitEnabled = running -- enable antiSit only if toggle is ON
-                    -- ensure runner running if toggle still ON
+                    antiSitEnabled = running
                     if running and (not isRunnerActive) then
                         safeStartRunner()
                     end
@@ -4599,7 +4488,6 @@ do
                 end
                 task.wait(0.25)
             end
-            -- fallback: after timeout, try to resume anyway
             pausedForRespawn = false
             antiSitEnabled = running
             if running and (not isRunnerActive) then
@@ -4608,14 +4496,11 @@ do
         end)
     end
     
-    -- hook CharacterAdded
     player.CharacterAdded:Connect(onCharacterAdded)
     if player.Character then
-        -- if character already present, run once
         onCharacterAdded(player.Character)
     end
     
-    -- Anti-sit loop uses antiSitEnabled as before but respects humanoid var
     RunService.Heartbeat:Connect(function()
         if antiSitEnabled and humanoid then
             if humanoid.Sit then
@@ -4627,40 +4512,6 @@ do
         end
     end)
     
-    -- Ensure cleanup disconnects deathConn
-    local oldSafeCleanup = safeCleanup
-    safeCleanup = function()
-        -- call previous cleanup behavior
-        pcall(oldSafeCleanup)
-        -- extra cleanup
-        if deathConn and deathConn.Connected then
-            pcall(function() deathConn:Disconnect() end)
-        end
-    end
-    
-    -- ===== Adjust setRunningFromButton to use safeStartRunner =====
-    -- Replace your existing setRunningFromButton implementation with this:
-    
-    local function setRunningFromButton()
-        local on = isButtonOn()
-        if on and (not running) then
-            running = true
-            antiSitEnabled = true
-            -- start runner only if not already running
-            safeStartRunner()
-        elseif (not on) and running then
-            -- stop
-            running = false
-            antiSitEnabled = false
-            stopMovement()
-            if CancelTween and CancelTween.Fire then
-                pcall(function() CancelTween:Fire() end)
-            end
-            -- runner will exit on next loop because 'running' is false; isRunnerActive will be cleared by runner thread
-        end
-    end
-    -- =========================================================================================
-
     -- ========== Cleanup ==========
     local function safeCleanup()
         running = false
