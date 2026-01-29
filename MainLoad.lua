@@ -506,52 +506,57 @@ end)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/MainUI.lua"))()
 
-print("Main UI 1/10✅")
+print("Main UI 1/11✅")
 shared.load(0.025)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Status.lua"))()
 
-print("Status 2/10✅")
+print("Status 2/11✅")
 shared.load(0.04)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Main.lua"))()
 
-print("Main 3/10✅")
+print("Main 3/11✅")
 shared.load(0.06)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Raid.lua"))()
 
-print("Raid 4/10✅")
+print("Raid 4/11✅")
 shared.load(0.075)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Fruit.lua"))()
 
-print("Fruit 5/10✅")
+print("Fruit 5/11✅")
 shared.load(0.085)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Visual.lua"))()
 
-print("Visual 6/10✅")
+print("Visual 6/11✅")
 shared.load(0.095)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Player%20Setting.lua"))()
 
-print("Player Setting 7/10✅")
+print("Player Setting 7/11✅")
 shared.load(0.125)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Combat.lua"))()
 
-print("Combat 8/10✅")
+print("Combat 8/11✅")
 shared.load(0.175)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Island.lua"))()
 
-print("Island 9/10✅")
+print("Island 9/11✅")
 shared.load(0.25)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Sea%20Even.lua"))()
+
+print("Sea even 10/11✅")
+shared.load(0.275)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Order.lua"))()
 
-print("Order 10/10✅")
+print("Order 11/11✅")
 shared.load(0.3)
 
 print(">================================================================================================<")
