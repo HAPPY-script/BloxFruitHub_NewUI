@@ -572,28 +572,28 @@ print(">========================================================================
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
 
-print("Status tab System 1/9✅")
+print("Status tab System 1/10✅")
 shared.load(0.475)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
 
-print("Main tab System 2/9✅")
-shared.load(0.55)
+print("Main tab System 2/10✅")
+shared.load(0.5)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
 
-print("Raid tab System 3/9✅")
-shared.load(0.625)
+print("Raid tab System 3/10✅")
+shared.load(0.55)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
 
-print("Combat tab System 4/9✅")
-shared.load(0.7)
+print("Combat tab System 4/10✅")
+shared.load(0.625)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua"))()
 
-print("Player Setting tab System 5/9✅")
-shared.load(0.775)
+print("Player Setting tab System 5/10✅")
+shared.load(0.7)
 
 local ok, err = pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua"))()
@@ -603,8 +603,8 @@ if not ok then
     warn("[Island_System]:", err)
 end
 
-print("Island tab System 6/9✅")
-shared.load(0.85)
+print("Island tab System 6/10✅")
+shared.load(0.775)
 
 local ok, err = pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Order_System.lua"))()
@@ -614,8 +614,8 @@ if not ok then
     warn("[Order_System]:", err)
 end
 
-print("Order tab System 7/9✅")
-shared.load(0.875)
+print("Order tab System 7/10✅")
+shared.load(0.85)
 
 local ok, err = pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Fruit_System.lua"))()
@@ -625,8 +625,8 @@ if not ok then
     warn("[Fruit_System]:", err)
 end
 
-print("Fruit tab System 8/9✅")
-shared.load(0.9)
+print("Fruit tab System 8/10✅")
+shared.load(0.875)
 
 local ok, err = pcall(function()
 	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Visual_System.lua"))()
@@ -635,9 +635,19 @@ if not ok then
 	warn("[Visual_System]: ", err)
 end
 
-print("Visual tab System 9/9✅")
-shared.load(0.95)
+print("Visual tab System 9/10✅")
+shared.load(0.9)
+--[[
+local ok, err = pcall(function()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Sea%20Even.lua"))()
+end)
+if not ok then
+	warn("[Sea_Even]: ", err)
+end
 
+print("Sea even tab System 10/10✅")
+shared.load(0.95)
+]]
 print("✅COMPLETE✅")
 
 -- se
@@ -696,7 +706,7 @@ if currentGameId == BLOX_FRUITS_GAME_ID or currentGameId == BLOX_FRUITS_GAME_ID2
     print("✅✅ Sea Protection Active (Single Layer) ✅✅")
 
 else
-    warn("⚠️ Script Sea Protection chỉ hoạt động trong game Blox Fruits.")
+    warn("⚠️ Script Sea Protection chỉ hoạt động trong Blox Fruits (S1-2-3).")
 end
 
 shared.load(1)
