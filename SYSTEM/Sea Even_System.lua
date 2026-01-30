@@ -1,5 +1,4 @@
---=== AUTO BOAT DRIVE =======================================================================================================================--
---=== AUTO BOAT DRIVE =======================================================================================================================--
+--=== AUTO BOAT DRIVE =============================================================================================--
 do
     local RunService = game:GetService("RunService")
     local UIS = game:GetService("UserInputService")
@@ -41,6 +40,7 @@ do
     
     -- ===== Slider core state =====
     local dragging = false
+    local draggingInput = nil            -- <--- tracks the active Input instance (for touch)
     local valueAlpha = 0 -- 0..1
     local tweenInfo = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local textboxEditing = false
@@ -133,32 +133,64 @@ do
     	onSliderValueChanged(valNum)
     end
     
-    local function getAlphaFromMouse(x)
+    local function getAlphaFromScreenX(x)
     	local bx = Bar.AbsolutePosition.X
     	local bw = Bar.AbsoluteSize.X
     	if not bw or bw == 0 then return 0 end
     	return (x - bx) / bw
     end
     
-    -- ===== Slider input wiring =====
-    Knob.InputBegan:Connect(function(i)
-    	if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
-    end)
-    
-    Bar.InputBegan:Connect(function(i)
-    	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+    -- ===== Slider input wiring (desktop + mobile) =====
+    -- Knob / Bar InputBegan should accept MouseButton1 OR Touch
+    Knob.InputBegan:Connect(function(input)
+    	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
     		dragging = true
-    		apply(getAlphaFromMouse(UIS:GetMouseLocation().X), true)
+    		draggingInput = input
     	end
     end)
     
-    UIS.InputEnded:Connect(function(i)
-    	if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    Bar.InputBegan:Connect(function(input)
+    	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    		dragging = true
+    		draggingInput = input
+    		-- use input.Position for touch, UIS:GetMouseLocation for mouse
+    		local x = (input.UserInputType == Enum.UserInputType.Touch) and input.Position.X or UIS:GetMouseLocation().X
+    		apply(getAlphaFromScreenX(x), true)
+    	end
     end)
     
+    -- stop dragging on InputEnded for the tracked input
+    UIS.InputEnded:Connect(function(input)
+    	-- if mouse button released
+    	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    		dragging = false
+    		draggingInput = nil
+    	-- if touch ended and matches draggingInput
+    	elseif input.UserInputType == Enum.UserInputType.Touch then
+    		if draggingInput and input == draggingInput then
+    			dragging = false
+    			draggingInput = nil
+    		end
+    	end
+    end)
+    
+    -- For touch movement, respond to InputChanged of the tracked touch
+    UIS.InputChanged:Connect(function(input)
+    	if not dragging then return end
+    	-- If we're tracking a touch input, only update when that input changes
+    	if draggingInput and input == draggingInput and input.UserInputType == Enum.UserInputType.Touch then
+    		apply(getAlphaFromScreenX(input.Position.X), true)
+    	end
+    end)
+    
+    -- Keep RenderStepped for mouse-based dragging (works on desktop)
     RunService.RenderStepped:Connect(function()
     	if dragging then
-    		apply(getAlphaFromMouse(UIS:GetMouseLocation().X), true)
+    		-- if we have a tracked touch, RenderStepped won't override touch updates (we prefer InputChanged),
+    		-- but for mouse we use GetMouseLocation
+    		if not draggingInput or draggingInput.UserInputType ~= Enum.UserInputType.Touch then
+    			apply(getAlphaFromScreenX(UIS:GetMouseLocation().X), true)
+    		end
     	end
     end)
     
@@ -463,7 +495,6 @@ do
     			table.insert(tweens, TweenService:Create(stroke, info, { Color = targetColor }))
     		end
     		for _, tw in ipairs(tweens) do pcall(function() tw:Play() end) end
-    		-- wait the duration (simple, reliable)
     		task.wait(duration)
     	end
     	-- ====== END NEW ======
