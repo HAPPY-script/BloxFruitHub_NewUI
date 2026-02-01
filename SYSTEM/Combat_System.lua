@@ -1810,7 +1810,7 @@ do
 end
 --=== SILENT AIM =========================================================================================--
 
--- SilentAim (ổn định, xuyên qua mục tiêu thêm 100 studs)
+-- SilentAim (ổn định, hỗ trợ mobile, xuyên qua mục tiêu thêm 100 studs)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -2035,6 +2035,36 @@ do
         return
     end
 
+    -- ===== Mobile touch support =====
+    local touching = false
+    local touchPos = Vector2.new(0,0)
+    local activeTouchId = nil
+
+    UserInputService.TouchStarted:Connect(function(input, processed)
+        if processed then return end
+        touching = true
+        activeTouchId = input.UserInputState and input.UserInputState or (input and input.UserInputType and input.UserInputType)
+        -- use input.Position
+        if input and input.Position then
+            touchPos = Vector2.new(input.Position.X, input.Position.Y)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input and input.UserInputType == Enum.UserInputType.Touch then
+            if activeTouchId == nil or input.UserInputState == nil or true then
+                -- track last touch regardless; some phones don't provide consistent IDs
+                touchPos = Vector2.new(input.Position.X, input.Position.Y)
+            end
+        end
+    end)
+
+    UserInputService.TouchEnded:Connect(function(input, processed)
+        if processed then return end
+        touching = false
+        activeTouchId = nil
+    end)
+
     -- helper: lấy điểm xuất phát (ưu tiên HRP, fallback Camera)
     local function getLocalOrigin()
         local ok, pos = pcall(function()
@@ -2063,14 +2093,14 @@ do
                     end
                 end
 
+                -- If user is touching but we still have no target, we will fallback to touch-based hit
                 if target then
-                    -- CHỖ ĐƯỢC SỬA: trả Hit là CFrame nằm trên tia từ bản thân xuyên qua target và kéo dài thêm 100 studs
+                    -- If Hit requested -> extended CFrame through target
                     if key == "Hit" then
                         local targetPos = nil
                         if typeof(target) == "Vector3" then
                             targetPos = target
                         elseif typeof(target) == "Instance" then
-                            -- try common properties
                             if target:IsA("BasePart") then
                                 targetPos = target.Position
                             elseif target:IsA("Model") and target.PrimaryPart then
@@ -2090,11 +2120,9 @@ do
                             if dirMag > 0.0001 then
                                 finalDir = dir.Unit
                             else
-                                -- fallback: camera look direction
                                 finalDir = (Camera and Camera.CFrame and Camera.CFrame.LookVector) or Vector3.new(0,0,-1)
                             end
                             local extendedPoint = origin + finalDir * (dirMag + 100)
-                            -- return a CFrame at the far point so ray effectively "pierces" through target by 100 studs
                             return CFrame.new(extendedPoint)
                         end
 
@@ -2116,6 +2144,29 @@ do
                                     return (key == "X") and sp.X or sp.Y
                                 end
                             end
+                        end
+                    end
+                else
+                    -- no cached target; if user is touching, provide touch-based Hit/X/Y
+                    if touching then
+                        if key == "Hit" then
+                            -- build world ray from screen touch and return a distant point as CFrame
+                            if Camera and touchPos then
+                                local ok, ray = pcall(function() return Camera:ScreenPointToRay(touchPos.X, touchPos.Y) end)
+                                if ok and ray then
+                                    local origin = ray.Origin
+                                    local dir = ray.Direction.Unit
+                                    local farPoint = origin + dir * 1000
+                                    return CFrame.new(farPoint)
+                                end
+                            end
+                        elseif key == "X" then
+                            return touchPos.X
+                        elseif key == "Y" then
+                            return touchPos.Y
+                        elseif key == "Target" then
+                            -- no instance target to return
+                            return nil
                         end
                     end
                 end
