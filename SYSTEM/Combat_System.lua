@@ -1810,17 +1810,17 @@ do
 end
 --=== SILENT AIM =========================================================================================--
 
+-- SilentAim (ổn định, xuyên qua mục tiêu thêm 100 studs)
 do
-    -- SilentAim (ổn định, tránh attempt to index nil with 'Destroying', default 360)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
+    local workspace = game:GetService("Workspace")
 
     local LocalPlayer = Players.LocalPlayer
     if not LocalPlayer then return end
 
-    -- Lấy ScrollingTab + Combat frame
     local ScrollingTab = LocalPlayer.PlayerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
@@ -1834,7 +1834,6 @@ do
         return
     end
 
-    -- Notification helper
     local Notification = combatFrame:FindFirstChild("NotificationBlackTitle", true)
         or combatFrame:FindFirstChild("NotificationBlackTitle")
     local function setNotificationVisible(state)
@@ -1843,7 +1842,6 @@ do
         end
     end
 
-    -- Kiểm tra hook capability
     local function clientSupports()
         return type(hookmetamethod) == "function" and type(newcclosure) == "function"
     end
@@ -1856,7 +1854,6 @@ do
         setNotificationVisible(false)
     end
 
-    -- UI refs
     local SilentAimButton = combatFrame:FindFirstChild("SilentAimButton", true) or combatFrame:FindFirstChild("SilentAimButton")
     local ModeButton = combatFrame:FindFirstChild("360ModeButton", true) or combatFrame:FindFirstChild("360ModeButton")
     local RadiusBox = combatFrame:FindFirstChild("SilentAimBox", true) or combatFrame:FindFirstChild("SilentAimBox")
@@ -1867,7 +1864,6 @@ do
         return
     end
 
-    -- ToggleUI setup (theo chuẩn hub)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     local BUTTON_NAME = SilentAimButton.Name
@@ -1901,7 +1897,6 @@ do
         end)
     end)
 
-    -- Mode visuals (default 360)
     local COLOR_360 = Color3.fromRGB(0,255,255)
     local COLOR_LIMIT = Color3.fromRGB(144,0,255)
     local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -1933,7 +1928,6 @@ do
         setModeVisuals((mode == "360") and "Limit" or "360")
     end)
 
-    -- Radius box safe
     local function safeGetText(box)
         local ok, t = pcall(function() return box and box.Text end)
         return ok and t or nil
@@ -1950,7 +1944,6 @@ do
     end)
     if not tonumber(safeGetText(RadiusBox)) then RadiusBox.Text = "100" end
 
-    -- Drawing FOV (optional)
     local FOVCircle
     if typeof(Drawing) == "table" and type(Drawing.new) == "function" then
         local ok, circ = pcall(function() return Drawing.new("Circle") end)
@@ -1965,7 +1958,6 @@ do
         end
     end
 
-    -- ===== Cached target (update OUTSIDE hook, giống code mẫu) =====
     local Camera = workspace.CurrentCamera
     local CACHE_INTERVAL = 0.12
     local cachedTarget = nil
@@ -2033,7 +2025,6 @@ do
         end
     end)
 
-    -- Mouse safe
     local Mouse
     local okMouse, resMouse = pcall(function() return LocalPlayer:GetMouse() end)
     if okMouse then Mouse = resMouse end
@@ -2044,16 +2035,26 @@ do
         return
     end
 
-    -- ===== Hook __index trên Mouse (giống code mẫu, an toàn) =====
+    -- helper: lấy điểm xuất phát (ưu tiên HRP, fallback Camera)
+    local function getLocalOrigin()
+        local ok, pos = pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp and hrp.Position then return hrp.Position end
+            end
+            if Camera and Camera.CFrame then return Camera.CFrame.Position end
+            return nil
+        end)
+        return ok and pos
+    end
+
     local oldIndex
     local okHook, hookErr = pcall(function()
         oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-            -- chỉ can thiệp khi không phải gọi bởi chúng ta và feature bật, và đối tượng là Mouse
             if not checkcaller() and silentEnabled and self == Mouse then
-                -- tìm target (theo cachedTarget) giống code mẫu
                 local target = nil
                 if _G and _G.SilentAimMode == "Static" and _G._SilentAimTarget then
-                    -- nếu có static target (global) dùng luôn (cần tương thích nếu bạn đang dùng _G)
                     target = _G._SilentAimTarget
                 else
                     local char = cachedTarget
@@ -2063,14 +2064,40 @@ do
                 end
 
                 if target then
-                    -- xử lý các key cần override
+                    -- CHỖ ĐƯỢC SỬA: trả Hit là CFrame nằm trên tia từ bản thân xuyên qua target và kéo dài thêm 100 studs
                     if key == "Hit" then
+                        local targetPos = nil
                         if typeof(target) == "Vector3" then
-                            return CFrame.new(target)
+                            targetPos = target
                         elseif typeof(target) == "Instance" then
-                            -- trả CFrame (nhiều game mong CFrame cho Hit)
-                            return (target.CFrame or CFrame.new(target.Position))
+                            -- try common properties
+                            if target:IsA("BasePart") then
+                                targetPos = target.Position
+                            elseif target:IsA("Model") and target.PrimaryPart then
+                                targetPos = target.PrimaryPart.Position
+                            elseif target.Position then
+                                targetPos = target.Position
+                            elseif target.CFrame then
+                                targetPos = target.CFrame.Position
+                            end
                         end
+
+                        if targetPos then
+                            local origin = getLocalOrigin() or (Camera and Camera.CFrame and Camera.CFrame.Position) or Vector3.new(0,0,0)
+                            local dir = targetPos - origin
+                            local dirMag = dir.Magnitude
+                            local finalDir
+                            if dirMag > 0.0001 then
+                                finalDir = dir.Unit
+                            else
+                                -- fallback: camera look direction
+                                finalDir = (Camera and Camera.CFrame and Camera.CFrame.LookVector) or Vector3.new(0,0,-1)
+                            end
+                            local extendedPoint = origin + finalDir * (dirMag + 100)
+                            -- return a CFrame at the far point so ray effectively "pierces" through target by 100 studs
+                            return CFrame.new(extendedPoint)
+                        end
+
                     elseif key == "Target" then
                         if typeof(target) == "Instance" then
                             return target
@@ -2094,7 +2121,6 @@ do
                 end
             end
 
-            -- fallback an toàn: trả kết quả __index gốc (đóng gói bằng pcall)
             local ok, res = pcall(oldIndex, self, key)
             if ok then return res end
             return nil
@@ -2110,7 +2136,6 @@ do
         setNotificationVisible(false)
     end
 
-    -- Render update (Heartbeat)
     local renderConn = RunService.Heartbeat:Connect(function()
         if FOVCircle and Camera then
             if mode == "Limit" then
