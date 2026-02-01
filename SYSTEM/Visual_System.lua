@@ -26,7 +26,7 @@ do
     
     	for _, child in ipairs(folder:GetChildren()) do
     		-- Giữ lại folder Haze và toàn bộ con của nó
-    		if child.Name ~= "Haze" then
+    		if child.Name ~= "DarkFog" then
     			child:Destroy()
     		end
     	end
