@@ -22,8 +22,13 @@ do
 
     local function removeFog()
     	local folder = Lighting:FindFirstChild("LightingLayers")
-    	if folder then
-    		folder:Destroy()
+    	if not folder then return end
+    
+    	for _, child in ipairs(folder:GetChildren()) do
+    		-- Giữ lại folder Haze và toàn bộ con của nó
+    		if child.Name ~= "Haze" then
+    			child:Destroy()
+    		end
     	end
     end
 
