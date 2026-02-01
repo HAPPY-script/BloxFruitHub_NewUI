@@ -20,13 +20,29 @@ do
 
     local firstClick = true
 
+    local function lockIntensityZero(intensity)
+    	if intensity.Value ~= 0 then
+    		intensity.Value = 0
+    	end
+    
+    	intensity.Changed:Connect(function(v)
+    		if v ~= 0 then
+    			intensity.Value = 0
+    		end
+    	end)
+    end
+    
     local function removeFog()
     	local folder = Lighting:FindFirstChild("LightingLayers")
     	if not folder then return end
     
     	for _, child in ipairs(folder:GetChildren()) do
-    		-- Giữ lại folder Haze và toàn bộ con của nó
-    		if child.Name ~= "DarkFog" then
+    		if child.Name == "DarkFog" then
+    			local intensity = child:FindFirstChild("Intensity", true)
+    			if intensity and intensity:IsA("NumberValue") then
+    				lockIntensityZero(intensity)
+    			end
+    		else
     			child:Destroy()
     		end
     	end
