@@ -906,111 +906,36 @@ end
 --=== FAST ATTACK ENEMY & PLAYER =========================================================================================--
 
 do
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    -- Services & locals
     local Players = game:GetService("Players")
-    local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
-    local EnemiesFolder = workspace:WaitForChild("Enemies")
-    local LocalPlayer = Players.LocalPlayer
-    local UIS = game:GetService("UserInputService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
 
-    local TWEEN_TIME = 0.18
-    local modeAnimating = {}
+    local LocalPlayer = Players.LocalPlayer
+    if not LocalPlayer then return end
 
-    local COLOR_TOGGLE = Color3.fromRGB(255,125,0)
-    local COLOR_HOLD   = Color3.fromRGB(255,255,0)
-
-    -- style colors & labels
-    local STYLE_MELEE_COLOR = Color3.fromRGB(0,200,255)
-    local STYLE_FRUIT_COLOR = Color3.fromRGB(0,255,150)
-    local STYLE_MELEE_TEXT  = "Style: Melee"
-    local STYLE_FRUIT_TEXT  = "Style: Fruit"
-
-    local function getUIStroke(btn)
-        for _, c in ipairs(btn:GetChildren()) do
-            if c:IsA("UIStroke") then
-                return c
-            end
-        end
-    end
-
-    local function tween(props, time)
-        local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local t = TweenService:Create(props.obj, info, props.goal)
-        t:Play()
-        return t
-    end
-
-    local function animateModeButton(btn, isHold)
-        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
-
-        if modeAnimating[btn] then
-            modeAnimating[btn].cancelled = true
-        end
-
-        local anim = { cancelled = false }
-        modeAnimating[btn] = anim
-
-        local stroke = getUIStroke(btn)
-        local targetColor = isHold and COLOR_HOLD or COLOR_TOGGLE
-        local targetText  = "Mode: " .. (isHold and "Hold" or "Toggle")
-
-        local t1 = tween({
-            obj = btn,
-            goal = { TextTransparency = 1 }
-        })
-        t1.Completed:Wait()
-        if anim.cancelled then return end
-
-        btn.Text = targetText
-
-        tween({ obj = btn, goal = { TextTransparency = 0 } })
-        tween({ obj = btn, goal = { BackgroundColor3 = targetColor } })
-        if stroke then
-            tween({ obj = stroke, goal = { Color = targetColor } })
-        end
-    end
-
-    local function animateStyleButton(btn, isFruit)
-        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
-
-        if modeAnimating[btn] then
-            modeAnimating[btn].cancelled = true
-        end
-
-        local anim = { cancelled = false }
-        modeAnimating[btn] = anim
-
-        local stroke = getUIStroke(btn)
-        local targetColor = isFruit and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR
-        local targetText  = isFruit and STYLE_FRUIT_TEXT or STYLE_MELEE_TEXT
-
-        local t1 = tween({
-            obj = btn,
-            goal = { TextTransparency = 1 }
-        })
-        t1.Completed:Wait()
-        if anim.cancelled then return end
-
-        btn.Text = targetText
-
-        tween({ obj = btn, goal = { TextTransparency = 0 } })
-        tween({ obj = btn, goal = { BackgroundColor3 = targetColor } })
-        if stroke then
-            tween({ obj = stroke, goal = { Color = targetColor } })
-        end
-    end
-
-    -- wait ToggleUI
+    -- UI / module refs (wait for ToggleUI global)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
-    local ScrollingTab = LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
-    local combatFrame = ScrollingTab:FindFirstChild("Combat") or ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:WaitForChild("Combat", 5)
+    -- Find Combat UI
+    local function findCombatFrame()
+        local g = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("BloxFruitHubGui", 5)
+        if not g then return nil end
+        local main = g:FindFirstChild("Main") or g:WaitForChild("Main", 1)
+        if not main then return nil end
+        local scrolling = main:FindFirstChild("ScrollingTab") or main:WaitForChild("ScrollingTab", 1)
+        if not scrolling then return nil end
+        local combat = scrolling:FindFirstChild("Combat") or scrolling:FindFirstChild("Combat", true)
+        return combat
+    end
+
+    local combatFrame = findCombatFrame()
     if not combatFrame then
-        warn("Không tìm thấy Frame 'Combat' trong ScrollingTab")
+        warn("FastAttack core: Không tìm thấy Combat frame trong UI.")
         return
     end
 
@@ -1018,33 +943,77 @@ do
     local btnAttackPlayer    = combatFrame:FindFirstChild("FastAttackPlayerButton", true)
     local btnModeEnemy       = combatFrame:FindFirstChild("ModeFastAttackEnemyButton", true)
     local btnModePlayer      = combatFrame:FindFirstChild("ModeFastAttackPlayerButton", true)
-
-    -- new style buttons
     local btnStyleEnemy      = combatFrame:FindFirstChild("StyleFastAttackEnemyButton", true)
     local btnStylePlayer     = combatFrame:FindFirstChild("StyleFastAttackPlayerButton", true)
 
     if not btnFastAttackEnemy or not btnAttackPlayer or not btnModeEnemy or not btnModePlayer then
-        warn("Không tìm đủ controls trong Combat (FastAttackEnemyButton / FastAttackPlayerButton / ModeFastAttackEnemyButton / ModeFastAttackPlayerButton)")
+        warn("FastAttack core: thiếu controls cần thiết trong Combat UI.")
         return
     end
 
-    if not btnStyleEnemy or not btnStylePlayer then
-        warn("Không tìm thấy StyleFastAttack buttons, thêm chúng vào UI để sử dụng tính năng style.")
-        -- continue without style buttons (backward compatible)
+    -- TWEENS / UI helpers
+    local TWEEN_TIME = 0.18
+    local modeAnimating = {}
+    local function getUIStroke(btn)
+        for _, c in ipairs(btn:GetChildren()) do if c:IsA("UIStroke") then return c end end
+    end
+    local function tween(props, time)
+        local info = TweenService:Create(props.obj, TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props.goal)
+        info:Play()
+        return info
+    end
+    local COLOR_TOGGLE = Color3.fromRGB(255,125,0)
+    local COLOR_HOLD   = Color3.fromRGB(255,255,0)
+    local STYLE_MELEE_COLOR = Color3.fromRGB(0,200,255)
+    local STYLE_FRUIT_COLOR = Color3.fromRGB(0,255,150)
+    local STYLE_MELEE_TEXT  = "Style: Melee"
+    local STYLE_FRUIT_TEXT  = "Style: Fruit"
+
+    local function animateModeButton(btn, isHold)
+        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
+        if modeAnimating[btn] then modeAnimating[btn].cancelled = true end
+        local anim = { cancelled = false }
+        modeAnimating[btn] = anim
+        local stroke = getUIStroke(btn)
+        local targetColor = isHold and COLOR_HOLD or COLOR_TOGGLE
+        local targetText  = "Mode: " .. (isHold and "Hold" or "Toggle")
+
+        local t1 = tween({ obj = btn, goal = { TextTransparency = 1 } })
+        t1.Completed:Wait()
+        if anim.cancelled then return end
+
+        btn.Text = targetText
+        tween({ obj = btn, goal = { TextTransparency = 0 } })
+        tween({ obj = btn, goal = { BackgroundColor3 = targetColor } })
+        if stroke then tween({ obj = stroke, goal = { Color = targetColor } }) end
     end
 
-    pcall(function() ToggleUI.Set("FastAttackEnemyButton", false) end)
-    pcall(function() ToggleUI.Set("FastAttackPlayerButton", false) end)
+    local function animateStyleButton(btn, isFruit)
+        if not btn or (not btn:IsA("TextButton") and not btn:IsA("TextLabel")) then return end
+        if modeAnimating[btn] then modeAnimating[btn].cancelled = true end
+        local anim = { cancelled = false }
+        modeAnimating[btn] = anim
+        local stroke = getUIStroke(btn)
+        local targetColor = isFruit and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR
+        local targetText  = isFruit and STYLE_FRUIT_TEXT or STYLE_MELEE_TEXT
 
-    -- internal state
+        local t1 = tween({ obj = btn, goal = { TextTransparency = 1 } })
+        t1.Completed:Wait()
+        if anim.cancelled then return end
+
+        btn.Text = targetText
+        tween({ obj = btn, goal = { TextTransparency = 0 } })
+        tween({ obj = btn, goal = { BackgroundColor3 = targetColor } })
+        if stroke then tween({ obj = stroke, goal = { Color = targetColor } }) end
+    end
+
+    -- === State ===
     local isFastAttackEnemyEnabled = false
     local isAttackPlayerEnabled = false
     local enemyHoldMode = false   -- false = Toggle, true = Hold
     local playerHoldMode = false
     local enemyActive = false
     local playerActive = false
-
-    -- style state: "Melee" or "Fruit"
     local enemyStyle = "Melee"
     local playerStyle = "Melee"
 
@@ -1055,29 +1024,22 @@ do
     local suppressAttrToUI = false
     local suppressUIToAttr = false
 
-    -- === NEW: strict green check (user requirement) ===
+    -- Strict green check
     local GREEN = Color3.fromRGB(0,255,0)
     local function colorEqual(a,b)
         if not a or not b then return false end
         local eps = 1e-5
         return math.abs(a.R - b.R) <= eps and math.abs(a.G - b.G) <= eps and math.abs(a.B - b.B) <= eps
     end
-
     local function isButtonOn(btn)
         local bg = btn and btn.BackgroundColor3
         if not bg then return false end
-        -- authoritative: only exact green counts as ON
         return colorEqual(bg, GREEN)
     end
-    -- === end NEW ===
 
     local function getToggleOnByName(name, btn)
-        local ok, val = pcall(function()
-            if ToggleUI.Get then return ToggleUI.Get(name) end
-            return nil
-        end)
+        local ok, val = pcall(function() if ToggleUI.Get then return ToggleUI.Get(name) end end)
         if ok and type(val) == "boolean" then return val end
-        -- Use strict green-check instead of fuzzy G>R/B
         return isButtonOn(btn)
     end
 
@@ -1114,26 +1076,22 @@ do
         local nextMode = (tostring(cur) == "Hold") and "Toggle" or "Hold"
         LocalPlayer:SetAttribute(attrName, nextMode)
     end
-
     if btnModeEnemy.Activated then
         btnModeEnemy.Activated:Connect(function() toggleModeAttribute("FastAttackEnemyMode", btnModeEnemy) end)
     else
         btnModeEnemy.MouseButton1Click:Connect(function() toggleModeAttribute("FastAttackEnemyMode", btnModeEnemy) end)
     end
-
     if btnModePlayer.Activated then
         btnModePlayer.Activated:Connect(function() toggleModeAttribute("FastAttackPlayerMode", btnModePlayer) end)
     else
         btnModePlayer.MouseButton1Click:Connect(function() toggleModeAttribute("FastAttackPlayerMode", btnModePlayer) end)
     end
 
-    -- wire style buttons (if present)
     local function toggleStyleAttribute(attrName, styleBtn)
         local cur = LocalPlayer:GetAttribute(attrName) or "Melee"
         local nextStyle = (tostring(cur) == "Fruit") and "Melee" or "Fruit"
         LocalPlayer:SetAttribute(attrName, nextStyle)
     end
-
     if btnStyleEnemy then
         if btnStyleEnemy.Activated then
             btnStyleEnemy.Activated:Connect(function() toggleStyleAttribute("FastAttackEnemyStyle", btnStyleEnemy) end)
@@ -1141,7 +1099,6 @@ do
             btnStyleEnemy.MouseButton1Click:Connect(function() toggleStyleAttribute("FastAttackEnemyStyle", btnStyleEnemy) end)
         end
     end
-
     if btnStylePlayer then
         if btnStylePlayer.Activated then
             btnStylePlayer.Activated:Connect(function() toggleStyleAttribute("FastAttackPlayerStyle", btnStylePlayer) end)
@@ -1150,7 +1107,7 @@ do
         end
     end
 
-    -- attribute change handlers
+    -- Attribute change handlers
     LocalPlayer:GetAttributeChangedSignal("FastAttackEnemy"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackEnemy") == true
         isFastAttackEnemyEnabled = v
@@ -1160,7 +1117,6 @@ do
             task.delay(0.05, function() suppressUIToAttr = false end)
         end
     end)
-
     LocalPlayer:GetAttributeChangedSignal("FastAttackPlayer"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackPlayer") == true
         isAttackPlayerEnabled = v
@@ -1170,30 +1126,24 @@ do
             task.delay(0.05, function() suppressUIToAttr = false end)
         end
     end)
-
     LocalPlayer:GetAttributeChangedSignal("FastAttackEnemyMode"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackEnemyMode")
         enemyHoldMode = (tostring(v) == "Hold")
         enemyActive = false
         animateModeButton(btnModeEnemy, enemyHoldMode)
     end)
-
     LocalPlayer:GetAttributeChangedSignal("FastAttackPlayerMode"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackPlayerMode")
         playerHoldMode = (tostring(v) == "Hold")
         playerActive = false
         animateModeButton(btnModePlayer, playerHoldMode)
     end)
-
-    -- style attribute change handlers
     LocalPlayer:GetAttributeChangedSignal("FastAttackEnemyStyle"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackEnemyStyle")
         enemyStyle = (tostring(v) == "Fruit") and "Fruit" or "Melee"
-        -- reset active flags to avoid hold leaks
         enemyActive = false
         if btnStyleEnemy then animateStyleButton(btnStyleEnemy, enemyStyle == "Fruit") end
     end)
-
     LocalPlayer:GetAttributeChangedSignal("FastAttackPlayerStyle"):Connect(function()
         local v = LocalPlayer:GetAttribute("FastAttackPlayerStyle")
         playerStyle = (tostring(v) == "Fruit") and "Fruit" or "Melee"
@@ -1247,70 +1197,96 @@ do
         end
     end
 
-    -- shared poll (unchanged)
-    task.spawn(function()
-        local lastSharedEnemy, lastSharedPlayer = nil, nil
-        while true do
-            task.wait(0.15)
-            local sEnemy = (shared and shared.FastAttackEnemy)
-            local sPlayer = (shared and shared.FastAttackPlayer)
+    -- ---------------- Remotes / Proxy / Seed caching (from sample)
+    local PROXY_CACHE_TIME = 5
+    local SEED_CACHE_TIME = 3
+    local cachedProxy = nil
+    local cachedSeed = nil
+    local lastProxyUpdate = 0
+    local lastSeedUpdate = 0
+    local attackRemote, hitRemote = nil, nil
 
-            if sEnemy ~= lastSharedEnemy then
-                lastSharedEnemy = sEnemy
-                if sEnemy ~= nil then
-                    if type(sEnemy) == "string" then
-                        local low = string.lower(sEnemy)
-                        if low == "hold" then
-                            LocalPlayer:SetAttribute("FastAttackEnemy", true)
-                            LocalPlayer:SetAttribute("FastAttackEnemyMode", "Hold")
-                        elseif low == "toggle" then
-                            LocalPlayer:SetAttribute("FastAttackEnemy", true)
-                            LocalPlayer:SetAttribute("FastAttackEnemyMode", "Toggle")
-                        elseif low == "off" then
-                            LocalPlayer:SetAttribute("FastAttackEnemy", false)
-                        end
-                    else
-                        LocalPlayer:SetAttribute("FastAttackEnemy", sEnemy == true)
-                    end
-                end
-            end
-
-            if sPlayer ~= lastSharedPlayer then
-                lastSharedPlayer = sPlayer
-                if sPlayer ~= nil then
-                    if type(sPlayer) == "string" then
-                        local low = string.lower(sPlayer)
-                        if low == "hold" then
-                            LocalPlayer:SetAttribute("FastAttackPlayer", true)
-                            LocalPlayer:SetAttribute("FastAttackPlayerMode", "Hold")
-                        elseif low == "toggle" then
-                            LocalPlayer:SetAttribute("FastAttackPlayer", true)
-                            LocalPlayer:SetAttribute("FastAttackPlayerMode", "Toggle")
-                        elseif low == "off" then
-                            LocalPlayer:SetAttribute("FastAttackPlayer", false)
-                        end
-                    else
-                        LocalPlayer:SetAttribute("FastAttackPlayer", sPlayer == true)
-                    end
-                end
-            end
-        end
-    end)
-
-    -- genid
     local function genid()
         local c = "0123456789abcdef"
         local s = ""
         for i=1,8 do
-            s = s..c:sub(math.random(1,16),math.random(1,16))
+            s = s .. c:sub(math.random(1,16), math.random(1,16))
         end
         return s
     end
 
-    -- targets: original logic preserved
+    local function encodeName(remoteName)
+        -- simple encoding used by some servers (best-effort; may need tuning per server)
+        local ok, serverTime = pcall(function() return workspace:GetServerTimeNow() end)
+        local seed = ok and serverTime or tick()
+        local key = math.floor(seed / 10 % 10) + 1
+        local encoded = {}
+        for i = 1, #remoteName do
+            encoded[#encoded+1] = string.char(bit32.bxor(string.byte(remoteName, i), key))
+        end
+        return table.concat(encoded)
+    end
+
+    local function findProxyRemote()
+        local now = tick()
+        if cachedProxy and (now - lastProxyUpdate < PROXY_CACHE_TIME) then return cachedProxy end
+        local folders = {"Util", "Remotes", "Assets", "Common", "FX", "Modules"}
+        for _, folderName in ipairs(folders) do
+            local folder = ReplicatedStorage:FindFirstChild(folderName)
+            if folder then
+                for _, obj in ipairs(folder:GetChildren()) do
+                    if obj:IsA("RemoteEvent") and tonumber(obj.Name) and obj:GetAttribute("Id") then
+                        cachedProxy = obj
+                        lastProxyUpdate = now
+                        return obj
+                    end
+                end
+            end
+        end
+        cachedProxy = nil
+        return nil
+    end
+
+    local function getSeed()
+        local now = tick()
+        if cachedSeed and (now - lastSeedUpdate < SEED_CACHE_TIME) then return cachedSeed end
+        local success, mod = pcall(function() return ReplicatedStorage:FindFirstChild("Modules") end)
+        if success and mod and mod:FindFirstChild("Net") then
+            local net = mod:FindFirstChild("Net")
+            local seedRemote = net:FindFirstChild("seed")
+            if seedRemote and seedRemote:IsA("RemoteFunction") then
+                local ok, val = pcall(function() return seedRemote:InvokeServer() end)
+                if ok and val then
+                    cachedSeed = tonumber(val)
+                    lastSeedUpdate = now
+                    return cachedSeed
+                end
+            end
+        end
+        return cachedSeed
+    end
+
+    -- ensure direct remotes
+    local function ensureDirectRemotes()
+        if attackRemote and hitRemote then return true end
+        local ok, mod = pcall(function() return ReplicatedStorage:FindFirstChild("Modules") end)
+        if ok and mod and mod:FindFirstChild("Net") then
+            local net = mod:FindFirstChild("Net")
+            attackRemote = net:FindFirstChild("RE/RegisterAttack")
+            hitRemote = net:FindFirstChild("RE/RegisterHit")
+            return attackRemote and hitRemote
+        end
+        return false
+    end
+
+    -- ---------------- Targeting helpers (enemies & players)
+    local EnemiesFolder = workspace:FindFirstChild("Enemies")
+
     local function getTargetsEnemies(pos)
         local t = {}
-        for _, enemy in pairs(EnemiesFolder:GetChildren()) do
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return t end
+        for _, enemy in ipairs(folder:GetChildren()) do
             if enemy:IsA("Model") then
                 local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Torso")
                 local hum = enemy:FindFirstChildOfClass("Humanoid")
@@ -1330,7 +1306,7 @@ do
 
     local function getTargetsPlayers(pos)
         local t = {}
-        for _, p in pairs(Players:GetPlayers()) do
+        for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("Head")
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
@@ -1348,133 +1324,74 @@ do
         return r
     end
 
-    -- remotes lazy ensure (for non-fruit attacks)
-    local atkrem, hitrem
-    local function ensureRemotes()
-        if atkrem and hitrem then return true end
-        local s1, r1 = pcall(function() return ReplicatedStorage:WaitForChild("Modules",1):WaitForChild("Net",1):WaitForChild("RE/RegisterAttack",1) end)
-        local s2, r2 = pcall(function() return ReplicatedStorage:WaitForChild("Modules",1):WaitForChild("Net",1):WaitForChild("RE/RegisterHit",1) end)
-        if s1 and s2 then atkrem, hitrem = r1, r2 return true end
-        return false
-    end
-
-    -- last hit trackers
-    local lastEnemyHit = 0
-    local lastPlayerHit = 0
-
-    -- ---------- NEW: Tool watcher & cached mouse ----------
+    -- ---------------- Tool detection & cached mouse
     local currentTool = nil
     local currentToolRemote = nil
-    local currentToolIsFruit = false -- true if LeftClickRemote detected
+    local currentToolIsFruit = false
 
     local function updateCurrentTool()
         currentTool = nil
         currentToolRemote = nil
         currentToolIsFruit = false
-
         local char = LocalPlayer.Character
         if char then
             for _, t in ipairs(char:GetChildren()) do
                 if t:IsA("Tool") then
                     local lr = t:FindFirstChild("LeftClickRemote")
-                    if lr then
-                        currentTool = t
-                        currentToolRemote = lr
-                        currentToolIsFruit = true
-                        return
-                    end
+                    if lr then currentTool = t; currentToolRemote = lr; currentToolIsFruit = true; return end
                 end
             end
         end
-
         for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
             if t:IsA("Tool") then
                 local lr = t:FindFirstChild("LeftClickRemote")
-                if lr then
-                    currentTool = t
-                    currentToolRemote = lr
-                    currentToolIsFruit = true
-                    return
-                end
+                if lr then currentTool = t; currentToolRemote = lr; currentToolIsFruit = true; return end
             end
         end
     end
 
-    -- set initial
     updateCurrentTool()
 
-    -- connect listeners to update cache only on changes (no full scan every frame)
     LocalPlayer.CharacterAdded:Connect(function(c)
         task.defer(function()
             updateCurrentTool()
-            -- watch character children for tool changes
-            c.ChildAdded:Connect(function(child)
-                if child:IsA("Tool") then
-                    updateCurrentTool()
-                end
-            end)
-            c.ChildRemoved:Connect(function(child)
-                if child:IsA("Tool") then
-                    task.delay(0.01, updateCurrentTool)
-                end
-            end)
+            c.ChildAdded:Connect(function(child) if child:IsA("Tool") then updateCurrentTool() end end)
+            c.ChildRemoved:Connect(function(child) if child:IsA("Tool") then task.delay(0.01, updateCurrentTool) end end)
         end)
     end)
 
-    -- watch backpack
-    LocalPlayer.Backpack.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            task.delay(0.01, updateCurrentTool)
-        end
-    end)
-    LocalPlayer.Backpack.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") then
-            task.delay(0.01, updateCurrentTool)
-        end
-    end)
+    LocalPlayer.Backpack.ChildAdded:Connect(function(child) if child:IsA("Tool") then task.delay(0.01, updateCurrentTool) end end)
+    LocalPlayer.Backpack.ChildRemoved:Connect(function(child) if child:IsA("Tool") then task.delay(0.01, updateCurrentTool) end end)
 
-    -- also watch equipped change (Tool.Equipped / Unequipped)
     local function attachToolSignals(tool)
         if not tool or not tool:IsA("Tool") then return end
-        tool.Equipped:Connect(function()
-            task.delay(0.01, updateCurrentTool)
-        end)
-        tool.Unequipped:Connect(function()
-            task.delay(0.01, updateCurrentTool)
-        end)
+        tool.Equipped:Connect(function() task.delay(0.01, updateCurrentTool) end)
+        tool.Unequipped:Connect(function() task.delay(0.01, updateCurrentTool) end)
     end
-    -- attach for existing
     for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do attachToolSignals(t) end
     if LocalPlayer.Character then for _, t in ipairs(LocalPlayer.Character:GetChildren()) do attachToolSignals(t) end end
     LocalPlayer.Backpack.ChildAdded:Connect(attachToolSignals)
-    LocalPlayer.CharacterAdded:Connect(function(c)
-        c.ChildAdded:Connect(attachToolSignals)
-    end)
+    LocalPlayer.CharacterAdded:Connect(function(c) c.ChildAdded:Connect(attachToolSignals) end)
 
-    -- cache mouse (only once)
     local mouse = LocalPlayer:GetMouse()
 
-    -- CONFIG for fruit spam (you can expose to UI later)
+    -- Fruit usage config
     local FruitConfig = {
-        Enabled = true, -- allow fruit usage when detected
-        SpamDelay = 0.01, -- per-enemy/player cooldown (same as existing delay used)
-        Skills = {true, true, true, true} -- which fruit 'click' indices to fire (1..4)
+        Enabled = true,
+        SpamDelay = delay,
+        Skills = {true,true,true,true}
     }
 
-    -- ----------
-    -- Attack runner (Heartbeat)
-    -- - For each tick we decide whether to attack enemies and/or players.
-    -- - Attack method chosen strictly by the corresponding style (Melee vs Fruit).
-    -- - If style == Fruit but no fruit equipped -> skip (do not fallback to melee).
-    -- - If style == Melee but remotes not ready -> skip.
-    -- ----------
+    -- ---------------- Attack runner
+    local lastEnemyHit = 0
+    local lastPlayerHit = 0
 
     RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
-        -- ENEMY section: decide active
+        -- decide enemy active
         local shouldEnemyBeActive = false
         if enemyHoldMode then
             if isFastAttackEnemyEnabled and enemyActive then shouldEnemyBeActive = true end
@@ -1484,27 +1401,19 @@ do
 
         if shouldEnemyBeActive and (tick() - lastEnemyHit) >= delay then
             lastEnemyHit = tick()
-
             local targets = getTargetsEnemies(hrp.Position)
             if #targets > 0 then
-                -- Choose method based on enemyStyle
                 if enemyStyle == "Fruit" then
-                    -- Only use fruit method
                     if FruitConfig.Enabled and currentToolIsFruit and currentToolRemote then
                         local fp = targets[1].part
                         local aimDir
                         if fp and fp.Position and hrp.Position then
                             local dir = (fp.Position - hrp.Position)
-                            if dir.Magnitude > 0 then
-                                aimDir = dir.Unit
-                            else
-                                aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
-                            end
+                            aimDir = (dir.Magnitude > 0) and dir.Unit or ((mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector)
                         else
                             aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
                         end
-
-                        for i = 1, 4 do
+                        for i=1,4 do
                             if FruitConfig.Skills[i] then
                                 pcall(function()
                                     currentToolRemote:FireServer(aimDir, i, true)
@@ -1513,12 +1422,12 @@ do
                         end
                     end
                 else
-                    -- Melee path only
-                    if ensureRemotes() then
-                        pcall(function() atkrem:FireServer() end)
+                    -- Melee path
+                    if ensureDirectRemotes() then
+                        pcall(function() attackRemote:FireServer() end)
                         local mt = {}
                         local fp = nil
-                        for _,info in ipairs(targets) do
+                        for _, info in ipairs(targets) do
                             local p = info.part
                             if p then
                                 if not fp then fp = p end
@@ -1526,14 +1435,14 @@ do
                             end
                         end
                         if fp and #mt > 0 then
-                            pcall(function() hitrem:FireServer(fp, mt, nil, genid()) end)
+                            pcall(function() hitRemote:FireServer(fp, mt, nil, genid()) end)
                         end
                     end
                 end
             end
         end
 
-        -- PLAYER section: decide active
+        -- decide player active
         local shouldPlayerBeActive = false
         if playerHoldMode then
             if isAttackPlayerEnabled and playerActive then shouldPlayerBeActive = true end
@@ -1543,7 +1452,6 @@ do
 
         if shouldPlayerBeActive and (tick() - lastPlayerHit) >= delay then
             lastPlayerHit = tick()
-
             local targets = getTargetsPlayers(hrp.Position)
             if #targets > 0 then
                 if playerStyle == "Fruit" then
@@ -1552,16 +1460,11 @@ do
                         local aimDir
                         if fp and fp.Position and hrp.Position then
                             local dir = (fp.Position - hrp.Position)
-                            if dir.Magnitude > 0 then
-                                aimDir = dir.Unit
-                            else
-                                aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
-                            end
+                            aimDir = (dir.Magnitude > 0) and dir.Unit or ((mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector)
                         else
                             aimDir = (mouse.Hit and mouse.Hit.LookVector) or hrp.CFrame.LookVector
                         end
-
-                        for i = 1, 4 do
+                        for i=1,4 do
                             if FruitConfig.Skills[i] then
                                 pcall(function()
                                     currentToolRemote:FireServer(aimDir, i, true)
@@ -1570,12 +1473,11 @@ do
                         end
                     end
                 else
-                    -- Melee path only for players
-                    if ensureRemotes() then
-                        pcall(function() atkrem:FireServer() end)
+                    if ensureDirectRemotes() then
+                        pcall(function() attackRemote:FireServer() end)
                         local mt = {}
                         local fp = nil
-                        for _,info in ipairs(targets) do
+                        for _, info in ipairs(targets) do
                             local p = info.part
                             if p then
                                 if not fp then fp = p end
@@ -1583,7 +1485,7 @@ do
                             end
                         end
                         if fp and #mt > 0 then
-                            pcall(function() hitrem:FireServer(fp, mt, nil, genid()) end)
+                            pcall(function() hitRemote:FireServer(fp, mt, nil, genid()) end)
                         end
                     end
                 end
@@ -1591,7 +1493,7 @@ do
         end
     end)
 
-    -- Hold input on the UI buttons (if mode is Hold)
+    -- Hold button handlers (UI)
     if btnFastAttackEnemy.InputBegan then
         btnFastAttackEnemy.InputBegan:Connect(function(input)
             if not enemyHoldMode then return end
@@ -1625,20 +1527,85 @@ do
     end
 
     -- Global hold anywhere
-    UIS.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+    UIS.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if enemyHoldMode and isButtonOn(btnFastAttackEnemy) then enemyActive = true end
             if playerHoldMode and isButtonOn(btnAttackPlayer) then playerActive = true end
         end
     end)
-    UIS.InputEnded:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+    UIS.InputEnded:Connect(function(input, processed)
+        if processed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if enemyHoldMode then enemyActive = false end
             if playerHoldMode then playerActive = false end
         end
     end)
+
+    -- Shared `shared` poll (keep compatibility)
+    task.spawn(function()
+        local lastSharedEnemy, lastSharedPlayer = nil, nil
+        while task.wait(0.15) do
+            local sEnemy = (shared and shared.FastAttackEnemy)
+            local sPlayer = (shared and shared.FastAttackPlayer)
+            if sEnemy ~= lastSharedEnemy then
+                lastSharedEnemy = sEnemy
+                if sEnemy ~= nil then
+                    if type(sEnemy) == "string" then
+                        local low = string.lower(sEnemy)
+                        if low == "hold" then
+                            LocalPlayer:SetAttribute("FastAttackEnemy", true)
+                            LocalPlayer:SetAttribute("FastAttackEnemyMode", "Hold")
+                        elseif low == "toggle" then
+                            LocalPlayer:SetAttribute("FastAttackEnemy", true)
+                            LocalPlayer:SetAttribute("FastAttackEnemyMode", "Toggle")
+                        elseif low == "off" then
+                            LocalPlayer:SetAttribute("FastAttackEnemy", false)
+                        end
+                    else
+                        LocalPlayer:SetAttribute("FastAttackEnemy", sEnemy == true)
+                    end
+                end
+            end
+            if sPlayer ~= lastSharedPlayer then
+                lastSharedPlayer = sPlayer
+                if sPlayer ~= nil then
+                    if type(sPlayer) == "string" then
+                        local low = string.lower(sPlayer)
+                        if low == "hold" then
+                            LocalPlayer:SetAttribute("FastAttackPlayer", true)
+                            LocalPlayer:SetAttribute("FastAttackPlayerMode", "Hold")
+                        elseif low == "toggle" then
+                            LocalPlayer:SetAttribute("FastAttackPlayer", true)
+                            LocalPlayer:SetAttribute("FastAttackPlayerMode", "Toggle")
+                        elseif low == "off" then
+                            LocalPlayer:SetAttribute("FastAttackPlayer", false)
+                        end
+                    else
+                        LocalPlayer:SetAttribute("FastAttackPlayer", sPlayer == true)
+                    end
+                end
+            end
+        end
+    end)
+
+    -- Warm up caches once
+    task.spawn(function()
+        task.wait(1)
+        findProxyRemote()
+        getSeed()
+        ensureDirectRemotes()
+    end)
+
+    -- Backwards-compatible: expose some internals if needed
+    local exported = {
+        GenID = genid,
+        FindProxy = findProxyRemote,
+        GetSeed = getSeed,
+        EnsureRemotes = ensureDirectRemotes
+    }
+    -- store on _G to help debugging (optional)
+    pcall(function() _G.FastAttackCore = exported end)
 end
 
 --[[ HOOK
