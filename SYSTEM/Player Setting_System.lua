@@ -681,13 +681,52 @@ do
         return (r == 0 and g == 255 and b == 0)
     end
 
-    -- LƯU Ý: không gọi SetDefault ở đây nữa vì bạn đã chỉnh UI mặc định ban đầu sẵn rồi.
-    -- pcall(function() ToggleUI.SetDefault(BUTTON_NAME, true) end)  -- <-- removed
-
-    -- trạng thái nội bộ đồng bộ theo màu (không dùng attribute để điều khiển UI)
-    local autoBuso = inferToggleOn(button)
-    -- cập nhật attribute ban đầu để các hệ thống khác có thể đọc
+    -- === NEW INIT LOGIC ===
+    -- khi khởi đầu, tạm coi như "bật" (tránh UI nhảy)
+    local autoBuso = true
     pcall(function() player:SetAttribute("AutoBuso", autoBuso) end)
+
+    -- Chạy 1 task riêng để chờ playerSetting.Visible == true,
+    -- rồi gọi ToggleUI.SetDefault(BUTTON_NAME, true) một lần để set UI chuẩn,
+    -- sau đó đồng bộ autoBuso theo màu thực sự và dừng kiểm tra.
+    task.spawn(function()
+        -- nếu playerSetting không phải GUIObject hoặc không có thuộc tính Visible thì fallback: thử 1 lần delay rồi set default
+        local safeVisibleCheck = (type(playerSetting.GetAttribute) ~= "function") -- default false, but we'll check using pcall on Visible
+        local attempts = 0
+        while true do
+            attempts = attempts + 1
+            local visOk, visVal = pcall(function() return (playerSetting and playerSetting.Visible) end)
+            if visOk and visVal == true then
+                -- Frame đã hiển thị -> set default UI và đồng bộ màu
+                pcall(function()
+                    ToggleUI.SetDefault(BUTTON_NAME, true)
+                end)
+                -- đợi một chút để ToggleUI có thể cập nhật màu (tweens nếu có)
+                task.wait(0.06)
+                -- Đồng bộ trạng thái thực tế theo màu nút bây giờ
+                local nowOn = inferToggleOn(button)
+                autoBuso = nowOn
+                pcall(function() player:SetAttribute("AutoBuso", autoBuso) end)
+                break
+            end
+
+            -- nếu frame chưa hiển thị sau nhiều lần kiểm tra (ví dụ UI chưa load), vẫn giữ mặc định ON
+            if attempts > 200 then
+                -- đã chờ quá lâu (~20s) -> set default anyway to avoid stuck
+                pcall(function()
+                    ToggleUI.SetDefault(BUTTON_NAME, true)
+                end)
+                task.wait(0.06)
+                local nowOn = inferToggleOn(button)
+                autoBuso = nowOn
+                pcall(function() player:SetAttribute("AutoBuso", autoBuso) end)
+                break
+            end
+
+            task.wait(0.1)
+        end
+    end)
+    -- === END NEW INIT LOGIC ===
 
     -- khi user bấm -> gửi yêu cầu đổi trạng thái cho ToggleUI (ToggleUI chịu trách nhiệm cập nhật màu)
     local function onButtonActivated()
@@ -766,6 +805,7 @@ do
         pcall(function() ToggleUI.SetDefault(BUTTON_NAME, val == true) end)
     end
 end
+
     --[[HOOK
 game.Players.LocalPlayer:SetAttribute("AutoBuso", true)  -- bật
 game.Players.LocalPlayer:SetAttribute("AutoBuso", false) -- tắt
