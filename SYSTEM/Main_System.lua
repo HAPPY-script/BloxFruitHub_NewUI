@@ -2560,7 +2560,7 @@ do
     local function tweenProperty(instance, props, time)
         if not instance then return end
         local ok, t = pcall(function()
-            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+            local tw = TweenService:Create(instance, TweenInfo.new(time or 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
             tw:Play()
             return tw
         end)
@@ -2571,18 +2571,18 @@ do
     local function applySupportVisuals(style)
         if not supportBtn then return end
         local targetColor = (style == "Melee") and MELEE_COLOR or FRUIT_COLOR
-        pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.18) end)
+        pcall(function() tweenProperty(supportBtn, {BackgroundColor3 = targetColor}, 0.5) end)
         local stroke = getUIStroke(supportBtn)
-        if stroke then pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.18) end) end
+        if stroke then pcall(function() tweenProperty(stroke, {Color = targetColor}, 0.5) end) end
 
         local textObj = getTextHolder(supportBtn)
         if textObj then
-            local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.12)
+            local t1 = tweenProperty(textObj, {TextTransparency = 1}, 0.5)
             if t1 then t1.Completed:Wait() end
             local newText = SUPPORT_TEXT[style] or ("Support: " .. style)
             pcall(function() textObj.Text = newText end)
             pcall(function()
-                local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.12)
+                local t2 = tweenProperty(textObj, {TextTransparency = 0}, 0.5)
                 if t2 then t2.Completed:Wait() end
             end)
         end
