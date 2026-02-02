@@ -77,12 +77,6 @@ local shakeTime      = 0.08
 local gradientTweenTime = 0.5
 local sizeTweenTime  = 0.28
 
-local currentPercent = 0 -- 0..1
-local lock = false -- finish lock
-local activeStars = 0 -- count of active star clones in-flight
-local reserved = 0    -- NEW: amount reserved (allocated but not yet arrived)
-local function clamp01(v) return math.clamp(v or 0, 0, 1) end
-
 -- initialization: set LoadWhiteFrame size 0 and invisible, ensure background transparency 0
 LoadWhiteFrame.Size = UDim2.new(0,0,0,0)
 LoadWhiteFrame.Visible = false
@@ -458,75 +452,43 @@ local function runFinalSequence()
 	loadGui:Destroy()
 end
 
--- improved shared.load (fixed: no goto, correct reserved handling, closure capture)
+-- main API: shared.load(amount)
 shared.load = shared.load or function(amount)
 	if type(amount) ~= "number" then return end
 	if lock then return end
-
-	-- ensure amount in 0..1
 	amount = clamp01(amount)
 	if amount <= 0 then return end
 
-	-- compute truly available portion (not including already reserved)
-	local available = math.max(0, 1 - (currentPercent + reserved))
-	local alloc = math.min(amount, available)
-	if alloc <= 0 then
-		dprint("No available capacity to allocate (currentPercent, reserved)=", currentPercent, reserved)
-		return
-	end
+	local alloc = math.min(amount, 1 - currentPercent)
+	if alloc <= 0 then return end
 
-	-- reserve immediately so concurrent calls can't over-allocate
-	reserved = reserved + alloc
-	dprint("Allocating:", alloc, "reserved now =", reserved, "currentPercent =", currentPercent)
-
-	-- number of stars to spawn (kept similar to original)
 	local count = math.random(3, 7)
-	-- If alloc is very small, ensure at least 1 star
-	if alloc < 0.001 then count = 1 end
-
 	local perStar = alloc / count
 
 	for i = 1, count do
-		-- compute delta for this star (last star fixes remainder)
-		local delta
-		if i == count then
-			delta = alloc - perStar * (count - 1)
-		else
-			delta = perStar
-		end
+		local delta = perStar
+		if i == count then delta = alloc - perStar * (count - 1) end
 
-		delta = tonumber(delta) or 0
-		-- skip non-positive deltas (do not modify reserved)
-		if delta <= 0 then
-			-- continue to next iteration
-			task.wait(0.06 + math.random() * 0.05)
-		else
-			-- capture delta for closure so later callback uses the correct value
-			local starDelta = delta
+		spawnStarFly(function()
+			-- on arrival
+			currentPercent = clamp01(currentPercent + delta)
+			dprint("Effect arrived; currentPercent=", currentPercent)
 
-			spawnStarFly(function()
-				-- on arrival: move reserved -> currentPercent
-				reserved = math.max(0, reserved - starDelta) -- decrease reserved by this star's amount
+			-- shake + tween inner gradient (the one inside LoadFrame) to reflect new percent
+			pcall(shakeLoadFrame)
+			pcall(function() tweenInnerGradientToPercent(currentPercent, 0.25) end)
 
-				-- then increment displayed percent
-				currentPercent = clamp01(currentPercent + starDelta)
-				dprint("Effect arrived; delta=", starDelta, "currentPercent=", currentPercent, "reserved=", reserved)
+			-- finish sequence when reach 100%
+			if currentPercent >= 1 and not lock then
+				lock = true
+				dprint("Reached 100%, locking and spawning final sequence")
+				-- run final sequence (safely)
+				task.spawn(runFinalSequence)
+			end
+		end)
 
-				-- shake + tween inner gradient to reflect new percent
-				pcall(shakeLoadFrame)
-				pcall(function() tweenInnerGradientToPercent(currentPercent, 0.25) end)
-
-				-- finish sequence when reach 100%
-				if currentPercent >= 1 and not lock then
-					lock = true
-					dprint("Reached 100%, locking and spawning final sequence")
-					task.spawn(runFinalSequence)
-				end
-			end)
-
-			-- small stagger between spawns (preserve original randomness)
-			task.wait(0.06 + math.random() * 0.05)
-		end
+		-- small stagger between spawns
+		task.wait(0.06 + math.random() * 0.05)
 	end
 end
 
