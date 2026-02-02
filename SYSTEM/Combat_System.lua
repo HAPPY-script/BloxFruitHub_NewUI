@@ -1810,7 +1810,6 @@ do
 end
 --=== SILENT AIM =========================================================================================--
 
--- SilentAim (ổn định, hỗ trợ mobile, xuyên qua mục tiêu thêm 100 studs)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1959,7 +1958,7 @@ do
     end
 
     local Camera = workspace.CurrentCamera
-    local CACHE_INTERVAL = 0.12
+    local CACHE_INTERVAL = 0.05
     local cachedTarget = nil
     local cachedAt = 0
 
