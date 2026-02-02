@@ -458,6 +458,7 @@ local function runFinalSequence()
 	loadGui:Destroy()
 end
 
+-- improved shared.load (fixed: no goto, correct reserved handling, closure capture)
 shared.load = shared.load or function(amount)
 	if type(amount) ~= "number" then return end
 	if lock then return end
@@ -480,11 +481,8 @@ shared.load = shared.load or function(amount)
 
 	-- number of stars to spawn (kept similar to original)
 	local count = math.random(3, 7)
-
 	-- If alloc is very small, ensure at least 1 star
-	if alloc < 0.001 then
-		count = 1
-	end
+	if alloc < 0.001 then count = 1 end
 
 	local perStar = alloc / count
 
@@ -492,44 +490,43 @@ shared.load = shared.load or function(amount)
 		-- compute delta for this star (last star fixes remainder)
 		local delta
 		if i == count then
-			-- ensure rounding leftover goes to last star
 			delta = alloc - perStar * (count - 1)
 		else
 			delta = perStar
 		end
 
-		-- guard tiny epsilon
 		delta = tonumber(delta) or 0
+		-- skip non-positive deltas (do not modify reserved)
 		if delta <= 0 then
-			-- nothing to allocate for this star (shouldn't happen), skip
-			reserved = math.max(0, reserved - delta)
-			goto continue
+			-- continue to next iteration
+			task.wait(0.06 + math.random() * 0.05)
+		else
+			-- capture delta for closure so later callback uses the correct value
+			local starDelta = delta
+
+			spawnStarFly(function()
+				-- on arrival: move reserved -> currentPercent
+				reserved = math.max(0, reserved - starDelta) -- decrease reserved by this star's amount
+
+				-- then increment displayed percent
+				currentPercent = clamp01(currentPercent + starDelta)
+				dprint("Effect arrived; delta=", starDelta, "currentPercent=", currentPercent, "reserved=", reserved)
+
+				-- shake + tween inner gradient to reflect new percent
+				pcall(shakeLoadFrame)
+				pcall(function() tweenInnerGradientToPercent(currentPercent, 0.25) end)
+
+				-- finish sequence when reach 100%
+				if currentPercent >= 1 and not lock then
+					lock = true
+					dprint("Reached 100%, locking and spawning final sequence")
+					task.spawn(runFinalSequence)
+				end
+			end)
+
+			-- small stagger between spawns (preserve original randomness)
+			task.wait(0.06 + math.random() * 0.05)
 		end
-
-		spawnStarFly(function()
-			-- on arrival: move reserved -> currentPercent
-			-- subtract reserved first (we reserved that amount earlier)
-			reserved = math.max(0, reserved - delta)
-
-			-- then increment displayed percent
-			currentPercent = clamp01(currentPercent + delta)
-			dprint("Effect arrived; delta=", delta, "currentPercent=", currentPercent, "reserved=", reserved)
-
-			-- shake + tween inner gradient to reflect new percent
-			pcall(shakeLoadFrame)
-			pcall(function() tweenInnerGradientToPercent(currentPercent, 0.25) end)
-
-			-- finish sequence when reach 100%
-			if currentPercent >= 1 and not lock then
-				lock = true
-				dprint("Reached 100%, locking and spawning final sequence")
-				task.spawn(runFinalSequence)
-			end
-		end)
-
-		::continue::
-		-- small stagger between spawns (preserve original randomness)
-		task.wait(0.06 + math.random() * 0.05)
 	end
 end
 
