@@ -539,7 +539,13 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFrui
 print("Player Setting 7/11✅")
 shared.load(0.125)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Combat.lua"))()
+local ok, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Combat.lua"))()
+end)
+
+if not ok then
+    warn("[Combat UI]:", err)
+end
 
 print("Combat 8/11✅")
 shared.load(0.175)
