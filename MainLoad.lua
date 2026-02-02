@@ -77,6 +77,12 @@ local shakeTime      = 0.08
 local gradientTweenTime = 0.5
 local sizeTweenTime  = 0.28
 
+local currentPercent = 0 -- 0..1
+local lock = false -- finish lock
+local activeStars = 0 -- count of active star clones in-flight
+local reserved = 0    -- NEW: amount reserved (allocated but not yet arrived)
+local function clamp01(v) return math.clamp(v or 0, 0, 1) end
+
 -- initialization: set LoadWhiteFrame size 0 and invisible, ensure background transparency 0
 LoadWhiteFrame.Size = UDim2.new(0,0,0,0)
 LoadWhiteFrame.Visible = false
@@ -452,29 +458,64 @@ local function runFinalSequence()
 	loadGui:Destroy()
 end
 
--- main API: shared.load(amount)
 shared.load = shared.load or function(amount)
 	if type(amount) ~= "number" then return end
 	if lock then return end
+
+	-- ensure amount in 0..1
 	amount = clamp01(amount)
 	if amount <= 0 then return end
 
-	local alloc = math.min(amount, 1 - currentPercent)
-	if alloc <= 0 then return end
+	-- compute truly available portion (not including already reserved)
+	local available = math.max(0, 1 - (currentPercent + reserved))
+	local alloc = math.min(amount, available)
+	if alloc <= 0 then
+		dprint("No available capacity to allocate (currentPercent, reserved)=", currentPercent, reserved)
+		return
+	end
 
+	-- reserve immediately so concurrent calls can't over-allocate
+	reserved = reserved + alloc
+	dprint("Allocating:", alloc, "reserved now =", reserved, "currentPercent =", currentPercent)
+
+	-- number of stars to spawn (kept similar to original)
 	local count = math.random(3, 7)
+
+	-- If alloc is very small, ensure at least 1 star
+	if alloc < 0.001 then
+		count = 1
+	end
+
 	local perStar = alloc / count
 
 	for i = 1, count do
-		local delta = perStar
-		if i == count then delta = alloc - perStar * (count - 1) end
+		-- compute delta for this star (last star fixes remainder)
+		local delta
+		if i == count then
+			-- ensure rounding leftover goes to last star
+			delta = alloc - perStar * (count - 1)
+		else
+			delta = perStar
+		end
+
+		-- guard tiny epsilon
+		delta = tonumber(delta) or 0
+		if delta <= 0 then
+			-- nothing to allocate for this star (shouldn't happen), skip
+			reserved = math.max(0, reserved - delta)
+			goto continue
+		end
 
 		spawnStarFly(function()
-			-- on arrival
-			currentPercent = clamp01(currentPercent + delta)
-			dprint("Effect arrived; currentPercent=", currentPercent)
+			-- on arrival: move reserved -> currentPercent
+			-- subtract reserved first (we reserved that amount earlier)
+			reserved = math.max(0, reserved - delta)
 
-			-- shake + tween inner gradient (the one inside LoadFrame) to reflect new percent
+			-- then increment displayed percent
+			currentPercent = clamp01(currentPercent + delta)
+			dprint("Effect arrived; delta=", delta, "currentPercent=", currentPercent, "reserved=", reserved)
+
+			-- shake + tween inner gradient to reflect new percent
 			pcall(shakeLoadFrame)
 			pcall(function() tweenInnerGradientToPercent(currentPercent, 0.25) end)
 
@@ -482,12 +523,12 @@ shared.load = shared.load or function(amount)
 			if currentPercent >= 1 and not lock then
 				lock = true
 				dprint("Reached 100%, locking and spawning final sequence")
-				-- run final sequence (safely)
 				task.spawn(runFinalSequence)
 			end
 		end)
 
-		-- small stagger between spawns
+		::continue::
+		-- small stagger between spawns (preserve original randomness)
 		task.wait(0.06 + math.random() * 0.05)
 	end
 end
