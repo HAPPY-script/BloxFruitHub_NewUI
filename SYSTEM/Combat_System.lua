@@ -581,8 +581,8 @@ do
     if not aimbotBtn then warn("Không tìm thấy AimbotButton trong Combat") return end
     if not keyBtn then warn("Không tìm thấy KeyAimbotButton trong Combat") return end
 
-    local TweenTimeColor = 0.5
-    local TweenTimeText  = 0.5
+    local TweenTimeColor = 0.25
+    local TweenTimeText  = 0.16
     local WaitTimeout    = 5
 
     local WARN_COLOR_FULL = Color3.fromRGB(255,255,0) -- khi bật mà chưa chọn key
