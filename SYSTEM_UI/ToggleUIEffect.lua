@@ -8,6 +8,10 @@ local TWEEN_TIME = 0.24
 local START_AT_DEG = 90 -- start fade of target/icon at 90 degrees
 local START_DELAY = TWEEN_TIME * (START_AT_DEG / 360) -- time when 90deg reached
 
+local DEFAULT_ON_LIST = {
+	"AutoBusoButton",
+}
+
 local X_ON  = 0.75
 local X_OFF = 0.25
 
@@ -395,9 +399,8 @@ function ToggleUI.SetDefault(buttonName, isOn)
 
 			-- if everything matches -> success; normalize then exit
 			if ok then
-				-- force-normalize final visuals and state
-				cancelIconTweens(data) -- will set icons/transparencies according to data.State
 				data.State = isOn
+				cancelIconTweens(data)
 				return
 			end
 
@@ -410,7 +413,22 @@ end
 
 function ToggleUI.Refresh()
 	scanUI()
+
+	-- Đặt tất cả OFF trước (mặc định chung)
+	for name, _ in pairs(buttonMap) do
+		-- gọi SetDefault để đảm bảo mọi thuộc tính được áp dụng "cứng"
+		ToggleUI.SetDefault(name, false)
+	end
+
+	-- Sau đó bật các button nằm trong danh sách DEFAULT_ON_LIST
+	for _, name in ipairs(DEFAULT_ON_LIST) do
+		if buttonMap[name] then
+			ToggleUI.SetDefault(name, true)
+		end
+	end
 end
+
+ToggleUI.Refresh()
 
 -- expose to other LocalScripts via _G (client-only)
 _G.ToggleUI = ToggleUI
