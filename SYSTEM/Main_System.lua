@@ -1,3 +1,4 @@
+print("Auto farm lvl fix[1]")
 --=== AUTO HOLD TOOL =====================================================================================================--
 
 do
@@ -1297,10 +1298,8 @@ do
     }
 
     local running = false
+    local pausedByDeath = false -- NEW: đánh dấu tạm pause do chết
     local lastLevel = 0
-
-    -- NEW: paused flag when we die (so we don't reset the UI; only pause)
-    local pausedOnDeath = false
 
     local function getLevel()
         local d = player:FindFirstChild("Data")
@@ -1806,7 +1805,7 @@ do
 
         if on and not running then
             running = true
-            pausedOnDeath = false -- clear paused flag when we actively start
+            pausedByDeath = false -- nếu bật lại bằng tay thì clear pause
 
             _G.BringMobGate2 = true
 
@@ -1827,8 +1826,9 @@ do
             end
 
         elseif not on and running then
+            -- User turned OFF manually: stop and reset
             running = false
-            pausedOnDeath = false
+            pausedByDeath = false -- user explicitly turned off => clear any death-pause
 
             _G.BringMobGate2 = false
 
@@ -1860,45 +1860,23 @@ do
     -- Khởi tạo trạng thái theo màu hiện tại của button khi script bắt đầu
     setRunningFromButtonColor()
 
-    -- Khi chết: dừng ngay lập tức và TẠM PAUSE (không reset UI về OFF)
+    -- Khi chết: chỉ tạm dừng (pause) — không reset UI về OFF
     local function onDeath()
         if running then
-            -- We pause instead of clearing the UI state
-            pausedOnDeath = true
+            pausedByDeath = true
             running = false
         end
-
-        -- DO NOT set ToggleUI.Set(..., false) — keep UI as-is
-
-        -- restore camera to player view for death/respawn
+        -- LƯU Ý: không tắt ToggleUI; chỉ trả camera về người chơi và clear các tween/patrol
         restoreCameraToPlayer()
-        -- clear savedCameraState to avoid restoring stale anchor-based camera later
-        savedCameraState = nil
-
+        -- không xóa savedCameraState để có thể restore khi resume
         cancelCurrentTween()
         patrolActive = false
-        destroyFarmPoint()
-    end
-
-    -- Helper to attempt resume after respawn if we paused on death and button still ON
-    local function tryResumeAfterRespawn()
-        -- small delay to allow character to fully initialize
-        task.delay(0.6, function()
-            -- if user toggled off while dead, don't resume
-            if not pausedOnDeath then return end
-            if not isButtonOn() then
-                pausedOnDeath = false
-                return
-            end
-
-            -- reapply start logic
-            setRunningFromButtonColor()
-        end)
+        -- giữ farmPoint để khi respawn có thể tiếp tục nhanh
+        -- destroyFarmPoint() -- *bị loại bỏ* để không reset vùng làm việc
     end
 
     -- Kết nối sự kiện chết cho mỗi character
     player.CharacterAdded:Connect(function(char)
-        -- connect died for new humanoid
         local h = char:WaitForChild("Humanoid", 5)
         if h then
             h.Died:Connect(function()
@@ -1906,18 +1884,45 @@ do
             end)
         end
 
-        -- restore camera to player (in case it was left in anchor)
+        -- restore camera to local char view
         restoreCameraToPlayer()
 
-        -- If we were paused on death, try to resume now (only if button still ON)
-        if pausedOnDeath then
-            tryResumeAfterRespawn()
-        end
+        -- Sau respawn: nếu trước đó bị pause do chết và nút vẫn ON => tự resume
+        task.spawn(function()
+            -- đợi chút để nhân vật ổn định
+            task.wait(0.5)
+            if pausedByDeath then
+                -- clear paused flag early to avoid race nếu người bấm tắt ngay lập tức
+                pausedByDeath = false
+                if isButtonOn() then
+                    -- bật lại running và các thiết lập
+                    running = true
+                    _G.BringMobGate2 = true
+
+                    lastLevel = getLevel()
+                    pcall(function()
+                        player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                        player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                        player:SetAttribute("FastAttackEnemy", true)
+                    end)
+
+                    -- ensure farmPoint exists for current zone
+                    local zone = getZoneForLevel(lastLevel)
+                    if zone then
+                        if not farmPoint or not farmPoint.Parent or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
+                            createFarmPoint(zone.FarmPos)
+                        end
+                    end
+                else
+                    -- nếu người đã tắt nút trong thời gian chết thì không resume
+                end
+            end
+        end)
     end)
 
-    -- If we already have a character currently (script loaded after spawn), connect its died event
+    -- Connect if character already exists at script start
     if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.Died:Connect(function() onDeath() end)
+        player.Character:FindFirstChild("Humanoid").Died:Connect(function() onDeath() end)
     end
 end
 
