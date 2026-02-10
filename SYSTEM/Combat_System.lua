@@ -1284,20 +1284,29 @@ do
 
     local function getTargetsEnemies(pos)
         local t = {}
-        local folder = workspace:FindFirstChild("Enemies")
-        if not folder then return t end
-        for _, enemy in ipairs(folder:GetChildren()) do
-            if enemy:IsA("Model") then
-                local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Torso")
-                local hum = enemy:FindFirstChildOfClass("Humanoid")
-                if part and hum and hum.Health > 0 then
-                    local d = (part.Position - pos).Magnitude
-                    if d <= radius then
-                        table.insert(t, {model = enemy, part = part, dist = d})
+        local folders = {}
+        local f1 = workspace:FindFirstChild("Enemies")
+        if f1 and f1:IsA("Folder") or f1 and f1:IsA("Model") then table.insert(folders, f1) end
+        local f2 = workspace:FindFirstChild("SeaBeasts")
+        if f2 and (f2:IsA("Folder") or f2:IsA("Model")) then table.insert(folders, f2) end
+        if #folders == 0 then return t end
+    
+        for _, folder in ipairs(folders) do
+            for _, enemy in ipairs(folder:GetChildren()) do
+                if enemy:IsA("Model") then
+                    local hrp = enemy:FindFirstChild("HumanoidRootPart")
+                    local part = hrp or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Torso") or enemy:FindFirstChild("Head")
+                    local hum = enemy:FindFirstChildOfClass("Humanoid")
+                    if part and hum and hum.Health > 0 then
+                        local d = (part.Position - pos).Magnitude
+                        if d <= radius then
+                            table.insert(t, {model = enemy, part = part, dist = d})
+                        end
                     end
                 end
             end
         end
+    
         table.sort(t, function(a,b) return a.dist < b.dist end)
         local r = {}
         for i=1, math.min(#t, maxhit) do table.insert(r, t[i]) end
@@ -1428,10 +1437,13 @@ do
                         local mt = {}
                         local fp = nil
                         for _, info in ipairs(targets) do
-                            local p = info.part
-                            if p then
-                                if not fp then fp = p end
-                                table.insert(mt, {info.model, p})
+                            local model = info.model
+                            if model then
+                                local chosen = model:FindFirstChild("HumanoidRootPart") or info.part
+                                if chosen then
+                                    if not fp then fp = chosen end
+                                    table.insert(mt, {model, chosen})
+                                end
                             end
                         end
                         if fp and #mt > 0 then
@@ -1478,10 +1490,13 @@ do
                         local mt = {}
                         local fp = nil
                         for _, info in ipairs(targets) do
-                            local p = info.part
-                            if p then
-                                if not fp then fp = p end
-                                table.insert(mt, {info.model, p})
+                            local model = info.model
+                            if model then
+                                local chosen = model:FindFirstChild("HumanoidRootPart") or info.part
+                                if chosen then
+                                    if not fp then fp = chosen end
+                                    table.insert(mt, {model, chosen})
+                                end
                             end
                         end
                         if fp and #mt > 0 then
