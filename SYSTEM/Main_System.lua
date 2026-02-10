@@ -337,7 +337,6 @@ end
 
 --=== AUTO FARM LVL =====================================================================================================--
 
--- AutoFarmLvl (nâng cấp: FarmPos làm farmPoint + patrol + improved tween)
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -1298,6 +1297,7 @@ do
     }
 
     local running = false
+    local pausedForDeath = false -- nếu true => đang tạm dừng do chết, sẽ resume khi respawn
     local lastLevel = 0
 
     local function getLevel()
@@ -1322,7 +1322,7 @@ do
     -- distanceLimit (dùng cho Billboard)
     local distanceLimit = 2500
 
-    -- utility safe getters
+    -- utility safe getters (rebind to current character)
     local function safeHRP()
         local char = player.Character
         if not char then return nil end
@@ -1348,7 +1348,8 @@ do
         for _, mob in pairs(enemies:GetChildren()) do
             if mob.Name == name and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
                 local dist = (hrpPos - mob.HumanoidRootPart.Position).Magnitude
-                if mob:FindFirstChildOfClass("Humanoid").Health > 0 and dist < minDist then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 and dist < minDist then
                     closest = mob
                     minDist = dist
                 end
@@ -1366,7 +1367,7 @@ do
         end
     end
 
-    -- improved tweenTo: smoother polling via Heartbeat, responsive cancel
+    -- improved tweenTo: smoother polling via short waits, responsive cancel
     local function tweenTo(pos)
         local hrp = safeHRP()
         if not hrp or not hrp.Parent then return false end
@@ -1388,7 +1389,7 @@ do
 
         -- compute duration based on planar distance
         local planarDistance = (Vector3.new(cur.X, 0, cur.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
-        local duration = math.max(0.01, planarDistance / MOVE_SPEED_OVERRIDE)
+        local duration = math.max(0.02, planarDistance / MOVE_SPEED_OVERRIDE)
 
         local ok, tw = pcall(function()
             return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
@@ -1408,9 +1409,7 @@ do
 
         tw:Play()
 
-        -- smoother poll using Heartbeat
-        local pollAcc = 0
-        local pollInterval = 0.05 -- kiểm tra mỗi 0.05s
+        -- responsive wait loop: allow immediate cancel when running becomes false
         while currentTween == tw do
             if not running then
                 pcall(function() tw:Cancel() end)
@@ -1418,13 +1417,7 @@ do
                 if conn then conn:Disconnect() end
                 return false
             end
-
-            local dt = RunService.Heartbeat:Wait()
-            pollAcc = pollAcc + dt
-            if pollAcc >= pollInterval then
-                pollAcc = 0
-                -- placeholder nếu muốn checkDuring sau này
-            end
+            RunService.Heartbeat:Wait()
         end
 
         return completed and running
@@ -1495,11 +1488,12 @@ do
         restoreCameraToPlayer()
     end
 
-    -- followMob (kept mostly same)
+    -- followMob (improved to avoid camera jitter)
     local function followMob(mob)
         if not mob then return end
         local char = player.Character or player.CharacterAdded:Wait()
-        local hrp = char:WaitForChild("HumanoidRootPart")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
         local cameraLocal = workspace.CurrentCamera
 
         -- create anchor
@@ -1517,25 +1511,38 @@ do
         cameraLocal.CameraType = Enum.CameraType.Custom
         cameraLocal.CameraSubject = anchor
 
-        local anchorY = mob.HumanoidRootPart.Position.Y + 25
+        -- Use smoothed anchorY and fixed lateral lerp factors to avoid in/out jump
+        local targetAnchorY = mob.HumanoidRootPart.Position.Y + 25
+        local anchorLerp = 0.12 -- smoothing for anchor position
+        local hrpLerp = 0.20 -- smoothing for hrp chase
+
         local lastUpdate = tick()
 
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
             and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
 
+            if not hrp or not hrp.Parent then break end
             local hrpEnemy = mob:FindFirstChild("HumanoidRootPart")
             if not hrpEnemy then break end
 
-            if (tick() - lastUpdate) > 2 or math.abs(anchorY - hrpEnemy.Position.Y) > 15 then
-                anchorY = hrpEnemy.Position.Y + 25
-                lastUpdate = tick()
+            -- smooth adjust anchor height slowly (avoid immediate large jumps)
+            local desiredY = hrpEnemy.Position.Y + 25
+            -- only change targetAnchorY gradually if far (>6 studs)
+            if math.abs(desiredY - targetAnchorY) > 6 then
+                -- step towards desiredY but avoid snapping
+                targetAnchorY = targetAnchorY + (desiredY - targetAnchorY) * 0.25
+            else
+                targetAnchorY = desiredY
             end
 
-            local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
-            anchor.Position = anchor.Position:Lerp(targetPos, 0.15)
+            local targetPos = Vector3.new(hrpEnemy.Position.X, targetAnchorY, hrpEnemy.Position.Z)
+            anchor.Position = anchor.Position:Lerp(targetPos, anchorLerp)
+
+            -- move player smoothly toward a point near the enemy (prevent oscillation)
             if hrp and hrp.Parent then
+                local desiredPlayerPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + (mob:FindFirstChildOfClass("Humanoid") and (mob:FindFirstChildOfClass("Humanoid").Health > 0 and  (hrp.Size.Y/2) or 0) or 0) + 0, hrpEnemy.Position.Z)
                 hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z)), hrpLerp)
             end
 
             RunService.RenderStepped:Wait()
@@ -1543,9 +1550,7 @@ do
 
         -- restore camera and cleanup
         restoreCameraState()
-        if anchor and anchor.Parent then
-            anchor:Destroy()
-        end
+        if anchor and anchor.Parent then anchor:Destroy() end
     end
 
     -- create farm point + billboard (FarmPos used as center)
@@ -1588,7 +1593,7 @@ do
         label.TextStrokeTransparency = 0.6
 
         farmBillboard = { gui = bb, label = label }
-        farmCenter = farmPoint.Position -- fixed center
+        farmCenter = farmPoint.Position -- fixed center at creation time
     end
 
     local function destroyFarmPoint()
@@ -1628,13 +1633,14 @@ do
                 end
 
                 if farmPoint and farmPoint.Parent then
+                    -- keep farmCenter fixed (do NOT move it during patrol/orbit)
                     farmCenter = farmPoint.Position
                 end
             end
         end)
     end
 
-    -- patrol logic (orbit around farmCenter)
+    -- patrol logic (orbit around farmCenter) - improved to avoid jumping
     local patrolActive = false
 
     local function circlePoint(center, radius, angleRad)
@@ -1661,7 +1667,7 @@ do
             local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
-            -- tiny smooth pause using Heartbeat
+            -- tiny smooth pause using Heartbeat (short and responsive)
             local pauseTime = 0.03
             local elapsed = 0
             while elapsed < pauseTime do
@@ -1697,6 +1703,7 @@ do
             if idx > #radii then idx = 1 end
 
             if getNearestMob(zoneMobName) then break end
+
             -- small idle to avoid busy loop
             local idle = 0.02
             local e = 0
@@ -1759,7 +1766,6 @@ do
                 followMob(mob)
                 currentQuestKills = currentQuestKills + 1
                 lastSeen = tick()
-                -- after finishing an enemy, immediately continue the loop to search for next enemy
                 continue
             else
                 -- no mob found: only move to farm area center or start patrol if idle >= 0.5s
@@ -1769,12 +1775,10 @@ do
                     if hrp then
                         local distToFarm = (hrp.Position - zone.FarmPos).Magnitude
                         if distToFarm > distanceLimit then
-                            -- too far: cancel patrols and return to farm center immediately
                             cancelCurrentTween()
                             patrolActive = false
                             tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
                         elseif distToFarm > 50 then
-                            -- minor reposition inside farm area
                             tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
                         end
                     end
@@ -1856,14 +1860,15 @@ do
     -- Khởi tạo trạng thái theo màu hiện tại của button khi script bắt đầu
     setRunningFromButtonColor()
 
-    -- Khi chết: dừng ngay lập tức và reset UI về OFF (yêu cầu của bạn)
+    -- Khi chết: tạm dừng (không reset UI)
     local function onDeath()
         if running then
+            -- mark paused state so we can resume on respawn
+            pausedForDeath = true
             running = false
         end
-        if ToggleUI and ToggleUI.Set then
-            pcall(ToggleUI.Set, BUTTON_NAME, false)
-        end
+
+        -- cleanup visuals, but DO NOT change the toggle UI
         restoreCameraToPlayer()
         savedCameraState = nil
         cancelCurrentTween()
@@ -1871,17 +1876,52 @@ do
         destroyFarmPoint()
     end
 
-    -- Kết nối sự kiện chết cho mỗi character
+    -- Kết nối sự kiện chết cho mỗi character, và resume logic
     player.CharacterAdded:Connect(function(char)
+        -- small delay to ensure humanoid exists
         local h = char:WaitForChild("Humanoid", 5)
         if h then
             h.Died:Connect(function()
                 onDeath()
             end)
         end
+
+        -- When character spawns, if we were paused for death and the UI toggle is still ON, resume automatically
+        -- Wait a short time for HRP to exist
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
         restoreCameraToPlayer()
+
+        if pausedForDeath then
+            -- only resume if the UI toggle still indicates ON
+            local uiOn = isButtonOn()
+            if uiOn then
+                pausedForDeath = false
+                running = true
+
+                _G.BringMobGate2 = true
+
+                -- reapply attributes & create farmpoint for current zone
+                pcall(function()
+                    player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                    player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                    player:SetAttribute("FastAttackEnemy", true)
+                end)
+
+                lastLevel = getLevel()
+                local zone = getZoneForLevel(lastLevel)
+                if zone then
+                    createFarmPoint(zone.FarmPos)
+                elseif hrp then
+                    createFarmPoint(hrp.Position)
+                end
+            else
+                -- UI was turned off while dead; just clear pause flag
+                pausedForDeath = false
+            end
+        end
     end)
 
+    -- If character exists on script start, hook its death
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.Died:Connect(function() onDeath() end)
     end
