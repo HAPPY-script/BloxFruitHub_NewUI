@@ -966,7 +966,7 @@ do
         },
         {
             MinLevel = 1850,
-            MaxLevel = 1874,
+            MaxLevel = 1899,
             MobName = "Mythological Pirate",
             FarmPos = Vector3.new(-13572.07, 491.16, -6900.90),
             QuestNPCPos = Vector3.new(2495.12, 74.27, -6800.91),
