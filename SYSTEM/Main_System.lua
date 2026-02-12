@@ -987,7 +987,7 @@ do
         {
             MinLevel = 1925,
             MaxLevel = 1974,
-            MobName = "Musketeer Pirates",
+            MobName = "Musketeer Pirate",
             FarmPos = Vector3.new(-13349.61, 421.47, -9797.77),
             QuestNPCPos = Vector3.new(-12682.71, 390.90, -9902.72),
             QuestName = "DeepForestIsland2",
