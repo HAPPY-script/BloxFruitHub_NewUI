@@ -1512,73 +1512,130 @@ do
     local farmPoint = nil
     local farmBillboard = nil
     local farmCenter = nil
+    local creatingFarmPoint = false
+
+    -- Utility: clean up any leftover FarmPoint parts that were created by previous runs
+    local function cleanupExistingFarmPoints()
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj and obj:IsA("BasePart") and obj.Name == "FarmPoint" then
+                -- only remove parts that we previously labeled or that match exact structure (defensive)
+                local attr = obj:GetAttribute("IsAutoFarmPoint")
+                if attr == true or (obj:FindFirstChild("FarmDistanceUI") ~= nil) then
+                    pcall(function() obj:Destroy() end)
+                end
+            end
+        end
+    end
 
     local function createFarmPoint(pos)
-        -- If farm point exists, replace it
+        -- debounce to avoid concurrent creation
+        if creatingFarmPoint then
+            return farmPoint -- return current value (may be nil)
+        end
+        creatingFarmPoint = true
+
+        -- cleanup stray ones first (avoid duplicates)
+        pcall(cleanupExistingFarmPoints)
+
+        -- small yield to reduce race window
+        task.wait(0)
+
+        -- defensive check again
         if farmPoint and farmPoint.Parent then
-            farmPoint:Destroy()
-            farmPoint = nil
-            farmBillboard = nil
+            creatingFarmPoint = false
+            return farmPoint
         end
 
-        -- If the target pos is very far from player, lunge there first to avoid server refusing remote part creation
         local hrp = safeHRP()
         if hrp then
             local dist = (hrp.Position - pos).Magnitude
             if dist > distanceLimit then
                 -- attempt to lunge to farm pos to move into range
-                -- note: if lunge fails, we still try to create but this reduces hanging
                 pcall(function()
                     lungeTo(pos + Vector3.new(0, 5, 0))
                 end)
             end
         end
 
-        farmPoint = Instance.new("Part")
-        farmPoint.Name = "FarmPoint"
-        farmPoint.Size = Vector3.new(1,1,1)
-        farmPoint.Anchored = true
-        farmPoint.CanCollide = false
-        farmPoint.Transparency = 1
-        farmPoint.Position = pos
-        farmPoint.Parent = workspace
+        -- Create a new unique FarmPoint part
+        local success, newPart = pcall(function()
+            local p = Instance.new("Part")
+            p.Name = "FarmPoint"
+            p.Size = Vector3.new(1,1,1)
+            p.Anchored = true
+            p.CanCollide = false
+            p.Transparency = 1
+            p.Position = pos
+            p.Parent = workspace
+            p:SetAttribute("IsAutoFarmPoint", true)
+            return p
+        end)
 
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "FarmDistanceUI"
-        bb.Adornee = farmPoint
-        bb.Size = UDim2.new(0, 120, 0, 40)
-        bb.StudsOffset = Vector3.new(0, 2, 0)
-        bb.AlwaysOnTop = true
-        bb.Parent = farmPoint
+        if not success or not newPart then
+            creatingFarmPoint = false
+            return nil
+        end
 
-        local label = Instance.new("TextLabel", bb)
-        label.Name = "DistanceLabel"
-        label.Size = UDim2.new(1,0,1,0)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Font = Enum.Font.SourceSansBold
-        label.Text = "0/" .. tostring(distanceLimit)
-        label.TextColor3 = Color3.fromRGB(0,255,0)
-        label.TextStrokeTransparency = 0.6
+        -- ensure no leftover billboard inside (defensive)
+        for _, child in pairs(newPart:GetChildren()) do
+            if child:IsA("BillboardGui") and child.Name == "FarmDistanceUI" then
+                pcall(function() child:Destroy() end)
+            end
+        end
 
-        farmBillboard = { gui = bb, label = label }
-        farmCenter = farmPoint.Position -- fixed center
+        -- create billboard GUI safely
+        pcall(function()
+            local bb = Instance.new("BillboardGui")
+            bb.Name = "FarmDistanceUI"
+            bb.Adornee = newPart
+            bb.Size = UDim2.new(0, 120, 0, 40)
+            bb.StudsOffset = Vector3.new(0, 2, 0)
+            bb.AlwaysOnTop = true
+            bb.Parent = newPart
+
+            local label = Instance.new("TextLabel")
+            label.Name = "DistanceLabel"
+            label.Size = UDim2.new(1,0,1,0)
+            label.BackgroundTransparency = 1
+            label.TextScaled = true
+            label.Font = Enum.Font.SourceSansBold
+            label.Text = "0/" .. tostring(distanceLimit)
+            label.TextColor3 = Color3.fromRGB(0,255,0)
+            label.TextStrokeTransparency = 0.6
+            label.Parent = bb
+
+            farmBillboard = { gui = bb, label = label }
+        end)
+
+        farmPoint = newPart
+        farmCenter = farmPoint.Position
+
+        creatingFarmPoint = false
+        return farmPoint
     end
 
     local function destroyFarmPoint()
+        -- Destroy tracked reference first
         if farmPoint and farmPoint.Parent then
-            farmPoint:Destroy()
+            pcall(function() farmPoint:Destroy() end)
         end
         farmPoint = nil
         farmBillboard = nil
         farmCenter = nil
+
+        -- Also defensively remove any other leftover FarmPoint parts created previously
+        pcall(cleanupExistingFarmPoints)
     end
+
+    -- initial cleanup once at script start to avoid leftover duplicates
+    pcall(cleanupExistingFarmPoints)
 
     -- update farmBillboard text & color each frame (like mẫu)
     do
         local lastRatio = -1
         local colorTween = nil
         RunService.RenderStepped:Connect(function()
+            -- ensure the GUI instances are valid before using them
             if farmPoint and farmPoint.Parent and farmBillboard and farmBillboard.label and safeHRP() then
                 local hrp = safeHRP()
                 local rawDist = (hrp.Position - farmPoint.Position).Magnitude
@@ -1603,6 +1660,25 @@ do
 
                 if farmPoint and farmPoint.Parent then
                     farmCenter = farmPoint.Position
+                end
+            else
+                -- If tracked farmPoint lost (destroyed externally), try to find any existing FarmPoint in workspace and rebind it (defensive)
+                if not farmPoint then
+                    for _, obj in pairs(workspace:GetChildren()) do
+                        if obj and obj:IsA("BasePart") and obj.Name == "FarmPoint" then
+                            local attr = obj:GetAttribute("IsAutoFarmPoint")
+                            if attr == true or obj:FindFirstChild("FarmDistanceUI") then
+                                farmPoint = obj
+                                local bb = obj:FindFirstChild("FarmDistanceUI")
+                                if bb and bb:IsA("BillboardGui") then
+                                    local lbl = bb:FindFirstChild("DistanceLabel")
+                                    farmBillboard = { gui = bb, label = lbl }
+                                    farmCenter = farmPoint.Position
+                                end
+                                break
+                            end
+                        end
+                    end
                 end
             end
         end)
