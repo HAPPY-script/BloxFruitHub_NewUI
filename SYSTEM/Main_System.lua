@@ -1508,19 +1508,17 @@ do
         end
     end
 
-    -- === farm center management (BILLBOARD REMOVED) ===
-    -- track farm center position only (no part/gui creation)
+    -- FARM CENTER (replaces part + billboard): Vector3 or nil
     local farmCenter = nil
 
-    local function createFarmPoint(pos)
-        -- simply remember the center; do NOT create any Part or BillboardGui
+    local function createFarmCenter(pos)
+        -- set/replace farm center position (no Part / no Billboard)
         farmCenter = pos
     end
 
-    local function destroyFarmPoint()
+    local function destroyFarmCenter()
         farmCenter = nil
     end
-    -- ====================================================
 
     -- patrol logic (orbit around farmCenter) using lungeTo
     local patrolActive = false
@@ -1635,7 +1633,7 @@ do
 
             -- ensure farmCenter is placed at zone.FarmPos (ngưỡng nhỏ tránh recreate liên tục)
             if not farmCenter or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
-                createFarmPoint(zone.FarmPos)
+                createFarmCenter(zone.FarmPos)
             end
 
             -- NEW: Thử tự nhận quest đúng 1 lần khi mới bật
@@ -1666,21 +1664,21 @@ do
                 if (tick() - lastSeen) >= 0.5 then
                     -- Move to farm center if too far (> distanceLimit) or just reposition if moderately far
                     local hrp = safeHRP()
-                    if hrp then
-                        local distToFarm = (hrp.Position - zone.FarmPos).Magnitude
+                    if hrp and farmCenter then
+                        local distToFarm = (hrp.Position - farmCenter).Magnitude
                         if distToFarm > distanceLimit then
                             -- too far: cancel patrols and return to farm center immediately via lunge
                             stopMovement()
                             patrolActive = false
-                            lungeTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                            lungeTo(farmCenter + Vector3.new(0, 5, 0))
                         elseif distToFarm > 50 then
                             -- minor reposition inside farm area
-                            lungeTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                            lungeTo(farmCenter + Vector3.new(0, 5, 0))
                         end
                     end
 
                     -- start patrol if not active
-                    if not patrolActive then
+                    if not patrolActive and farmCenter then
                         task.spawn(function()
                             startPatrol(zone.MobName)
                         end)
@@ -1716,10 +1714,10 @@ do
             end)
 
             -- NOTE: camera save removed (no-op)
-            -- set farmCenter at current zone if available
+            -- create farmCenter at current zone if available
             local zone = getZoneForLevel(lastLevel)
             if zone then
-                createFarmPoint(zone.FarmPos)
+                createFarmCenter(zone.FarmPos)
             end
 
             -- NEW: mark that we need to accept quest once at start
@@ -1737,7 +1735,7 @@ do
             -- cleanup farmCenter/patrol
             stopMovement()
             patrolActive = false
-            destroyFarmPoint()
+            destroyFarmCenter()
 
             -- clear initial quest flag
             needsInitialQuest = false
@@ -1772,6 +1770,7 @@ do
         stopMovement()
         patrolActive = false
         -- giữ farmCenter để khi respawn có thể tiếp tục nhanh
+        -- destroyFarmCenter() -- *bị loại bỏ* để không reset vùng làm việc
     end
 
     -- Kết nối sự kiện chết cho mỗi character
@@ -1807,8 +1806,8 @@ do
                     -- ensure farmCenter exists for current zone
                     local zone = getZoneForLevel(lastLevel)
                     if zone then
-                        if not farmCenter or (farmCenter - zone.FarmPos).Magnitude > 0.1 then
-                            createFarmPoint(zone.FarmPos)
+                        if not farmCenter or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
+                            createFarmCenter(zone.FarmPos)
                         end
                     end
                 else
