@@ -8,7 +8,7 @@ Combat.BackgroundTransparency = 1
 Combat.BorderSizePixel = 0
 Combat.BorderColor3 = Color3.new(0, 0, 0)
 Combat.Transparency = 1
-Combat.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Combat.Parent = ScrollingTab
 
 local FollowPlayerBox = Instance.new("TextBox")
 FollowPlayerBox.Name = "FollowPlayerBox"
