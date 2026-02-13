@@ -1813,7 +1813,7 @@ do
         :WaitForChild("ScrollingTab")
 
     -- CHANGED: tìm CombatFrame thay vì Player Setting
-    local combatFrame = ScrollingTab:FindFirstChild("CombatFrame", true) or ScrollingTab:FindFirstChild("CombatFrame")
+    local combatFrame = ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:FindFirstChild("Combat")
     if not combatFrame then
         warn("Không tìm thấy Frame 'CombatFrame' trong ScrollingTab")
         return
@@ -1826,8 +1826,8 @@ do
     local toggleBtn = combatFrame:FindFirstChild(TOGGLE_NAME, true)
     local selectBtn = combatFrame:FindFirstChild(SELECT_NAME, true)
 
-    if not toggleBtn then warn("Không tìm thấy TPKeyPCButton trong CombatFrame") return end
-    if not selectBtn then warn("Không tìm thấy SelectTPKeyPCButton trong CombatFrame") return end
+    if not toggleBtn then warn("Không tìm thấy TPKeyPCButton trong Combat") return end
+    if not selectBtn then warn("Không tìm thấy SelectTPKeyPCButton trong Combat") return end
 
     -- helper: tìm UIStroke first descendant
     local function findStroke(inst)
