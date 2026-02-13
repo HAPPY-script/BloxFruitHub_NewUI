@@ -1,3 +1,4 @@
+print("UPD AUTO DUNGEON P1🟢")
 --=== RAID ===================================================================================================================--
 
 do
@@ -825,7 +826,7 @@ do
         return nil
     end
 
-    -- follow and root handlers (giữ logic cũ)
+    -- follow and root handlers (giữ logic cũ, đã chỉnh cho Random dwell logic)
     local function followEnemy(enemy)
         local isPriorityTarget = (enemy and enemy.Name == "PropHitboxPlaceholder")
         if followLock then return end
@@ -870,11 +871,27 @@ do
             return
         end
 
+        -- begin following; in Random mode we only leave early if another enemy exists
         local startTick = tick()
         while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
-            -- nếu mode Random: giới hạn thời gian ở mục tiêu
+            -- nếu mode Random: nếu dwell exceeded -> chỉ break nếu có enemy khác khả dụng
             if dungeonMode == "Random" and (tick() - startTick) >= RANDOM_DWELL then
-                break
+                -- kiểm tra xem có enemy khả dụng khác hay không
+                local center = hrp.Position
+                local all = getAllEnemiesWithinDistance(center)
+                local foundOther = false
+                for _, m in ipairs(all) do
+                    if m ~= enemy then
+                        foundOther = true
+                        break
+                    end
+                end
+                if foundOther then
+                    break
+                else
+                    -- nếu không có enemy khác, reset startTick để tiếp tục "dwell" tiếp
+                    startTick = tick()
+                end
             end
 
             local center = hrp.Position
@@ -965,7 +982,7 @@ do
         end
     end)
 
-    -- main scanning loop
+    -- main scanning loop (Random selection now excludes currentTarget when possible)
     task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
@@ -982,12 +999,32 @@ do
             end
 
             if dungeonMode == "Random" then
-                -- lấy tất cả enemy khả dụng, chọn random 1 cái, follow
+                -- lấy tất cả enemy khả dụng, chọn random 1 cái (ưu tiên khác currentTarget)
                 local all = getAllEnemiesWithinDistance(farmCenter)
                 if #all > 0 then
-                    local pick = all[math.random(1, #all)]
-                    task.spawn(function() pcall(function() followEnemy(pick) end) end)
-                    continue
+                    local pick = nil
+                    if #all == 1 then
+                        pick = all[1]
+                    else
+                        -- try chọn khác currentTarget
+                        local candidates = {}
+                        for _, m in ipairs(all) do
+                            if m ~= currentTarget then
+                                table.insert(candidates, m)
+                            end
+                        end
+                        if #candidates == 0 then
+                            -- tất cả đều là currentTarget (hiếm) -> fallback pick random from all
+                            pick = all[math.random(1, #all)]
+                        else
+                            pick = candidates[math.random(1, #candidates)]
+                        end
+                    end
+
+                    if pick then
+                        task.spawn(function() pcall(function() followEnemy(pick) end) end)
+                        continue
+                    end
                 end
             else
                 -- Nearest (mặc định cũ)
