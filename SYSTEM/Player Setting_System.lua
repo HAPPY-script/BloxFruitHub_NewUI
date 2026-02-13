@@ -228,7 +228,7 @@ do
 end
 
 --=== JUMP POWER =======================================================================================================--
-
+--[[
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -423,7 +423,7 @@ do
         jumpBox.Text = tostring(MIN_JUMP or 50)
     end
 end
-
+]]
 --=== IFN JUMP =======================================================================================================--
 
 do
