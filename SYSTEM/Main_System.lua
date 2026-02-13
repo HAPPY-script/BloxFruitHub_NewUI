@@ -1299,6 +1299,7 @@ do
     local running = false
     local pausedByDeath = false -- NEW: đánh dấu tạm pause do chết
     local lastLevel = 0
+    local needsInitialQuest = false -- NEW: khi bật sẽ tự nhận quest 1 lần
 
     local function getLevel()
         local d = player:FindFirstChild("Data")
@@ -1413,12 +1414,12 @@ do
     end
     -- ======================================================================
 
-    -- acceptQuest (kept, nhưng dùng lungeTo)
+    -- acceptQuest (kept, nhưng dùng lungeTo) -> giờ trả về true/false
     local function acceptQuest(zone)
-        if not zone then return end
+        if not zone then return false end
         -- go to NPC (a little above)
         local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
-        if not ok then return end -- interrupted or couldn't reach, abort accept
+        if not ok then return false end -- interrupted or couldn't reach, abort accept
         task.wait(1)
 
         local args = {
@@ -1427,9 +1428,12 @@ do
             [3] = zone.QuestIndex
         }
 
-        pcall(function()
+        local success, err = pcall(function()
             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
         end)
+        if not success then
+            return false
+        end
 
         currentQuestKills = 0
         currentQuestBeli = player:WaitForChild("Data"):WaitForChild("Beli").Value
@@ -1437,6 +1441,8 @@ do
         if zone.RewardBeli then
             expectedRewardBeli = zone.RewardBeli
         end
+
+        return true
     end
 
     -- *** Camera functions turned into NO-OPs to ensure we never change camera ***
@@ -1718,6 +1724,18 @@ do
                 createFarmPoint(zone.FarmPos)
             end
 
+            -- NEW: Thử tự nhận quest đúng 1 lần khi mới bật
+            if needsInitialQuest then
+                -- gọi acceptQuest; nếu thành công thì clear flag, nếu thất bại sẽ thử lại sau
+                local ok = acceptQuest(zone)
+                if ok then
+                    needsInitialQuest = false
+                else
+                    -- nếu không thành công (bị huỷ), đợi vòng lặp sau để thử lại
+                    continue
+                end
+            end
+
             -- check for nearest mob of this zone
             local mob = getNearestMob(zone.MobName)
             if mob then
@@ -1790,6 +1808,9 @@ do
                 createFarmPoint(zone.FarmPos)
             end
 
+            -- NEW: mark that we need to accept quest once at start
+            needsInitialQuest = true
+
         elseif not on and running then
             -- User turned OFF manually: stop and reset
             running = false
@@ -1803,6 +1824,9 @@ do
             stopMovement()
             patrolActive = false
             destroyFarmPoint()
+
+            -- clear initial quest flag
+            needsInitialQuest = false
         end
     end
 
