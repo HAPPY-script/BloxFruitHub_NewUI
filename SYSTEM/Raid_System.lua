@@ -1,4 +1,4 @@
-print("UPD AUTO DUNGEON P2🟢")
+print("🔴🟢🔴UPD AUTO DUNGEON P3🔴🟢🔴")
 --=== RAID ===================================================================================================================--
 
 do
@@ -848,7 +848,7 @@ do
 
         -- For Random mode: start timer so we don't stay too long on one enemy
         local startTick = tick()
-        local RANDOM_DWELL = 0.5
+        local RANDOM_DWELL = 0.2
 
         while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
             local center = hrp.Position
@@ -867,32 +867,40 @@ do
             -- RANDOM mode behavior: after dwell, attempt to pick a random other enemy and switch
             if mode == MODE_RANDOM then
                 if tick() - startTick >= RANDOM_DWELL then
-                    -- gather candidates excluding current enemy
-                    local candidates = {}
                     local all = getEnemiesInRange(center)
+                    local candidates = {}
+
+                    -- build candidate list: exclude current enemy, exclude priority targets,
+                    -- require alive HRP & Humanoid, and ensure it's not identical to current enemy
                     for _, m in ipairs(all) do
-                        if m ~= enemy and m:FindFirstChild("HumanoidRootPart") then
-                            table.insert(candidates, m)
+                        if m and m ~= enemy and m:FindFirstChild("HumanoidRootPart") then
+                            local h = m:FindFirstChildOfClass("Humanoid")
+                            if h and h.Health > 0 then
+                                -- optional: skip priority named ones (they are handled earlier)
+                                if m.Name ~= "PropHitboxPlaceholder" then
+                                    table.insert(candidates, m)
+                                end
+                            end
                         end
                     end
 
                     if #candidates > 0 then
-                        -- pick random target
-                        local nextIdx = math.random(1, #candidates)
-                        local nextEnemy = candidates[nextIdx]
+                        -- choose random different enemy
+                        local nextEnemy = candidates[ math.random(1, #candidates) ]
 
-                        -- spawn follow for nextEnemy and exit current follow
-                        followLock = false -- release lock so new follow can take it
+                        -- release lock so new follow can start safely
+                        followLock = false
+
+                        -- spawn follow for nextEnemy (pcall to be safe)
                         task.spawn(function()
                             pcall(function() followEnemy(nextEnemy) end)
                         end)
 
-                        -- clear currentTarget and return
+                        -- clear currentTarget and stop this follow
                         currentTarget = nil
                         return
                     else
-                        -- no other candidates: keep following current enemy until die/other conditions
-                        -- but reset startTick so we try again after another dwell if new ones appear
+                        -- no other candidates available; reset dwell timer and try again later
                         startTick = tick()
                     end
                 end
@@ -991,8 +999,18 @@ do
 
             local enemy = nil
             if mode == MODE_RANDOM then
-                -- pick random enemy among all enemies in range (non-priority)
+                -- pick random enemy among all enemies in range (non-priority),
+                -- but exclude the currently-followed target to avoid picking same again.
                 local list = getEnemiesInRange(farmCenter)
+                -- remove currentTarget from candidate list (if present)
+                if currentTarget then
+                    for i = #list, 1, -1 do
+                        if list[i] == currentTarget then
+                            table.remove(list, i)
+                        end
+                    end
+                end
+
                 if #list > 0 then
                     enemy = list[ math.random(1, #list) ]
                 end
