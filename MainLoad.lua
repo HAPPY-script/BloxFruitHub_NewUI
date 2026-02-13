@@ -590,7 +590,13 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFrui
 print("Raid tab System 3/10✅")
 shared.load(0.55)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
+local ok, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
+end)
+
+if not ok then
+    warn("[Combat_System]:", err)
+end
 
 print("Combat tab System 4/10✅")
 shared.load(0.625)
