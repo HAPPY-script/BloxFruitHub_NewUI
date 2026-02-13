@@ -1120,7 +1120,7 @@ do
             MobName = "Cocoa Warrior",
             FarmPos = Vector3.new(32.86, 24.77, -12223.83),
             QuestNPCPos = Vector3.new(232.58, 24.77, -12185.34),
-            QuestName = "ChocQuest1e",
+            QuestName = "ChocQuest1",
             QuestIndex = 1,
             RewardBeli = 14600
         },
