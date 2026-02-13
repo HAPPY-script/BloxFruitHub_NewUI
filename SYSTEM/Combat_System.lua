@@ -2183,7 +2183,7 @@ do
     -- core constants
     local MOUSE_RADIUS = 225           -- pixels (screen)
     local ROTATE_SPEED = 60           -- degrees per second (rotation)
-    local MAX_HORIZONTAL_DIST = 250   -- studs (XZ plane only)
+    local MAX_HORIZONTAL_DIST = 300   -- studs (XZ plane only)
     
     -- core state
     local currentTarget = nil
