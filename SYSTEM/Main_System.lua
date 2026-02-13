@@ -1319,6 +1319,9 @@ do
     local STOP_DIST = 4
     local HEIGHT_OFFSET = 6
 
+    -- LOCK config (yêu cầu của bạn)
+    local LOCK_DISTANCE = 200   -- nếu <= 200 sẽ "gắn" ổn định
+    local LOCK_HEIGHT = 25      -- vị trí cao hơn enemy 25 studs
     -- distanceLimit (dùng cho Billboard và kiểm tra server-distance)
     local distanceLimit = 2500
 
@@ -1436,99 +1439,66 @@ do
         end
     end
 
-    -- Camera state management: save/restore safely (kept from original)
-    local originalCameraState = {
-        Type = camera.CameraType,
-        Subject = camera.CameraSubject
-    }
-    local savedCameraState = nil
+    -- *** Camera functions turned into NO-OPs to ensure we never change camera ***
+    local function saveCameraState() end
+    local function restoreCameraToPlayer() end
+    local function restoreCameraState() end
 
-    local function saveCameraState()
-        if not savedCameraState then
-            savedCameraState = {
-                Type = camera.CameraType,
-                Subject = camera.CameraSubject
-            }
-        end
-    end
-
-    local function restoreCameraToPlayer()
-        if player and player.Character and player.Character.Parent then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                camera.CameraType = Enum.CameraType.Custom
-                camera.CameraSubject = hum
-                return
-            end
-        end
-        camera.CameraType = originalCameraState.Type or Enum.CameraType.Custom
-        camera.CameraSubject = originalCameraState.Subject
-    end
-
-    local function restoreCameraState()
-        if savedCameraState then
-            camera.CameraType = savedCameraState.Type or Enum.CameraType.Custom
-            camera.CameraSubject = savedCameraState.Subject or (player.Character and player.Character:FindFirstChildOfClass("Humanoid")) or originalCameraState.Subject
-            savedCameraState = nil
-            return
-        end
-        restoreCameraToPlayer()
-    end
-
-    -- followMob (converted to lunge-based following)
+    -- followMob: approach enemy; when within LOCK_DISTANCE => "gắn" ổn định vào vị trí trên enemy (LOCK_HEIGHT)
     local function followMob(mob)
         if not mob then return end
+        local hrp = safeHRP()
+        if not hrp then return end
         if not mob:FindFirstChild("HumanoidRootPart") then return end
 
-        local char = player.Character or player.CharacterAdded:Wait()
-        local hrp = char:WaitForChild("HumanoidRootPart")
-        local cameraLocal = workspace.CurrentCamera
+        -- Make sure any previous lunges are canceled before starting follow
+        stopMovement()
 
-        -- create anchor for camera smoothing
-        local anchor = Instance.new("Part")
-        anchor.Anchored = true
-        anchor.CanCollide = false
-        anchor.Transparency = 1
-        anchor.Size = Vector3.new(1, 1, 1)
-        anchor.CFrame = hrp.CFrame
-        anchor.Name = "AutoFarmAnchor"
-        anchor.Parent = workspace
-
-        -- save camera state then attach camera to anchor
-        saveCameraState()
-        cameraLocal.CameraType = Enum.CameraType.Custom
-        cameraLocal.CameraSubject = anchor
-
-        -- keep lunging to the mob as it moves; loop until mob dead or running false
+        -- Loop: approach until enemy dead or running false
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
             and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
 
             local hrpEnemy = mob.HumanoidRootPart
             if not hrpEnemy then break end
 
-            -- target slightly above enemy to hover
-            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + 3, hrpEnemy.Position.Z)
-            -- perform lunge towards the target
-            local arrived = lungeTo(targetPos + Vector3.new(0, 5, 0))
-            if not arrived then
-                -- if lunge cancelled, break out
-                break
-            end
+            -- desired position: directly above enemy by LOCK_HEIGHT
+            local desiredPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + LOCK_HEIGHT, hrpEnemy.Position.Z)
+            local distToDesired = (hrp.Position - desiredPos).Magnitude
+            local distToEnemy = (hrp.Position - hrpEnemy.Position).Magnitude
 
-            -- small wait to let attacks happen / avoid busy loop
-            local waitTime = 0.12
-            local e = 0
-            while e < waitTime do
-                if not running then break end
-                if not (mob and mob.Parent) then break end
-                e = e + RunService.Heartbeat:Wait()
-            end
-        end
+            if distToEnemy > LOCK_DISTANCE then
+                -- too far: lunge to the desired overhead position
+                local ok = lungeTo(desiredPos)
+                if not ok then
+                    -- lunge interrupted / cancelled — exit follow
+                    return
+                end
+                -- once lunge arrives, loop will re-evaluate; if within lock threshold we'll lock next iteration
+            else
+                -- within LOCK_DISTANCE: lock position above enemy and hold until enemy dies or moves far away
+                -- cancel any other movement tokens to ensure stable lock
+                stopMovement()
+                -- keep setting HRP to lock position each Heartbeat for stability
+                while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
+                    and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
 
-        -- restore camera and cleanup
-        restoreCameraState()
-        if anchor and anchor.Parent then
-            anchor:Destroy()
+                    local ePos = mob.HumanoidRootPart.Position
+                    local lockPos = Vector3.new(ePos.X, ePos.Y + LOCK_HEIGHT, ePos.Z)
+                    pcall(function()
+                        -- zero velocity and set exact lock CFrame
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.CFrame = CFrame.new(lockPos)
+                    end)
+
+                    -- if enemy suddenly far from us (unexpected), break lock to re-lunge
+                    local curDistToEnemy = (hrp.Position - ePos).Magnitude
+                    if curDistToEnemy > LOCK_DISTANCE + 10 then -- small hysteresis
+                        break
+                    end
+
+                    RunService.Heartbeat:Wait()
+                end
+            end
         end
     end
 
@@ -1813,9 +1783,7 @@ do
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
-            -- save current camera state so we can restore it later
-            saveCameraState()
-
+            -- NOTE: camera save removed (no-op)
             -- create farmPoint at current zone if available
             local zone = getZoneForLevel(lastLevel)
             if zone then
@@ -1829,8 +1797,7 @@ do
 
             _G.BringMobGate2 = false
 
-            -- restore camera when stopping
-            restoreCameraState()
+            -- NOTE: camera restore removed (no-op)
 
             -- cleanup farmPoint/patrol
             stopMovement()
@@ -1863,9 +1830,8 @@ do
             pausedByDeath = true
             running = false
         end
-        -- LƯU Ý: không tắt ToggleUI; chỉ trả camera về người chơi và clear các movement/patrol
-        restoreCameraToPlayer()
-        -- không xóa savedCameraState để có thể restore khi resume
+        -- NOTE: do NOT alter camera
+        -- không xóa savedCameraState để có thể restore khi resume (camera funcs are no-op)
         stopMovement()
         patrolActive = false
         -- giữ farmPoint để khi respawn có thể tiếp tục nhanh
@@ -1881,8 +1847,7 @@ do
             end)
         end
 
-        -- restore camera to local char view
-        restoreCameraToPlayer()
+        -- NOTE: do NOT alter camera on respawn
 
         -- Sau respawn: nếu trước đó bị pause do chết và nút vẫn ON => tự resume
         task.spawn(function()
