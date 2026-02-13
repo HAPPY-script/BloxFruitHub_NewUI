@@ -8,7 +8,7 @@ Combat.BackgroundTransparency = 1
 Combat.BorderSizePixel = 0
 Combat.BorderColor3 = Color3.new(0, 0, 0)
 Combat.Transparency = 1
-Combat.Parent = ScrollingTab
+Combat.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local FollowPlayerBox = Instance.new("TextBox")
 FollowPlayerBox.Name = "FollowPlayerBox"
@@ -718,30 +718,30 @@ UIStroke20.Name = "UIStroke"
 UIStroke20.Color = Color3.new(0.8, 0, 1)
 UIStroke20.Parent = StrokeFrame3
 
-local StyleFastAttackPlayerButton = Instance.new("TextButton")
-StyleFastAttackPlayerButton.Name = "StyleFastAttackPlayerButton"
-StyleFastAttackPlayerButton.Position = UDim2.new(0.512, 0, 0.18, 0)
-StyleFastAttackPlayerButton.Size = UDim2.new(0.15, 0, 0.03, 0)
-StyleFastAttackPlayerButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
-StyleFastAttackPlayerButton.BackgroundTransparency = 0.75
-StyleFastAttackPlayerButton.BorderSizePixel = 0
-StyleFastAttackPlayerButton.BorderColor3 = Color3.new(0, 0, 0)
-StyleFastAttackPlayerButton.AnchorPoint = Vector2.new(0.5, 0.5)
-StyleFastAttackPlayerButton.Transparency = 0.75
-StyleFastAttackPlayerButton.Text = "Style: melee"
-StyleFastAttackPlayerButton.TextColor3 = Color3.new(1, 1, 1)
-StyleFastAttackPlayerButton.TextSize = 14
-StyleFastAttackPlayerButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-StyleFastAttackPlayerButton.TextScaled = true
-StyleFastAttackPlayerButton.TextWrapped = true
-StyleFastAttackPlayerButton.Parent = Combat
+local BGTPKeyAimButton = Instance.new("TextButton")
+BGTPKeyAimButton.Name = "BGTPKeyAimButton"
+BGTPKeyAimButton.Position = UDim2.new(0.512, 0, 0.38, 0)
+BGTPKeyAimButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+BGTPKeyAimButton.BackgroundColor3 = Color3.new(0, 1, 0)
+BGTPKeyAimButton.BackgroundTransparency = 0.75
+BGTPKeyAimButton.BorderSizePixel = 0
+BGTPKeyAimButton.BorderColor3 = Color3.new(0, 0, 0)
+BGTPKeyAimButton.AnchorPoint = Vector2.new(0.5, 0.5)
+BGTPKeyAimButton.Transparency = 0.75
+BGTPKeyAimButton.Text = "Aim gui: ON"
+BGTPKeyAimButton.TextColor3 = Color3.new(1, 1, 1)
+BGTPKeyAimButton.TextSize = 14
+BGTPKeyAimButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+BGTPKeyAimButton.TextScaled = true
+BGTPKeyAimButton.TextWrapped = true
+BGTPKeyAimButton.Parent = Combat
 
 local UIStroke21 = Instance.new("UIStroke")
 UIStroke21.Name = "UIStroke"
-UIStroke21.Color = Color3.new(0, 0.784314, 1)
+UIStroke21.Color = Color3.new(0, 1, 0)
 UIStroke21.Thickness = 2
 UIStroke21.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke21.Parent = StyleFastAttackPlayerButton
+UIStroke21.Parent = BGTPKeyAimButton
 
 local StyleFastAttackEnemyButton = Instance.new("TextButton")
 StyleFastAttackEnemyButton.Name = "StyleFastAttackEnemyButton"
@@ -770,7 +770,7 @@ UIStroke22.Parent = StyleFastAttackEnemyButton
 
 local StrokeFrameSilentAim = Instance.new("Frame")
 StrokeFrameSilentAim.Name = "StrokeFrameSilentAim"
-StrokeFrameSilentAim.Position = UDim2.new(0.485, 0, 0.375, 0)
+StrokeFrameSilentAim.Position = UDim2.new(0.485, 0, 0.475, 0)
 StrokeFrameSilentAim.Size = UDim2.new(0.95, 0, 0.1, 0)
 StrokeFrameSilentAim.BackgroundColor3 = Color3.new(1, 1, 1)
 StrokeFrameSilentAim.BackgroundTransparency = 1
@@ -803,7 +803,7 @@ Title.Parent = StrokeFrameSilentAim
 
 local SilentAimButton = Instance.new("TextButton")
 SilentAimButton.Name = "SilentAimButton"
-SilentAimButton.Position = UDim2.new(0.85, 0, 0.35, 0)
+SilentAimButton.Position = UDim2.new(0.85, 0, 0.45, 0)
 SilentAimButton.Size = UDim2.new(0.175, 0, 0.03, 0)
 SilentAimButton.BackgroundColor3 = Color3.new(1, 0, 0)
 SilentAimButton.BackgroundTransparency = 0.75
@@ -876,7 +876,7 @@ OffIcon6.Parent = Dot6
 
 local SilentAimTitle = Instance.new("TextLabel")
 SilentAimTitle.Name = "SilentAimTitle"
-SilentAimTitle.Position = UDim2.new(0.375, 0, 0.35, 0)
+SilentAimTitle.Position = UDim2.new(0.375, 0, 0.45, 0)
 SilentAimTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
 SilentAimTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 SilentAimTitle.BorderSizePixel = 0
@@ -899,7 +899,7 @@ UIStroke25.Parent = SilentAimTitle
 
 local SilentAimModeTitle = Instance.new("TextLabel")
 SilentAimModeTitle.Name = "SilentAimModeTitle"
-SilentAimModeTitle.Position = UDim2.new(0.275, 0, 0.4, 0)
+SilentAimModeTitle.Position = UDim2.new(0.275, 0, 0.5, 0)
 SilentAimModeTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
 SilentAimModeTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 SilentAimModeTitle.BorderSizePixel = 0
@@ -923,7 +923,7 @@ UIStroke26.Parent = SilentAimModeTitle
 
 local n360ModeButton = Instance.new("TextButton")
 n360ModeButton.Name = "360ModeButton"
-n360ModeButton.Position = UDim2.new(0.85, 0, 0.4, 0)
+n360ModeButton.Position = UDim2.new(0.85, 0, 0.5, 0)
 n360ModeButton.Size = UDim2.new(0.2, 0, 0.03, 0)
 n360ModeButton.BackgroundColor3 = Color3.new(0.564706, 0, 1)
 n360ModeButton.BackgroundTransparency = 0.75
@@ -944,11 +944,11 @@ UIStroke27.Name = "UIStroke"
 UIStroke27.Color = Color3.new(0.564706, 0, 1)
 UIStroke27.Thickness = 2
 UIStroke27.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke27.Parent = n360ModeButton
+UIStroke27.Parent = 360ModeButton
 
 local SilentAimBox = Instance.new("TextBox")
 SilentAimBox.Name = "SilentAimBox"
-SilentAimBox.Position = UDim2.new(0.635, 0, 0.4, 0)
+SilentAimBox.Position = UDim2.new(0.635, 0, 0.5, 0)
 SilentAimBox.Size = UDim2.new(0.185, 0, 0.03, 0)
 SilentAimBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
 SilentAimBox.BackgroundTransparency = 0.75
@@ -975,7 +975,7 @@ UIStroke28.Parent = SilentAimBox
 
 local NotificationBlackTitle = Instance.new("TextLabel")
 NotificationBlackTitle.Name = "NotificationBlackTitle"
-NotificationBlackTitle.Position = UDim2.new(0.485, 0, 0.375, 0)
+NotificationBlackTitle.Position = UDim2.new(0.485, 0, 0.475, 0)
 NotificationBlackTitle.Size = UDim2.new(0.95, 0, 0.095, 0)
 NotificationBlackTitle.BackgroundColor3 = Color3.new(0, 0, 0)
 NotificationBlackTitle.BackgroundTransparency = 0.05000000074505806
@@ -984,13 +984,299 @@ NotificationBlackTitle.BorderColor3 = Color3.new(0, 0, 0)
 NotificationBlackTitle.ZIndex = 3
 NotificationBlackTitle.AnchorPoint = Vector2.new(0.5, 0.5)
 NotificationBlackTitle.Transparency = 0.05000000074505806
-NotificationBlackTitle.Text = "Exploid currently does not support this functionality; please use an exploid that does.\n(Examples: Bunni, Ronix, Delta, etc...)"
+NotificationBlackTitle.Text = "Exploid currently does not support this functionality; please use an exploid that does.\n\n(Examples: Bunni, Ronix, Delta, etc...)"
 NotificationBlackTitle.TextColor3 = Color3.new(0.921569, 0, 0.392157)
 NotificationBlackTitle.TextSize = 14
 NotificationBlackTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 NotificationBlackTitle.TextScaled = true
 NotificationBlackTitle.TextWrapped = true
 NotificationBlackTitle.Parent = Combat
+
+local StrokeFrame4 = Instance.new("Frame")
+StrokeFrame4.Name = "StrokeFrame"
+StrokeFrame4.Position = UDim2.new(0.485, 0, 0.355, 0)
+StrokeFrame4.Size = UDim2.new(0.95, 0, 0.09, 0)
+StrokeFrame4.BackgroundColor3 = Color3.new(1, 1, 1)
+StrokeFrame4.BackgroundTransparency = 1
+StrokeFrame4.BorderSizePixel = 0
+StrokeFrame4.BorderColor3 = Color3.new(0, 0, 0)
+StrokeFrame4.AnchorPoint = Vector2.new(0.5, 0.5)
+StrokeFrame4.Transparency = 1
+StrokeFrame4.Parent = Combat
+
+local UIStroke29 = Instance.new("UIStroke")
+UIStroke29.Name = "UIStroke"
+UIStroke29.Color = Color3.new(0.8, 0, 1)
+UIStroke29.Parent = StrokeFrame4
+
+local TPKeyPCButton = Instance.new("TextButton")
+TPKeyPCButton.Name = "TPKeyPCButton"
+TPKeyPCButton.Position = UDim2.new(0.85, 0, 0.33, 0)
+TPKeyPCButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+TPKeyPCButton.BackgroundColor3 = Color3.new(1, 0, 0)
+TPKeyPCButton.BackgroundTransparency = 0.75
+TPKeyPCButton.BorderSizePixel = 0
+TPKeyPCButton.BorderColor3 = Color3.new(0, 0, 0)
+TPKeyPCButton.AnchorPoint = Vector2.new(0.5, 0.5)
+TPKeyPCButton.Transparency = 0.75
+TPKeyPCButton.Text = ""
+TPKeyPCButton.TextColor3 = Color3.new(0, 0, 0)
+TPKeyPCButton.TextSize = 14
+TPKeyPCButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+TPKeyPCButton.Parent = Combat
+
+local UICorner13 = Instance.new("UICorner")
+UICorner13.Name = "UICorner"
+UICorner13.CornerRadius = UDim.new(1, 0)
+UICorner13.Parent = TPKeyPCButton
+
+local UIStroke30 = Instance.new("UIStroke")
+UIStroke30.Name = "UIStroke"
+UIStroke30.Color = Color3.new(1, 0, 0)
+UIStroke30.Thickness = 2
+UIStroke30.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke30.Parent = TPKeyPCButton
+
+local Dot7 = Instance.new("Frame")
+Dot7.Name = "Dot"
+Dot7.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot7.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot7.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot7.BackgroundTransparency = 1
+Dot7.BorderSizePixel = 0
+Dot7.BorderColor3 = Color3.new(0, 0, 0)
+Dot7.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot7.Transparency = 1
+Dot7.Parent = TPKeyPCButton
+
+local UIAspectRatioConstraint7 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint7.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint7.Parent = Dot7
+
+local UICorner14 = Instance.new("UICorner")
+UICorner14.Name = "UICorner"
+UICorner14.CornerRadius = UDim.new(1, 0)
+UICorner14.Parent = Dot7
+
+local OnIcon7 = Instance.new("ImageLabel")
+OnIcon7.Name = "OnIcon"
+OnIcon7.Size = UDim2.new(1, 0, 1, 0)
+OnIcon7.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon7.BackgroundTransparency = 1
+OnIcon7.BorderSizePixel = 0
+OnIcon7.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon7.Transparency = 1
+OnIcon7.Image = "rbxassetid://133446041443660"
+OnIcon7.ImageTransparency = 1
+OnIcon7.Parent = Dot7
+
+local OffIcon7 = Instance.new("ImageLabel")
+OffIcon7.Name = "OffIcon"
+OffIcon7.Size = UDim2.new(1, 0, 1, 0)
+OffIcon7.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon7.BackgroundTransparency = 1
+OffIcon7.BorderSizePixel = 0
+OffIcon7.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon7.Transparency = 1
+OffIcon7.Image = "rbxassetid://109833067427302"
+OffIcon7.Parent = Dot7
+
+local SelectTPKeyPCButton = Instance.new("TextButton")
+SelectTPKeyPCButton.Name = "SelectTPKeyPCButton"
+SelectTPKeyPCButton.Position = UDim2.new(0.645, 0, 0.33, 0)
+SelectTPKeyPCButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+SelectTPKeyPCButton.BackgroundColor3 = Color3.new(1, 0, 0)
+SelectTPKeyPCButton.BackgroundTransparency = 0.75
+SelectTPKeyPCButton.BorderSizePixel = 0
+SelectTPKeyPCButton.BorderColor3 = Color3.new(0, 0, 0)
+SelectTPKeyPCButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SelectTPKeyPCButton.Transparency = 0.75
+SelectTPKeyPCButton.Text = "None"
+SelectTPKeyPCButton.TextColor3 = Color3.new(1, 1, 1)
+SelectTPKeyPCButton.TextSize = 14
+SelectTPKeyPCButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SelectTPKeyPCButton.TextScaled = true
+SelectTPKeyPCButton.TextWrapped = true
+SelectTPKeyPCButton.Parent = Combat
+
+local UIStroke31 = Instance.new("UIStroke")
+UIStroke31.Name = "UIStroke"
+UIStroke31.Color = Color3.new(1, 0, 0)
+UIStroke31.Thickness = 2
+UIStroke31.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke31.Parent = SelectTPKeyPCButton
+
+local TPKeyPCTitle = Instance.new("TextLabel")
+TPKeyPCTitle.Name = "TPKeyPCTitle"
+TPKeyPCTitle.Position = UDim2.new(0.275, 0, 0.33, 0)
+TPKeyPCTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+TPKeyPCTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+TPKeyPCTitle.BorderSizePixel = 0
+TPKeyPCTitle.BorderColor3 = Color3.new(0, 0, 0)
+TPKeyPCTitle.ZIndex = 2
+TPKeyPCTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+TPKeyPCTitle.Text = "TP key"
+TPKeyPCTitle.TextColor3 = Color3.new(1, 1, 1)
+TPKeyPCTitle.TextSize = 14
+TPKeyPCTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+TPKeyPCTitle.TextScaled = true
+TPKeyPCTitle.TextWrapped = true
+TPKeyPCTitle.Parent = Combat
+
+local UIStroke32 = Instance.new("UIStroke")
+UIStroke32.Name = "UIStroke"
+UIStroke32.Color = Color3.new(1, 1, 1)
+UIStroke32.Thickness = 2
+UIStroke32.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke32.Parent = TPKeyPCTitle
+
+local TPKeyAimPCButton = Instance.new("TextButton")
+TPKeyAimPCButton.Name = "TPKeyAimPCButton"
+TPKeyAimPCButton.Position = UDim2.new(0.85, 0, 0.38, 0)
+TPKeyAimPCButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+TPKeyAimPCButton.BackgroundColor3 = Color3.new(1, 0, 0)
+TPKeyAimPCButton.BackgroundTransparency = 0.75
+TPKeyAimPCButton.BorderSizePixel = 0
+TPKeyAimPCButton.BorderColor3 = Color3.new(0, 0, 0)
+TPKeyAimPCButton.AnchorPoint = Vector2.new(0.5, 0.5)
+TPKeyAimPCButton.Transparency = 0.75
+TPKeyAimPCButton.Text = ""
+TPKeyAimPCButton.TextColor3 = Color3.new(0, 0, 0)
+TPKeyAimPCButton.TextSize = 14
+TPKeyAimPCButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+TPKeyAimPCButton.Parent = Combat
+
+local UICorner15 = Instance.new("UICorner")
+UICorner15.Name = "UICorner"
+UICorner15.CornerRadius = UDim.new(1, 0)
+UICorner15.Parent = TPKeyAimPCButton
+
+local UIStroke33 = Instance.new("UIStroke")
+UIStroke33.Name = "UIStroke"
+UIStroke33.Color = Color3.new(1, 0, 0)
+UIStroke33.Thickness = 2
+UIStroke33.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke33.Parent = TPKeyAimPCButton
+
+local Dot8 = Instance.new("Frame")
+Dot8.Name = "Dot"
+Dot8.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot8.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot8.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot8.BackgroundTransparency = 1
+Dot8.BorderSizePixel = 0
+Dot8.BorderColor3 = Color3.new(0, 0, 0)
+Dot8.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot8.Transparency = 1
+Dot8.Parent = TPKeyAimPCButton
+
+local UIAspectRatioConstraint8 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint8.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint8.Parent = Dot8
+
+local UICorner16 = Instance.new("UICorner")
+UICorner16.Name = "UICorner"
+UICorner16.CornerRadius = UDim.new(1, 0)
+UICorner16.Parent = Dot8
+
+local OnIcon8 = Instance.new("ImageLabel")
+OnIcon8.Name = "OnIcon"
+OnIcon8.Size = UDim2.new(1, 0, 1, 0)
+OnIcon8.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon8.BackgroundTransparency = 1
+OnIcon8.BorderSizePixel = 0
+OnIcon8.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon8.Transparency = 1
+OnIcon8.Image = "rbxassetid://133446041443660"
+OnIcon8.ImageTransparency = 1
+OnIcon8.Parent = Dot8
+
+local OffIcon8 = Instance.new("ImageLabel")
+OffIcon8.Name = "OffIcon"
+OffIcon8.Size = UDim2.new(1, 0, 1, 0)
+OffIcon8.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon8.BackgroundTransparency = 1
+OffIcon8.BorderSizePixel = 0
+OffIcon8.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon8.Transparency = 1
+OffIcon8.Image = "rbxassetid://109833067427302"
+OffIcon8.Parent = Dot8
+
+local TPKeyAimPCTitle = Instance.new("TextLabel")
+TPKeyAimPCTitle.Name = "TPKeyAimPCTitle"
+TPKeyAimPCTitle.Position = UDim2.new(0.225, 0, 0.38, 0)
+TPKeyAimPCTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
+TPKeyAimPCTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+TPKeyAimPCTitle.BorderSizePixel = 0
+TPKeyAimPCTitle.BorderColor3 = Color3.new(0, 0, 0)
+TPKeyAimPCTitle.ZIndex = 2
+TPKeyAimPCTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+TPKeyAimPCTitle.Text = "Aim TP key Comming soon)"
+TPKeyAimPCTitle.TextColor3 = Color3.new(1, 1, 1)
+TPKeyAimPCTitle.TextSize = 14
+TPKeyAimPCTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+TPKeyAimPCTitle.TextScaled = true
+TPKeyAimPCTitle.TextWrapped = true
+TPKeyAimPCTitle.Parent = Combat
+
+local UIStroke34 = Instance.new("UIStroke")
+UIStroke34.Name = "UIStroke"
+UIStroke34.Color = Color3.new(1, 1, 1)
+UIStroke34.Thickness = 2
+UIStroke34.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke34.Parent = TPKeyAimPCTitle
+
+local StyleFastAttackPlayerButton = Instance.new("TextButton")
+StyleFastAttackPlayerButton.Name = "StyleFastAttackPlayerButton"
+StyleFastAttackPlayerButton.Position = UDim2.new(0.512, 0, 0.18, 0)
+StyleFastAttackPlayerButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+StyleFastAttackPlayerButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+StyleFastAttackPlayerButton.BackgroundTransparency = 0.75
+StyleFastAttackPlayerButton.BorderSizePixel = 0
+StyleFastAttackPlayerButton.BorderColor3 = Color3.new(0, 0, 0)
+StyleFastAttackPlayerButton.AnchorPoint = Vector2.new(0.5, 0.5)
+StyleFastAttackPlayerButton.Transparency = 0.75
+StyleFastAttackPlayerButton.Text = "Style: melee"
+StyleFastAttackPlayerButton.TextColor3 = Color3.new(1, 1, 1)
+StyleFastAttackPlayerButton.TextSize = 14
+StyleFastAttackPlayerButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+StyleFastAttackPlayerButton.TextScaled = true
+StyleFastAttackPlayerButton.TextWrapped = true
+StyleFastAttackPlayerButton.Parent = Combat
+
+local UIStroke35 = Instance.new("UIStroke")
+UIStroke35.Name = "UIStroke"
+UIStroke35.Color = Color3.new(0, 0.784314, 1)
+UIStroke35.Thickness = 2
+UIStroke35.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke35.Parent = StyleFastAttackPlayerButton
+
+local SelectTPKeyAimPCButton = Instance.new("TextButton")
+SelectTPKeyAimPCButton.Name = "SelectTPKeyAimPCButton"
+SelectTPKeyAimPCButton.Position = UDim2.new(0.674, 0, 0.38, 0)
+SelectTPKeyAimPCButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+SelectTPKeyAimPCButton.BackgroundColor3 = Color3.new(1, 0, 0)
+SelectTPKeyAimPCButton.BackgroundTransparency = 0.75
+SelectTPKeyAimPCButton.BorderSizePixel = 0
+SelectTPKeyAimPCButton.BorderColor3 = Color3.new(0, 0, 0)
+SelectTPKeyAimPCButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SelectTPKeyAimPCButton.Transparency = 0.75
+SelectTPKeyAimPCButton.Text = "None"
+SelectTPKeyAimPCButton.TextColor3 = Color3.new(1, 1, 1)
+SelectTPKeyAimPCButton.TextSize = 14
+SelectTPKeyAimPCButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SelectTPKeyAimPCButton.TextScaled = true
+SelectTPKeyAimPCButton.TextWrapped = true
+SelectTPKeyAimPCButton.Parent = Combat
+
+local UIStroke36 = Instance.new("UIStroke")
+UIStroke36.Name = "UIStroke"
+UIStroke36.Color = Color3.new(1, 0, 0)
+UIStroke36.Thickness = 2
+UIStroke36.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke36.Parent = SelectTPKeyAimPCButton
 
 local Frame = Combat
 if not Frame then return end
