@@ -2174,44 +2174,42 @@ do
     local RunService = game:GetService("RunService")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
-    local ContextActionService = game:GetService("ContextActionService")
     
     local LocalPlayer = Players.LocalPlayer
     local Camera = workspace.CurrentCamera
     local mouse = LocalPlayer:GetMouse()
     
     -- core constants
-    local MOUSE_RADIUS = 225           -- pixels (screen)
-    local ROTATE_SPEED = 60           -- degrees per second (rotation)
-    local MAX_HORIZONTAL_DIST = 300   -- studs (XZ plane only)
+    local MOUSE_RADIUS = 225
+    local ROTATE_SPEED = 60
+    local MAX_HORIZONTAL_DIST = 300
     
     -- core state
     local currentTarget = nil
     local currentGui = nil
     local aim1Ref, aim2Ref = nil, nil
     
-    -- UI state
+    -- UI / feature state
     local teleportEnabled = false     -- controlled by TPKeyAimPCButton
-    local selectedKey = nil           -- string form (e.g. "R" or "Space")
+    local selectedKey = nil           -- nil until player selects
     local listeningForKey = false
     local listenCancelToken = nil
     local animLocks = {}
     
-    -- aim gui enabled (BGTPKeyAimButton)
-    local aimGuiEnabled = true
+    -- BG toggle for aim gui
+    local aimGuiEnabled = true        -- BG button default ON per your spec
     
-    -- shared bindings registry (to avoid duplicated keys across scripts)
-    _G.TPKeyBindings = _G.TPKeyBindings or {} -- table: [ownerId] = keyName
-    local OWNER_ID = ("AimCore_%s"):format(tostring(math.random(1,999999))) -- unique id for this script instance
+    -- global registry to avoid duplicate key usage
+    _G.TPKeyBindings = _G.TPKeyBindings or {}
+    local OWNER_ID = ("AimCore_%s"):format(tostring(math.random(1,999999)))
     
-    -- ===== helpers =====
+    -- helpers
     local function horizontalDistance(a, b)
     	local dx = a.X - b.X
     	local dz = a.Z - b.Z
     	return math.sqrt(dx*dx + dz*dz)
     end
     
-    -- Safe tween helpers (from sample)
     local TWEEN_COLOR_TIME = 0.25
     local TWEEN_TEXT_TIME  = 0.18
     local COLOR_RED   = Color3.fromRGB(255,0,0)
@@ -2255,7 +2253,15 @@ do
     	return nil
     end
     
-    -- ===== Aim GUI creation (core) =====
+    -- update visibility: aim GUI should be visible ONLY when both BG ON and Toggle ON
+    local function updateAimGuiVisibility()
+    	local visible = aimGuiEnabled and teleportEnabled
+    	if currentGui then
+    		pcall(function() currentGui.Enabled = visible end)
+    	end
+    end
+    
+    -- create aim gui
     local function makeAimGui(parentPart)
     	local BillboardAimTPGui = Instance.new("BillboardGui")
     	BillboardAimTPGui.Name = "BillboardAimTPGui"
@@ -2268,7 +2274,7 @@ do
     	BillboardAimTPGui.MaxDistance = math.huge
     	BillboardAimTPGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     	BillboardAimTPGui.Parent = parentPart
-    	BillboardAimTPGui.Enabled = aimGuiEnabled
+    	BillboardAimTPGui.Enabled = (aimGuiEnabled and teleportEnabled)
     
     	local Aim1 = Instance.new("ImageLabel")
     	Aim1.Name = "Aim1"
@@ -2304,7 +2310,7 @@ do
     	return BillboardAimTPGui
     end
     
-    -- ===== core: find nearest player to mouse (unchanged) =====
+    -- find nearest player to mouse
     local function getNearestPlayerToMouse()
     	local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     	if not localHRP then return nil end
@@ -2313,9 +2319,7 @@ do
     	local bestDist = math.huge
     
     	for _, pl in ipairs(Players:GetPlayers()) do
-    		if pl == LocalPlayer then
-    			-- skip
-    		else
+    		if pl ~= LocalPlayer then
     			local char = pl.Character
     			local hrp = char and char:FindFirstChild("HumanoidRootPart")
     			if hrp then
@@ -2339,7 +2343,7 @@ do
     	return bestPlayer
     end
     
-    -- ===== core: clear target =====
+    -- clear target
     local function clearCurrent()
     	if currentGui then
     		currentGui:Destroy()
@@ -2350,27 +2354,22 @@ do
     	aim2Ref = nil
     end
     
-    -- ===== core: teleport to target (keep as before) =====
+    -- teleport core
     local function teleportToTarget()
     	if not currentTarget then return end
-    
     	local myChar = LocalPlayer.Character
     	local targetChar = currentTarget.Character
     	if not myChar or not targetChar then return end
-    
     	local myHRP = myChar:FindFirstChild("HumanoidRootPart")
     	local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
     	if not myHRP or not targetHRP then return end
     
-    	-- teleport behind & face
     	local behindOffset = targetHRP.CFrame.LookVector * -5
     	local tpPos = targetHRP.Position + behindOffset
     	myHRP.CFrame = CFrame.new(tpPos, targetHRP.Position)
     
-    	-- ensure applied
     	RunService.RenderStepped:Wait()
     
-    	-- camera tween: behind you, looking at target (polished)
     	local cameraOffset = myHRP.CFrame.LookVector * -8 + Vector3.new(0, 3, 0)
     	local camPos = myHRP.Position + cameraOffset
     	local camGoal = CFrame.new(camPos, targetHRP.Position)
@@ -2380,15 +2379,13 @@ do
     	camTween:Play()
     end
     
-    -- ===== MAIN LOOP =====
+    -- main loop
     RunService.RenderStepped:Connect(function(dt)
-    	-- rotate effect
     	if aim1Ref and aim2Ref then
     		aim1Ref.Rotation += ROTATE_SPEED * dt
     		aim2Ref.Rotation -= ROTATE_SPEED * dt
     	end
     
-    	-- selection logic
     	local nearest = getNearestPlayerToMouse()
     	if nearest ~= currentTarget then
     		clearCurrent()
@@ -2401,17 +2398,14 @@ do
     		end
     	end
     
-    	-- validate current target still in range
     	if currentTarget and currentTarget.Character then
     		local hrp = currentTarget.Character:FindFirstChild("HumanoidRootPart")
     		local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     		if not hrp or not localHRP then clearCurrent() return end
     
-    		-- horiz distance
     		local horiz = horizontalDistance(localHRP.Position, hrp.Position)
     		if horiz > MAX_HORIZONTAL_DIST then clearCurrent() return end
     
-    		-- screen pixel radius
     		local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
     		if not onScreen then clearCurrent() return end
     		local dx = mouse.X - screenPos.X
@@ -2419,44 +2413,34 @@ do
     		local dist = math.sqrt(dx*dx + dy*dy)
     		if dist > MOUSE_RADIUS then clearCurrent() end
     
-    		-- keep parent synced
     		if currentGui and hrp and currentGui.Parent ~= hrp then
     			currentGui.Parent = hrp
-    			currentGui.Enabled = aimGuiEnabled
+    			currentGui.Enabled = (aimGuiEnabled and teleportEnabled)
     		end
     	end
     end)
     
-    -- cleanup
     Players.PlayerRemoving:Connect(function(pl)
     	if pl == currentTarget then clearCurrent() end
     end)
     
-    -- ===== UI: hook into Combat Frame (TPKeyAimPCButton / SelectTPKeyAimPCButton / BGTPKeyAimButton) =====
+    -- UI binding
     task.spawn(function()
-    	-- wait for ToggleUI helper (if exists) and player's GUI
     	repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
-    	repeat task.wait() until _G.ToggleUI or true -- non-blocking if ToggleUI missing
+    	repeat task.wait() until _G.ToggleUI or true
     	local ToggleUI = _G.ToggleUI
     
-    	-- find ScrollingTab
     	local ok, ScrollingTab = pcall(function()
     		return LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
     	end)
     	if not ok or not ScrollingTab then
-    		-- abort gracefully: UI missing
     		warn("TP Aim UI: unable to find ScrollingTab - skipping UI binding")
     		return
     	end
     
-    	-- find Combat frame
     	local combatFrame = ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:FindFirstChild("Combat")
-    	if not combatFrame then
-    		warn("TP Aim UI: Combat frame not found")
-    		return
-    	end
+    	if not combatFrame then warn("TP Aim UI: Combat frame not found") return end
     
-    	-- find controls
     	local TOGGLE_NAME = "TPKeyAimPCButton"
     	local SELECT_NAME = "SelectTPKeyAimPCButton"
     	local BG_NAME = "BGTPKeyAimButton"
@@ -2469,11 +2453,10 @@ do
     	if not selectBtn then warn("TP Aim UI: selectBtn not found") end
     	if not bgBtn then warn("TP Aim UI: bgBtn not found") end
     
-    	-- find strokes
     	local selectStroke = selectBtn and findStroke(selectBtn)
     	local bgStroke = bgBtn and findStroke(bgBtn)
     
-    	-- initial appearance helpers
+    	-- select appearance helper
     	local function setSelectAppearance(state, keyName)
     		if not selectBtn then return end
     		if state == "none" then
@@ -2491,37 +2474,29 @@ do
     		end
     	end
     
-    	-- BG button appearance (toggle Aim GUI)
+    	-- BG appearance with tweened text and color
     	local function setBGAppearance(on)
     		if not bgBtn then return end
-    		-- animate text transparency out -> set text -> animate in, and color tween
-    		-- target colors
-    		local fromColor = on and COLOR_RED or COLOR_GREEN -- we will tween from current to target; simpler to tween to target color directly
-    		local toColor = on and COLOR_GREEN or COLOR_RED
-    
-    		-- Fade out text, then set new text, then fade in
     		local out = tweenTextTransparency(bgBtn, 1, TWEEN_TEXT_TIME)
     		out.Completed:Wait()
     		bgBtn.Text = on and "Aim gui: ON" or "Aim gui: OFF"
-    
-    		-- color tween for background and stroke
+    		local toColor = on and COLOR_GREEN or COLOR_RED
     		tweenGui(bgBtn, { BackgroundColor3 = toColor }, TWEEN_COLOR_TIME)
     		if bgStroke then tweenGui(bgStroke, { Color = toColor }, TWEEN_COLOR_TIME) end
-    
     		local inn = tweenTextTransparency(bgBtn, 0, TWEEN_TEXT_TIME)
     		inn.Completed:Wait()
     	end
     
-    	-- initialize select button default
+    	-- init select button (none)
     	if selectBtn then
     		pcall(function()
     			selectBtn.BackgroundColor3 = COLOR_RED
     			if selectStroke then selectStroke.Color = COLOR_RED end
-    			selectBtn.Text = selectedKey and tostring(selectedKey) or "None"
+    			selectBtn.Text = "None"
     		end)
     	end
     
-    	-- initialize BG button default = ON
+    	-- init BG button default ON
     	if bgBtn then
     		pcall(function()
     			bgBtn.BackgroundColor3 = COLOR_GREEN
@@ -2531,12 +2506,11 @@ do
     		aimGuiEnabled = true
     	end
     
-    	-- ToggleUI sync for toggleBtn (if ToggleUI exists)
+    	-- ToggleUI setup
     	if toggleBtn and ToggleUI and ToggleUI.Set then
     		pcall(function() ToggleUI.Set(TOGGLE_NAME, false) end)
     	end
     
-    	-- infer toggle on from BG color (helper)
     	local function inferToggleOn(btn)
     		local bg
     		pcall(function() bg = btn.BackgroundColor3 end)
@@ -2544,12 +2518,13 @@ do
     		return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
     	end
     
-    	-- sync state from toggleBtn appearance
     	local function syncToggleFromBtn()
     		if not toggleBtn then return end
     		local on = inferToggleOn(toggleBtn)
     		if teleportEnabled == on then return end
     		teleportEnabled = on
+    		-- whenever teleportEnabled changes, update aim GUI visibility
+    		updateAimGuiVisibility()
     	end
     
     	if toggleBtn then
@@ -2562,10 +2537,11 @@ do
     			if ToggleUI and ToggleUI.Set then
     				pcall(function() ToggleUI.Set(TOGGLE_NAME, not cur) end)
     			else
-    				-- fallback: toggle color manually (animate)
     				local target = not cur
     				local targetColor = target and COLOR_GREEN or COLOR_RED
     				tweenGui(toggleBtn, { BackgroundColor3 = targetColor }, TWEEN_COLOR_TIME)
+    				-- also update internal state after small delay
+    				task.delay(0.06, syncToggleFromBtn)
     			end
     		end
     
@@ -2576,7 +2552,7 @@ do
     		end
     	end
     
-    	-- ===== Select key logic (uses UserInputService.InputBegan and shared registry to avoid duplicates) =====
+    	-- Select key logic
     	local WAIT_TIMEOUT = 5
     	local function startListening()
     		if listeningForKey then return end
@@ -2606,7 +2582,7 @@ do
     			end
     
     			if inputName and inputName ~= "" then
-    				-- if that key is already used by someone else (global registry), reject
+    				-- check registry
     				local taken = false
     				for owner, k in pairs(_G.TPKeyBindings) do
     					if owner ~= OWNER_ID and k == inputName then
@@ -2621,40 +2597,31 @@ do
     				listenCancelToken = nil
     
     				if taken then
-    					-- show "Taken" briefly then go back to previous state (none or selected)
     					task.spawn(function()
     						safeSetText(selectBtn, "Taken")
     						wait(0.7)
-    						if selectedKey then
-    							setSelectAppearance("selected", selectedKey)
-    						else
-    							setSelectAppearance("none")
-    						end
+    						setSelectAppearance(selectedKey and "selected" or "none", selectedKey)
     					end)
     					return
     				end
     
-    				-- set new selection, register in global binding table
+    				-- set selection and register
     				selectedKey = inputName
     				_G.TPKeyBindings[OWNER_ID] = selectedKey
     
-    				task.spawn(function()
-    					setSelectAppearance("selected", selectedKey)
-    				end)
+    				task.spawn(function() setSelectAppearance("selected", selectedKey) end)
     			end
     		end)
     
     		token.conn = conn
     
-    		-- timeout
     		task.delay(WAIT_TIMEOUT, function()
     			if listenCancelToken == token and listeningForKey then
     				listeningForKey = false
     				if token.conn then pcall(function() token.conn:Disconnect() end); token.conn = nil end
     				listenCancelToken = nil
-    				selectedKey = nil
-    				-- unregister
     				_G.TPKeyBindings[OWNER_ID] = nil
+    				selectedKey = nil
     				task.spawn(function() setSelectAppearance("none") end)
     			end
     		end)
@@ -2690,7 +2657,7 @@ do
     		end
     	end
     
-    	-- initialize select appearance
+    	-- init select appearance
     	if selectBtn then
     		if selectedKey then
     			task.spawn(function() setSelectAppearance("selected", selectedKey) end)
@@ -2699,15 +2666,12 @@ do
     		end
     	end
     
-    	-- ===== BG button: toggle aim GUI visibility with tweened text+color =====
+    	-- BG button handling
     	if bgBtn then
     		local function toggleBg()
     			aimGuiEnabled = not aimGuiEnabled
-    			-- apply to current GUI if exists
-    			if currentGui then
-    				currentGui.Enabled = aimGuiEnabled
-    			end
-    			-- update visual with tween
+    			-- update any current GUI
+    			updateAimGuiVisibility()
     			setBGAppearance(aimGuiEnabled)
     		end
     
@@ -2722,11 +2686,9 @@ do
     		end
     	end
     
-    	-- ===== Input handler for performing teleport when toggle ON (per sample: do NOT return on gameProcessed) =====
+    	-- Input handler to perform teleport when toggle ON (do NOT return on gameProcessed)
     	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    		-- ignore when selecting key
     		if listeningForKey then return end
-    		-- only proceed when enabled and a key selected
     		if not teleportEnabled then return end
     		if not selectedKey then return end
     
@@ -2742,8 +2704,7 @@ do
     		end
     
     		if inputName == selectedKey then
-    			-- run teleport logic: here we teleport to current target (if exists)
-    			-- Use same constraints as core (distance check)
+    			-- run teleport logic if target exists & within horizontal limit
     			if not currentTarget then return end
     			local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     			local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
@@ -2752,27 +2713,13 @@ do
     			local dz = localHRP.Position.Z - hrp.Position.Z
     			if (dx*dx + dz*dz) ^ 0.5 > 250 then return end
     
-    			-- perform teleportToTarget (core function)
     			teleportToTarget()
     		end
     	end)
     
-    	-- sync initial toggle state
+    	-- initial sync of toggle state
     	task.delay(0.05, syncToggleFromBtn)
-    
-    end) -- end UI bind task.spawn
-    
-    -- ===== Bind default context action if you want G as fallback (kept for compatibility) =====
-    local function onTeleportAction(actionName, inputState, inputObject)
-    	if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
-    	if not currentTarget then return Enum.ContextActionResult.Pass end
-    	teleportToTarget()
-    	return Enum.ContextActionResult.Sink
-    end
-    ContextActionService:BindAction("AimTeleportFallback", onTeleportAction, false, Enum.KeyCode.G)
-    
-    -- make sure to unregister binding on script unload (optional)
-    -- cleanup will be automatic on client disconnect
+    end)
 end
 --=== SILENT AIM =========================================================================================--
 
