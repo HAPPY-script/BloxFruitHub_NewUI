@@ -944,7 +944,7 @@ UIStroke27.Name = "UIStroke"
 UIStroke27.Color = Color3.new(0.564706, 0, 1)
 UIStroke27.Thickness = 2
 UIStroke27.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke27.Parent = 360ModeButton
+UIStroke27.Parent = n360ModeButton
 
 local SilentAimBox = Instance.new("TextBox")
 SilentAimBox.Name = "SilentAimBox"
