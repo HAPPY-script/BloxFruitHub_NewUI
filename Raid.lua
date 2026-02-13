@@ -277,8 +277,8 @@ UIStroke5.Parent = AutoRaidTitle
 
 local AutoDungeonTitle = Instance.new("TextLabel")
 AutoDungeonTitle.Name = "AutoDungeonTitle"
-AutoDungeonTitle.Position = UDim2.new(0.275, 0, 0.13, 0)
-AutoDungeonTitle.Size = UDim2.new(0.5, 0, 0.03, 0)
+AutoDungeonTitle.Position = UDim2.new(0.225, 0, 0.13, 0)
+AutoDungeonTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
 AutoDungeonTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoDungeonTitle.BorderSizePixel = 0
 AutoDungeonTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -572,8 +572,8 @@ UIStroke10.Parent = SettingAutoBuffButton
 
 local SupportStyleDungeonButton = Instance.new("TextButton")
 SupportStyleDungeonButton.Name = "SupportStyleDungeonButton"
-SupportStyleDungeonButton.Position = UDim2.new(0.645, 0, 0.13, 0)
-SupportStyleDungeonButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+SupportStyleDungeonButton.Position = UDim2.new(0.674, 0, 0.13, 0)
+SupportStyleDungeonButton.Size = UDim2.new(0.15, 0, 0.03, 0)
 SupportStyleDungeonButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
 SupportStyleDungeonButton.BackgroundTransparency = 0.75
 SupportStyleDungeonButton.BorderSizePixel = 0
@@ -594,6 +594,36 @@ UIStroke11.Color = Color3.new(0, 0.784314, 1)
 UIStroke11.Thickness = 2
 UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke11.Parent = SupportStyleDungeonButton
+
+local ModeDungeonButton = Instance.new("TextButton")
+ModeDungeonButton.Name = "ModeDungeonButton"
+ModeDungeonButton.Position = UDim2.new(0.512, 0, 0.13, 0)
+ModeDungeonButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+ModeDungeonButton.BackgroundColor3 = Color3.new(0.196078, 1, 0.470588)
+ModeDungeonButton.BackgroundTransparency = 0.75
+ModeDungeonButton.BorderSizePixel = 0
+ModeDungeonButton.BorderColor3 = Color3.new(0, 0, 0)
+ModeDungeonButton.AnchorPoint = Vector2.new(0.5, 0.5)
+ModeDungeonButton.Transparency = 0.75
+ModeDungeonButton.Text = "Mode: Nearest"
+ModeDungeonButton.TextColor3 = Color3.new(1, 1, 1)
+ModeDungeonButton.TextSize = 14
+ModeDungeonButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+ModeDungeonButton.TextScaled = true
+ModeDungeonButton.TextWrapped = true
+ModeDungeonButton.Parent = Raid
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(0.196078, 1, 0.470588)
+UIStroke12.Thickness = 2
+UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke12.Parent = ModeDungeonButton
+
+local Script = Instance.new("Script")
+Script.Name = "Script"
+
+Script.Parent = ModeDungeonButton
 
 local Frame = Raid
 if not Frame then return end
