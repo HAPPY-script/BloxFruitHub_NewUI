@@ -1854,6 +1854,16 @@ do
     local listenCancelToken = nil
     local animLocks = {} -- khóa animation theo object
 
+    -- ==== TPKeyBindings registry setup ====
+    -- global registry so other scripts can see which keys are taken.
+    _G.TPKeyBindings = _G.TPKeyBindings or {}
+    local OWNER_ID = ("TPKeySample_%s"):format(tostring(math.random(1000000,9999999)))
+
+    -- If re-run and owner already had a registration, restore it
+    if _G.TPKeyBindings[OWNER_ID] then
+        selectedKey = _G.TPKeyBindings[OWNER_ID]
+    end
+
     -- Tween helpers
     local function tweenGui(obj, props, time)
         local info = TweenInfo.new(time or TWEEN_COLOR_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -1903,11 +1913,17 @@ do
         end
     end
 
-    -- initial select button default: red + "None"
+    -- initial select button default: red + "None" (or restore selection)
     pcall(function()
-        selectBtn.BackgroundColor3 = COLOR_RED
-        if selectStroke then selectStroke.Color = COLOR_RED end
-        selectBtn.Text = selectedKey and tostring(selectedKey) or "None"
+        if selectedKey then
+            selectBtn.BackgroundColor3 = COLOR_GREEN
+            if selectStroke then selectStroke.Color = COLOR_GREEN end
+            selectBtn.Text = tostring(selectedKey)
+        else
+            selectBtn.BackgroundColor3 = COLOR_RED
+            if selectStroke then selectStroke.Color = COLOR_RED end
+            selectBtn.Text = "None"
+        end
     end)
 
     -- ToggleUI setup for teleport toggle
@@ -1976,6 +1992,15 @@ do
             end
 
             if inputName and inputName ~= "" then
+                -- check registry to see if other owner already has this key
+                local taken = false
+                for owner, k in pairs(_G.TPKeyBindings) do
+                    if owner ~= OWNER_ID and k == inputName then
+                        taken = true
+                        break
+                    end
+                end
+
                 -- Stop listening IMMEDIATELY, disconnect connection, clear token
                 listeningForKey = false
                 -- disconnect first to avoid any further events
@@ -1986,8 +2011,23 @@ do
                 -- clear the global token reference so timeout won't act
                 listenCancelToken = nil
 
-                -- set selectedKey immediately
+                if taken then
+                    -- show "Taken" briefly then revert to previous state
+                    task.spawn(function()
+                        safeSetText(selectBtn, "Taken")
+                        task.wait(0.7)
+                        if selectedKey then
+                            setSelectAppearance("selected", selectedKey)
+                        else
+                            setSelectAppearance("none")
+                        end
+                    end)
+                    return
+                end
+
+                -- set selectedKey immediately and register in global table
                 selectedKey = inputName
+                _G.TPKeyBindings[OWNER_ID] = selectedKey
 
                 -- run UI update asynchronously so we don't block InputBegan handler
                 task.spawn(function()
@@ -2010,6 +2050,8 @@ do
                     token.conn = nil
                 end
                 listenCancelToken = nil
+                -- unregister any temporary binding
+                if _G.TPKeyBindings[OWNER_ID] then _G.TPKeyBindings[OWNER_ID] = nil end
                 selectedKey = nil
                 -- update UI asynchronously
                 task.spawn(function() setSelectAppearance("none") end)
@@ -2026,6 +2068,8 @@ do
                 listenCancelToken.conn = nil
             end
             listenCancelToken = nil
+            -- unregister binding associated with this owner (if any)
+            if _G.TPKeyBindings[OWNER_ID] then _G.TPKeyBindings[OWNER_ID] = nil end
             -- update UI asynchronously (do not block caller)
             task.spawn(function() setSelectAppearance("none") end)
         end
@@ -2123,6 +2167,613 @@ do
     end
 end
 
+--=== TP KEY AIM =======================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local ContextActionService = game:GetService("ContextActionService")
+    
+    local LocalPlayer = Players.LocalPlayer
+    local Camera = workspace.CurrentCamera
+    local mouse = LocalPlayer:GetMouse()
+    
+    -- core constants
+    local MOUSE_RADIUS = 225           -- pixels (screen)
+    local ROTATE_SPEED = 60           -- degrees per second (rotation)
+    local MAX_HORIZONTAL_DIST = 250   -- studs (XZ plane only)
+    
+    -- core state
+    local currentTarget = nil
+    local currentGui = nil
+    local aim1Ref, aim2Ref = nil, nil
+    
+    -- UI state
+    local teleportEnabled = false     -- controlled by TPKeyAimPCButton
+    local selectedKey = nil           -- string form (e.g. "R" or "Space")
+    local listeningForKey = false
+    local listenCancelToken = nil
+    local animLocks = {}
+    
+    -- aim gui enabled (BGTPKeyAimButton)
+    local aimGuiEnabled = true
+    
+    -- shared bindings registry (to avoid duplicated keys across scripts)
+    _G.TPKeyBindings = _G.TPKeyBindings or {} -- table: [ownerId] = keyName
+    local OWNER_ID = ("AimCore_%s"):format(tostring(math.random(1,999999))) -- unique id for this script instance
+    
+    -- ===== helpers =====
+    local function horizontalDistance(a, b)
+    	local dx = a.X - b.X
+    	local dz = a.Z - b.Z
+    	return math.sqrt(dx*dx + dz*dz)
+    end
+    
+    -- Safe tween helpers (from sample)
+    local TWEEN_COLOR_TIME = 0.25
+    local TWEEN_TEXT_TIME  = 0.18
+    local COLOR_RED   = Color3.fromRGB(255,0,0)
+    local COLOR_YELLOW= Color3.fromRGB(255,200,0)
+    local COLOR_GREEN = Color3.fromRGB(0,255,0)
+    
+    local function tweenGui(obj, props, time)
+    	local info = TweenInfo.new(time or TWEEN_COLOR_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    	local tw = TweenService:Create(obj, info, props)
+    	tw:Play()
+    	return tw
+    end
+    
+    local function tweenTextTransparency(btn, target, time)
+    	local info = TweenInfo.new(time or TWEEN_TEXT_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    	local tw = TweenService:Create(btn, info, { TextTransparency = target })
+    	tw:Play()
+    	return tw
+    end
+    
+    local function safeSetText(btn, newText)
+    	if animLocks[btn] then animLocks[btn].cancel = true end
+    	local lock = { cancel = false }
+    	animLocks[btn] = lock
+    
+    	local twOut = tweenTextTransparency(btn, 1, TWEEN_TEXT_TIME)
+    	twOut.Completed:Wait()
+    	if lock.cancel then animLocks[btn] = nil return end
+    
+    	pcall(function() btn.Text = newText end)
+    
+    	local twIn = tweenTextTransparency(btn, 0, TWEEN_TEXT_TIME)
+    	twIn.Completed:Wait()
+    	if animLocks[btn] == lock then animLocks[btn] = nil end
+    end
+    
+    local function findStroke(inst)
+    	for _, c in ipairs(inst:GetDescendants()) do
+    		if c:IsA("UIStroke") then return c end
+    	end
+    	return nil
+    end
+    
+    -- ===== Aim GUI creation (core) =====
+    local function makeAimGui(parentPart)
+    	local BillboardAimTPGui = Instance.new("BillboardGui")
+    	BillboardAimTPGui.Name = "BillboardAimTPGui"
+    	BillboardAimTPGui.Active = true
+    	BillboardAimTPGui.ResetOnSpawn = false
+    	BillboardAimTPGui.LightInfluence = 1
+    	BillboardAimTPGui.AlwaysOnTop = true
+    	BillboardAimTPGui.Size = UDim2.new(0,100,0,100)
+    	BillboardAimTPGui.ClipsDescendants = true
+    	BillboardAimTPGui.MaxDistance = math.huge
+    	BillboardAimTPGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    	BillboardAimTPGui.Parent = parentPart
+    	BillboardAimTPGui.Enabled = aimGuiEnabled
+    
+    	local Aim1 = Instance.new("ImageLabel")
+    	Aim1.Name = "Aim1"
+    	Aim1.Image = "rbxassetid://15963047755"
+    	Aim1.ImageColor3 = Color3.new(1,0,0)
+    	Aim1.BackgroundTransparency = 1
+    	Aim1.BorderSizePixel = 0
+    	Aim1.AnchorPoint = Vector2.new(0.5,0.5)
+    	Aim1.Position = UDim2.new(0.5,0,0.5,0)
+    	Aim1.ImageTransparency = 1
+    	Aim1.Size = UDim2.new(1.5,0,1.5,0)
+    	Aim1.Parent = BillboardAimTPGui
+    
+    	local Aim2 = Instance.new("ImageLabel")
+    	Aim2.Name = "Aim2"
+    	Aim2.Image = "rbxassetid://17408339324"
+    	Aim2.BackgroundTransparency = 1
+    	Aim2.BorderSizePixel = 0
+    	Aim2.AnchorPoint = Vector2.new(0.5,0.5)
+    	Aim2.Position = UDim2.new(0.5,0,0.5,0)
+    	Aim2.ImageTransparency = 1
+    	Aim2.Size = UDim2.new(1.5,0,1.5,0)
+    	Aim2.Rotation = 45
+    	Aim2.Parent = BillboardAimTPGui
+    
+    	local tweenInfo = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    	TweenService:Create(Aim1, tweenInfo, { ImageTransparency = 0, Size = UDim2.new(1,0,1,0) }):Play()
+    	TweenService:Create(Aim2, tweenInfo, { ImageTransparency = 0.25, Size = UDim2.new(1,0,1,0) }):Play()
+    
+    	aim1Ref = Aim1
+    	aim2Ref = Aim2
+    
+    	return BillboardAimTPGui
+    end
+    
+    -- ===== core: find nearest player to mouse (unchanged) =====
+    local function getNearestPlayerToMouse()
+    	local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    	if not localHRP then return nil end
+    
+    	local bestPlayer = nil
+    	local bestDist = math.huge
+    
+    	for _, pl in ipairs(Players:GetPlayers()) do
+    		if pl == LocalPlayer then
+    			-- skip
+    		else
+    			local char = pl.Character
+    			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    			if hrp then
+    				local horiz = horizontalDistance(localHRP.Position, hrp.Position)
+    				if horiz <= MAX_HORIZONTAL_DIST then
+    					local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+    					if onScreen then
+    						local dx = mouse.X - screenPos.X
+    						local dy = mouse.Y - screenPos.Y
+    						local dist = math.sqrt(dx*dx + dy*dy)
+    						if dist <= MOUSE_RADIUS and dist < bestDist then
+    							bestDist = dist
+    							bestPlayer = pl
+    						end
+    					end
+    				end
+    			end
+    		end
+    	end
+    
+    	return bestPlayer
+    end
+    
+    -- ===== core: clear target =====
+    local function clearCurrent()
+    	if currentGui then
+    		currentGui:Destroy()
+    	end
+    	currentGui = nil
+    	currentTarget = nil
+    	aim1Ref = nil
+    	aim2Ref = nil
+    end
+    
+    -- ===== core: teleport to target (keep as before) =====
+    local function teleportToTarget()
+    	if not currentTarget then return end
+    
+    	local myChar = LocalPlayer.Character
+    	local targetChar = currentTarget.Character
+    	if not myChar or not targetChar then return end
+    
+    	local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    	local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+    	if not myHRP or not targetHRP then return end
+    
+    	-- teleport behind & face
+    	local behindOffset = targetHRP.CFrame.LookVector * -5
+    	local tpPos = targetHRP.Position + behindOffset
+    	myHRP.CFrame = CFrame.new(tpPos, targetHRP.Position)
+    
+    	-- ensure applied
+    	RunService.RenderStepped:Wait()
+    
+    	-- camera tween: behind you, looking at target (polished)
+    	local cameraOffset = myHRP.CFrame.LookVector * -8 + Vector3.new(0, 3, 0)
+    	local camPos = myHRP.Position + cameraOffset
+    	local camGoal = CFrame.new(camPos, targetHRP.Position)
+    
+    	local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    	local camTween = TweenService:Create(Camera, tweenInfo, { CFrame = camGoal })
+    	camTween:Play()
+    end
+    
+    -- ===== MAIN LOOP =====
+    RunService.RenderStepped:Connect(function(dt)
+    	-- rotate effect
+    	if aim1Ref and aim2Ref then
+    		aim1Ref.Rotation += ROTATE_SPEED * dt
+    		aim2Ref.Rotation -= ROTATE_SPEED * dt
+    	end
+    
+    	-- selection logic
+    	local nearest = getNearestPlayerToMouse()
+    	if nearest ~= currentTarget then
+    		clearCurrent()
+    		if nearest then
+    			local hrp = nearest.Character and nearest.Character:FindFirstChild("HumanoidRootPart")
+    			if hrp then
+    				currentTarget = nearest
+    				currentGui = makeAimGui(hrp)
+    			end
+    		end
+    	end
+    
+    	-- validate current target still in range
+    	if currentTarget and currentTarget.Character then
+    		local hrp = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+    		local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    		if not hrp or not localHRP then clearCurrent() return end
+    
+    		-- horiz distance
+    		local horiz = horizontalDistance(localHRP.Position, hrp.Position)
+    		if horiz > MAX_HORIZONTAL_DIST then clearCurrent() return end
+    
+    		-- screen pixel radius
+    		local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+    		if not onScreen then clearCurrent() return end
+    		local dx = mouse.X - screenPos.X
+    		local dy = mouse.Y - screenPos.Y
+    		local dist = math.sqrt(dx*dx + dy*dy)
+    		if dist > MOUSE_RADIUS then clearCurrent() end
+    
+    		-- keep parent synced
+    		if currentGui and hrp and currentGui.Parent ~= hrp then
+    			currentGui.Parent = hrp
+    			currentGui.Enabled = aimGuiEnabled
+    		end
+    	end
+    end)
+    
+    -- cleanup
+    Players.PlayerRemoving:Connect(function(pl)
+    	if pl == currentTarget then clearCurrent() end
+    end)
+    
+    -- ===== UI: hook into Combat Frame (TPKeyAimPCButton / SelectTPKeyAimPCButton / BGTPKeyAimButton) =====
+    task.spawn(function()
+    	-- wait for ToggleUI helper (if exists) and player's GUI
+    	repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
+    	repeat task.wait() until _G.ToggleUI or true -- non-blocking if ToggleUI missing
+    	local ToggleUI = _G.ToggleUI
+    
+    	-- find ScrollingTab
+    	local ok, ScrollingTab = pcall(function()
+    		return LocalPlayer.PlayerGui:WaitForChild("BloxFruitHubGui"):WaitForChild("Main"):WaitForChild("ScrollingTab")
+    	end)
+    	if not ok or not ScrollingTab then
+    		-- abort gracefully: UI missing
+    		warn("TP Aim UI: unable to find ScrollingTab - skipping UI binding")
+    		return
+    	end
+    
+    	-- find Combat frame
+    	local combatFrame = ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:FindFirstChild("Combat")
+    	if not combatFrame then
+    		warn("TP Aim UI: Combat frame not found")
+    		return
+    	end
+    
+    	-- find controls
+    	local TOGGLE_NAME = "TPKeyAimPCButton"
+    	local SELECT_NAME = "SelectTPKeyAimPCButton"
+    	local BG_NAME = "BGTPKeyAimButton"
+    
+    	local toggleBtn = combatFrame:FindFirstChild(TOGGLE_NAME, true)
+    	local selectBtn = combatFrame:FindFirstChild(SELECT_NAME, true)
+    	local bgBtn = combatFrame:FindFirstChild(BG_NAME, true)
+    
+    	if not toggleBtn then warn("TP Aim UI: toggleBtn not found") end
+    	if not selectBtn then warn("TP Aim UI: selectBtn not found") end
+    	if not bgBtn then warn("TP Aim UI: bgBtn not found") end
+    
+    	-- find strokes
+    	local selectStroke = selectBtn and findStroke(selectBtn)
+    	local bgStroke = bgBtn and findStroke(bgBtn)
+    
+    	-- initial appearance helpers
+    	local function setSelectAppearance(state, keyName)
+    		if not selectBtn then return end
+    		if state == "none" then
+    			tweenGui(selectBtn, { BackgroundColor3 = COLOR_RED }, TWEEN_COLOR_TIME)
+    			if selectStroke then tweenGui(selectStroke, { Color = COLOR_RED }, TWEEN_COLOR_TIME) end
+    			safeSetText(selectBtn, "None")
+    		elseif state == "waiting" then
+    			tweenGui(selectBtn, { BackgroundColor3 = COLOR_YELLOW }, TWEEN_COLOR_TIME)
+    			if selectStroke then tweenGui(selectStroke, { Color = COLOR_YELLOW }, TWEEN_COLOR_TIME) end
+    			safeSetText(selectBtn, "Waiting...")
+    		elseif state == "selected" then
+    			tweenGui(selectBtn, { BackgroundColor3 = COLOR_GREEN }, TWEEN_COLOR_TIME)
+    			if selectStroke then tweenGui(selectStroke, { Color = COLOR_GREEN }, TWEEN_COLOR_TIME) end
+    			safeSetText(selectBtn, tostring(keyName or "None"))
+    		end
+    	end
+    
+    	-- BG button appearance (toggle Aim GUI)
+    	local function setBGAppearance(on)
+    		if not bgBtn then return end
+    		-- animate text transparency out -> set text -> animate in, and color tween
+    		-- target colors
+    		local fromColor = on and COLOR_RED or COLOR_GREEN -- we will tween from current to target; simpler to tween to target color directly
+    		local toColor = on and COLOR_GREEN or COLOR_RED
+    
+    		-- Fade out text, then set new text, then fade in
+    		local out = tweenTextTransparency(bgBtn, 1, TWEEN_TEXT_TIME)
+    		out.Completed:Wait()
+    		bgBtn.Text = on and "Aim gui: ON" or "Aim gui: OFF"
+    
+    		-- color tween for background and stroke
+    		tweenGui(bgBtn, { BackgroundColor3 = toColor }, TWEEN_COLOR_TIME)
+    		if bgStroke then tweenGui(bgStroke, { Color = toColor }, TWEEN_COLOR_TIME) end
+    
+    		local inn = tweenTextTransparency(bgBtn, 0, TWEEN_TEXT_TIME)
+    		inn.Completed:Wait()
+    	end
+    
+    	-- initialize select button default
+    	if selectBtn then
+    		pcall(function()
+    			selectBtn.BackgroundColor3 = COLOR_RED
+    			if selectStroke then selectStroke.Color = COLOR_RED end
+    			selectBtn.Text = selectedKey and tostring(selectedKey) or "None"
+    		end)
+    	end
+    
+    	-- initialize BG button default = ON
+    	if bgBtn then
+    		pcall(function()
+    			bgBtn.BackgroundColor3 = COLOR_GREEN
+    			if bgStroke then bgStroke.Color = COLOR_GREEN end
+    			bgBtn.Text = "Aim gui: ON"
+    		end)
+    		aimGuiEnabled = true
+    	end
+    
+    	-- ToggleUI sync for toggleBtn (if ToggleUI exists)
+    	if toggleBtn and ToggleUI and ToggleUI.Set then
+    		pcall(function() ToggleUI.Set(TOGGLE_NAME, false) end)
+    	end
+    
+    	-- infer toggle on from BG color (helper)
+    	local function inferToggleOn(btn)
+    		local bg
+    		pcall(function() bg = btn.BackgroundColor3 end)
+    		if not bg then return false end
+    		return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
+    	end
+    
+    	-- sync state from toggleBtn appearance
+    	local function syncToggleFromBtn()
+    		if not toggleBtn then return end
+    		local on = inferToggleOn(toggleBtn)
+    		if teleportEnabled == on then return end
+    		teleportEnabled = on
+    	end
+    
+    	if toggleBtn then
+    		toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+    			task.delay(0.05, syncToggleFromBtn)
+    		end)
+    
+    		local function requestToggle()
+    			local cur = inferToggleOn(toggleBtn)
+    			if ToggleUI and ToggleUI.Set then
+    				pcall(function() ToggleUI.Set(TOGGLE_NAME, not cur) end)
+    			else
+    				-- fallback: toggle color manually (animate)
+    				local target = not cur
+    				local targetColor = target and COLOR_GREEN or COLOR_RED
+    				tweenGui(toggleBtn, { BackgroundColor3 = targetColor }, TWEEN_COLOR_TIME)
+    			end
+    		end
+    
+    		if toggleBtn.Activated then
+    			toggleBtn.Activated:Connect(requestToggle)
+    		else
+    			toggleBtn.MouseButton1Click:Connect(requestToggle)
+    		end
+    	end
+    
+    	-- ===== Select key logic (uses UserInputService.InputBegan and shared registry to avoid duplicates) =====
+    	local WAIT_TIMEOUT = 5
+    	local function startListening()
+    		if listeningForKey then return end
+    		listeningForKey = true
+    		local token = {}
+    		listenCancelToken = token
+    
+    		task.spawn(function()
+    			if listenCancelToken == token then
+    				setSelectAppearance("waiting")
+    			end
+    		end)
+    
+    		local conn
+    		conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    			if listenCancelToken ~= token or not listeningForKey then return end
+    
+    			local inputName = nil
+    			if input.UserInputType == Enum.UserInputType.Keyboard then
+    				inputName = input.KeyCode and input.KeyCode.Name
+    			elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+    				inputName = "MouseButton1"
+    			elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+    				inputName = "MouseButton2"
+    			elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+    				inputName = "MouseButton3"
+    			end
+    
+    			if inputName and inputName ~= "" then
+    				-- if that key is already used by someone else (global registry), reject
+    				local taken = false
+    				for owner, k in pairs(_G.TPKeyBindings) do
+    					if owner ~= OWNER_ID and k == inputName then
+    						taken = true
+    						break
+    					end
+    				end
+    
+    				-- finish listening
+    				listeningForKey = false
+    				if conn then conn:Disconnect(); conn = nil end
+    				listenCancelToken = nil
+    
+    				if taken then
+    					-- show "Taken" briefly then go back to previous state (none or selected)
+    					task.spawn(function()
+    						safeSetText(selectBtn, "Taken")
+    						wait(0.7)
+    						if selectedKey then
+    							setSelectAppearance("selected", selectedKey)
+    						else
+    							setSelectAppearance("none")
+    						end
+    					end)
+    					return
+    				end
+    
+    				-- set new selection, register in global binding table
+    				selectedKey = inputName
+    				_G.TPKeyBindings[OWNER_ID] = selectedKey
+    
+    				task.spawn(function()
+    					setSelectAppearance("selected", selectedKey)
+    				end)
+    			end
+    		end)
+    
+    		token.conn = conn
+    
+    		-- timeout
+    		task.delay(WAIT_TIMEOUT, function()
+    			if listenCancelToken == token and listeningForKey then
+    				listeningForKey = false
+    				if token.conn then pcall(function() token.conn:Disconnect() end); token.conn = nil end
+    				listenCancelToken = nil
+    				selectedKey = nil
+    				-- unregister
+    				_G.TPKeyBindings[OWNER_ID] = nil
+    				task.spawn(function() setSelectAppearance("none") end)
+    			end
+    		end)
+    	end
+    
+    	local function stopListeningCancel()
+    		if listeningForKey then
+    			listeningForKey = false
+    			if listenCancelToken and listenCancelToken.conn then
+    				pcall(function() listenCancelToken.conn:Disconnect() end)
+    				listenCancelToken.conn = nil
+    			end
+    			listenCancelToken = nil
+    			_G.TPKeyBindings[OWNER_ID] = nil
+    			task.spawn(function() setSelectAppearance("none") end)
+    		end
+    	end
+    
+    	local function onSelectActivated()
+    		if not selectBtn then return end
+    		if listeningForKey then
+    			stopListeningCancel()
+    			return
+    		end
+    		startListening()
+    	end
+    
+    	if selectBtn then
+    		if selectBtn.Activated then
+    			selectBtn.Activated:Connect(onSelectActivated)
+    		else
+    			selectBtn.MouseButton1Click:Connect(onSelectActivated)
+    		end
+    	end
+    
+    	-- initialize select appearance
+    	if selectBtn then
+    		if selectedKey then
+    			task.spawn(function() setSelectAppearance("selected", selectedKey) end)
+    		else
+    			task.spawn(function() setSelectAppearance("none") end)
+    		end
+    	end
+    
+    	-- ===== BG button: toggle aim GUI visibility with tweened text+color =====
+    	if bgBtn then
+    		local function toggleBg()
+    			aimGuiEnabled = not aimGuiEnabled
+    			-- apply to current GUI if exists
+    			if currentGui then
+    				currentGui.Enabled = aimGuiEnabled
+    			end
+    			-- update visual with tween
+    			setBGAppearance(aimGuiEnabled)
+    		end
+    
+    		local function onBgActivated()
+    			toggleBg()
+    		end
+    
+    		if bgBtn.Activated then
+    			bgBtn.Activated:Connect(onBgActivated)
+    		else
+    			bgBtn.MouseButton1Click:Connect(onBgActivated)
+    		end
+    	end
+    
+    	-- ===== Input handler for performing teleport when toggle ON (per sample: do NOT return on gameProcessed) =====
+    	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    		-- ignore when selecting key
+    		if listeningForKey then return end
+    		-- only proceed when enabled and a key selected
+    		if not teleportEnabled then return end
+    		if not selectedKey then return end
+    
+    		local inputName = nil
+    		if input.UserInputType == Enum.UserInputType.Keyboard then
+    			inputName = input.KeyCode and input.KeyCode.Name
+    		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+    			inputName = "MouseButton1"
+    		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+    			inputName = "MouseButton2"
+    		elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+    			inputName = "MouseButton3"
+    		end
+    
+    		if inputName == selectedKey then
+    			-- run teleport logic: here we teleport to current target (if exists)
+    			-- Use same constraints as core (distance check)
+    			if not currentTarget then return end
+    			local localHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    			local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
+    			if not localHRP or not hrp then return end
+    			local dx = localHRP.Position.X - hrp.Position.X
+    			local dz = localHRP.Position.Z - hrp.Position.Z
+    			if (dx*dx + dz*dz) ^ 0.5 > 250 then return end
+    
+    			-- perform teleportToTarget (core function)
+    			teleportToTarget()
+    		end
+    	end)
+    
+    	-- sync initial toggle state
+    	task.delay(0.05, syncToggleFromBtn)
+    
+    end) -- end UI bind task.spawn
+    
+    -- ===== Bind default context action if you want G as fallback (kept for compatibility) =====
+    local function onTeleportAction(actionName, inputState, inputObject)
+    	if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
+    	if not currentTarget then return Enum.ContextActionResult.Pass end
+    	teleportToTarget()
+    	return Enum.ContextActionResult.Sink
+    end
+    ContextActionService:BindAction("AimTeleportFallback", onTeleportAction, false, Enum.KeyCode.G)
+    
+    -- make sure to unregister binding on script unload (optional)
+    -- cleanup will be automatic on client disconnect
+end
 --=== SILENT AIM =========================================================================================--
 
 do
