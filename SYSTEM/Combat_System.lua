@@ -2367,7 +2367,7 @@ do
     	if not myHRP or not targetHRP then return end
     
     	-- teleport behind & face the target
-    	local behindOffset = targetHRP.CFrame.LookVector * -5
+    	local behindOffset = targetHRP.CFrame.LookVector * -7
     	local tpPos = targetHRP.Position + behindOffset
     	myHRP.CFrame = CFrame.new(tpPos, targetHRP.Position)
     
