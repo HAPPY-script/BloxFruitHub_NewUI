@@ -1323,7 +1323,7 @@ do
     -- LOCK config (yêu cầu của bạn)
     local LOCK_DISTANCE = 200   -- nếu <= 200 sẽ "gắn" ổn định
     local LOCK_HEIGHT = 25      -- vị trí cao hơn enemy 25 studs
-    -- distanceLimit (dùng cho Billboard và kiểm tra server-distance)
+    -- distanceLimit (dùng cho kiểm tra server-distance)
     local distanceLimit = 2500
 
     -- movement token for cancelling lunges
@@ -1508,181 +1508,19 @@ do
         end
     end
 
-    -- create farm point + billboard (FarmPos used as center)
-    local farmPoint = nil
-    local farmBillboard = nil
+    -- === farm center management (BILLBOARD REMOVED) ===
+    -- track farm center position only (no part/gui creation)
     local farmCenter = nil
-    local creatingFarmPoint = false
-
-    -- Utility: clean up any leftover FarmPoint parts that were created by previous runs
-    local function cleanupExistingFarmPoints()
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj and obj:IsA("BasePart") and obj.Name == "FarmPoint" then
-                -- only remove parts that we previously labeled or that match exact structure (defensive)
-                local attr = obj:GetAttribute("IsAutoFarmPoint")
-                if attr == true or (obj:FindFirstChild("FarmDistanceUI") ~= nil) then
-                    pcall(function() obj:Destroy() end)
-                end
-            end
-        end
-    end
 
     local function createFarmPoint(pos)
-        -- debounce to avoid concurrent creation
-        if creatingFarmPoint then
-            return farmPoint -- return current value (may be nil)
-        end
-        creatingFarmPoint = true
-
-        -- cleanup stray ones first (avoid duplicates)
-        pcall(cleanupExistingFarmPoints)
-
-        -- small yield to reduce race window
-        task.wait(0)
-
-        -- defensive check again
-        if farmPoint and farmPoint.Parent then
-            creatingFarmPoint = false
-            return farmPoint
-        end
-
-        local hrp = safeHRP()
-        if hrp then
-            local dist = (hrp.Position - pos).Magnitude
-            if dist > distanceLimit then
-                -- attempt to lunge to farm pos to move into range
-                pcall(function()
-                    lungeTo(pos + Vector3.new(0, 5, 0))
-                end)
-            end
-        end
-
-        -- Create a new unique FarmPoint part
-        local success, newPart = pcall(function()
-            local p = Instance.new("Part")
-            p.Name = "FarmPoint"
-            p.Size = Vector3.new(1,1,1)
-            p.Anchored = true
-            p.CanCollide = false
-            p.Transparency = 1
-            p.Position = pos
-            p.Parent = workspace
-            p:SetAttribute("IsAutoFarmPoint", true)
-            return p
-        end)
-
-        if not success or not newPart then
-            creatingFarmPoint = false
-            return nil
-        end
-
-        -- ensure no leftover billboard inside (defensive)
-        for _, child in pairs(newPart:GetChildren()) do
-            if child:IsA("BillboardGui") and child.Name == "FarmDistanceUI" then
-                pcall(function() child:Destroy() end)
-            end
-        end
-
-        -- create billboard GUI safely
-        pcall(function()
-            local bb = Instance.new("BillboardGui")
-            bb.Name = "FarmDistanceUI"
-            bb.Adornee = newPart
-            bb.Size = UDim2.new(0, 120, 0, 40)
-            bb.StudsOffset = Vector3.new(0, 2, 0)
-            bb.AlwaysOnTop = true
-            bb.Parent = newPart
-
-            local label = Instance.new("TextLabel")
-            label.Name = "DistanceLabel"
-            label.Size = UDim2.new(1,0,1,0)
-            label.BackgroundTransparency = 1
-            label.TextScaled = true
-            label.Font = Enum.Font.SourceSansBold
-            label.Text = "0/" .. tostring(distanceLimit)
-            label.TextColor3 = Color3.fromRGB(0,255,0)
-            label.TextStrokeTransparency = 0.6
-            label.Parent = bb
-
-            farmBillboard = { gui = bb, label = label }
-        end)
-
-        farmPoint = newPart
-        farmCenter = farmPoint.Position
-
-        creatingFarmPoint = false
-        return farmPoint
+        -- simply remember the center; do NOT create any Part or BillboardGui
+        farmCenter = pos
     end
 
     local function destroyFarmPoint()
-        -- Destroy tracked reference first
-        if farmPoint and farmPoint.Parent then
-            pcall(function() farmPoint:Destroy() end)
-        end
-        farmPoint = nil
-        farmBillboard = nil
         farmCenter = nil
-
-        -- Also defensively remove any other leftover FarmPoint parts created previously
-        pcall(cleanupExistingFarmPoints)
     end
-
-    -- initial cleanup once at script start to avoid leftover duplicates
-    pcall(cleanupExistingFarmPoints)
-
-    -- update farmBillboard text & color each frame (like mẫu)
-    do
-        local lastRatio = -1
-        local colorTween = nil
-        RunService.RenderStepped:Connect(function()
-            -- ensure the GUI instances are valid before using them
-            if farmPoint and farmPoint.Parent and farmBillboard and farmBillboard.label and safeHRP() then
-                local hrp = safeHRP()
-                local rawDist = (hrp.Position - farmPoint.Position).Magnitude
-                local clamped = math.clamp(rawDist, 0, distanceLimit)
-                local display = math.floor(clamped + 0.5)
-                pcall(function() farmBillboard.label.Text = tostring(display) .. "/" .. tostring(distanceLimit) end)
-
-                local ratio = (distanceLimit > 0) and (clamped / distanceLimit) or 0
-                if math.abs(ratio - lastRatio) > 0.01 then
-                    lastRatio = ratio
-                    local r = math.floor(255 * ratio)
-                    local g = math.floor(255 * (1 - ratio))
-                    local targetColor = Color3.fromRGB(r, g, 0)
-                    if colorTween then
-                        pcall(function() colorTween:Cancel() end)
-                    end
-                    pcall(function()
-                        colorTween = TweenService:Create(farmBillboard.label, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {TextColor3 = targetColor})
-                        colorTween:Play()
-                    end)
-                end
-
-                if farmPoint and farmPoint.Parent then
-                    farmCenter = farmPoint.Position
-                end
-            else
-                -- If tracked farmPoint lost (destroyed externally), try to find any existing FarmPoint in workspace and rebind it (defensive)
-                if not farmPoint then
-                    for _, obj in pairs(workspace:GetChildren()) do
-                        if obj and obj:IsA("BasePart") and obj.Name == "FarmPoint" then
-                            local attr = obj:GetAttribute("IsAutoFarmPoint")
-                            if attr == true or obj:FindFirstChild("FarmDistanceUI") then
-                                farmPoint = obj
-                                local bb = obj:FindFirstChild("FarmDistanceUI")
-                                if bb and bb:IsA("BillboardGui") then
-                                    local lbl = bb:FindFirstChild("DistanceLabel")
-                                    farmBillboard = { gui = bb, label = lbl }
-                                    farmCenter = farmPoint.Position
-                                end
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    end
+    -- ====================================================
 
     -- patrol logic (orbit around farmCenter) using lungeTo
     local patrolActive = false
@@ -1692,7 +1530,7 @@ do
     end
 
     local function orbitOnce(center, radiusPercent, zoneMobName)
-        if not farmPoint or not farmPoint.Parent then return false end
+        if not center then return false end
         if not running then return false end
         local radius = math.max(1, (distanceLimit) * radiusPercent)
         local startAng = math.random() * math.pi * 2
@@ -1707,7 +1545,7 @@ do
             local ang = startAng + s * angStep
             local pt = circlePoint(center, radius, ang)
 
-            -- Lunge to patrol point (do NOT modify farmPoint)
+            -- Lunge to patrol point (do NOT modify farmCenter)
             local arrived = lungeTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
@@ -1724,13 +1562,13 @@ do
     end
 
     local function startPatrol(zoneMobName)
-        if not farmPoint or not farmPoint.Parent then return end
+        if not farmCenter then return end
         if patrolActive then return end
         patrolActive = true
 
         local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
         local idx = 1
-        local center = farmPoint.Position -- fixed center
+        local center = farmCenter -- fixed center
 
         while patrolActive and running do
             local radiusPercent = radii[idx]
@@ -1776,7 +1614,7 @@ do
         end
     end)
 
-    -- Farm loop (dựa trên biến running) - sử dụng FarmPos as farmPoint
+    -- Farm loop (dựa trên biến running) - sử dụng FarmPos as farmCenter
     spawn(function()
         local lastSeen = tick()
         while true do
@@ -1795,8 +1633,8 @@ do
                 acceptQuest(zone)
             end
 
-            -- ensure farmPoint is placed at zone.FarmPos (ngưỡng nhỏ tránh recreate liên tục)
-            if not farmPoint or not farmPoint.Parent or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
+            -- ensure farmCenter is placed at zone.FarmPos (ngưỡng nhỏ tránh recreate liên tục)
+            if not farmCenter or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
                 createFarmPoint(zone.FarmPos)
             end
 
@@ -1878,7 +1716,7 @@ do
             end)
 
             -- NOTE: camera save removed (no-op)
-            -- create farmPoint at current zone if available
+            -- set farmCenter at current zone if available
             local zone = getZoneForLevel(lastLevel)
             if zone then
                 createFarmPoint(zone.FarmPos)
@@ -1896,7 +1734,7 @@ do
 
             -- NOTE: camera restore removed (no-op)
 
-            -- cleanup farmPoint/patrol
+            -- cleanup farmCenter/patrol
             stopMovement()
             patrolActive = false
             destroyFarmPoint()
@@ -1931,11 +1769,9 @@ do
             running = false
         end
         -- NOTE: do NOT alter camera
-        -- không xóa savedCameraState để có thể restore khi resume (camera funcs are no-op)
         stopMovement()
         patrolActive = false
-        -- giữ farmPoint để khi respawn có thể tiếp tục nhanh
-        -- destroyFarmPoint() -- *bị loại bỏ* để không reset vùng làm việc
+        -- giữ farmCenter để khi respawn có thể tiếp tục nhanh
     end
 
     -- Kết nối sự kiện chết cho mỗi character
@@ -1968,10 +1804,10 @@ do
                         player:SetAttribute("FastAttackEnemy", true)
                     end)
 
-                    -- ensure farmPoint exists for current zone
+                    -- ensure farmCenter exists for current zone
                     local zone = getZoneForLevel(lastLevel)
                     if zone then
-                        if not farmPoint or not farmPoint.Parent or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
+                        if not farmCenter or (farmCenter - zone.FarmPos).Magnitude > 0.1 then
                             createFarmPoint(zone.FarmPos)
                         end
                     end
