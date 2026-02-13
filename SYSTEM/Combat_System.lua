@@ -2354,31 +2354,35 @@ do
     	aim2Ref = nil
     end
     
-    -- teleport core
+    -- ===== teleport core (immediate camera set, no tween) =====
     local function teleportToTarget()
     	if not currentTarget then return end
+    
     	local myChar = LocalPlayer.Character
     	local targetChar = currentTarget.Character
     	if not myChar or not targetChar then return end
+    
     	local myHRP = myChar:FindFirstChild("HumanoidRootPart")
     	local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
     	if not myHRP or not targetHRP then return end
     
+    	-- teleport behind & face the target
     	local behindOffset = targetHRP.CFrame.LookVector * -5
     	local tpPos = targetHRP.Position + behindOffset
     	myHRP.CFrame = CFrame.new(tpPos, targetHRP.Position)
     
+    	-- ensure the character CFrame applied before moving camera
     	RunService.RenderStepped:Wait()
     
+    	-- camera: place directly behind the player and look at the target (no tween)
     	local cameraOffset = myHRP.CFrame.LookVector * -8 + Vector3.new(0, 3, 0)
     	local camPos = myHRP.Position + cameraOffset
     	local camGoal = CFrame.new(camPos, targetHRP.Position)
     
-    	local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    	local camTween = TweenService:Create(Camera, tweenInfo, { CFrame = camGoal })
-    	camTween:Play()
+    	-- set camera immediately
+    	Camera.CFrame = camGoal
     end
-    
+
     -- main loop
     RunService.RenderStepped:Connect(function(dt)
     	if aim1Ref and aim2Ref then
@@ -2721,6 +2725,7 @@ do
     	task.delay(0.05, syncToggleFromBtn)
     end)
 end
+
 --=== SILENT AIM =========================================================================================--
 
 do
