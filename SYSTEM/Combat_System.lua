@@ -1790,6 +1790,339 @@ do
         end
     end)
 end
+
+--=== TP KEY =======================================================================================================--
+
+do
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    local player = Players.LocalPlayer
+
+    -- chờ ToggleUI helper theo chuẩn
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
+
+    -- khai báo ScrollingTab (theo mẫu chuẩn)
+    local ScrollingTab = player.PlayerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    -- CHANGED: tìm CombatFrame thay vì Player Setting
+    local combatFrame = ScrollingTab:FindFirstChild("CombatFrame", true) or ScrollingTab:FindFirstChild("CombatFrame")
+    if not combatFrame then
+        warn("Không tìm thấy Frame 'CombatFrame' trong ScrollingTab")
+        return
+    end
+
+    -- controls tên chuẩn trong CombatFrame
+    local TOGGLE_NAME = "TPKeyPCButton"
+    local SELECT_NAME = "SelectTPKeyPCButton"
+
+    local toggleBtn = combatFrame:FindFirstChild(TOGGLE_NAME, true)
+    local selectBtn = combatFrame:FindFirstChild(SELECT_NAME, true)
+
+    if not toggleBtn then warn("Không tìm thấy TPKeyPCButton trong CombatFrame") return end
+    if not selectBtn then warn("Không tìm thấy SelectTPKeyPCButton trong CombatFrame") return end
+
+    -- helper: tìm UIStroke first descendant
+    local function findStroke(inst)
+        for _, c in ipairs(inst:GetDescendants()) do
+            if c:IsA("UIStroke") then return c end
+        end
+        return nil
+    end
+
+    local selectStroke = findStroke(selectBtn)
+
+    -- constants
+    local TWEEN_COLOR_TIME = 0.25
+    local TWEEN_TEXT_TIME  = 0.18
+    local WAIT_TIMEOUT     = 5 -- giây để chờ phím
+    local COLOR_RED   = Color3.fromRGB(255,0,0)
+    local COLOR_YELLOW= Color3.fromRGB(255,200,0)
+    local COLOR_GREEN = Color3.fromRGB(0,255,0)
+
+    -- internal state
+    local teleportEnabled = false
+    local selectedKey = nil
+    local listeningForKey = false
+    local listenCancelToken = nil
+    local animLocks = {} -- khóa animation theo object
+
+    -- Tween helpers
+    local function tweenGui(obj, props, time)
+        local info = TweenInfo.new(time or TWEEN_COLOR_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tw = TweenService:Create(obj, info, props)
+        tw:Play()
+        return tw
+    end
+
+    local function tweenTextTransparency(btn, target, time)
+        local info = TweenInfo.new(time or TWEEN_TEXT_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tw = TweenService:Create(btn, info, { TextTransparency = target })
+        tw:Play()
+        return tw
+    end
+
+    -- Safe text change with lock to prevent race
+    local function safeSetText(btn, newText)
+        if animLocks[btn] then animLocks[btn].cancel = true end
+        local lock = { cancel = false }
+        animLocks[btn] = lock
+
+        local twOut = tweenTextTransparency(btn, 1, TWEEN_TEXT_TIME)
+        twOut.Completed:Wait()
+        if lock.cancel then animLocks[btn] = nil return end
+
+        pcall(function() btn.Text = newText end)
+
+        local twIn = tweenTextTransparency(btn, 0, TWEEN_TEXT_TIME)
+        twIn.Completed:Wait()
+        if animLocks[btn] == lock then animLocks[btn] = nil end
+    end
+
+    -- Set select button appearance for states: "none", "waiting", "selected"
+    local function setSelectAppearance(state, keyName)
+        if state == "none" then
+            tweenGui(selectBtn, { BackgroundColor3 = COLOR_RED }, TWEEN_COLOR_TIME)
+            if selectStroke then tweenGui(selectStroke, { Color = COLOR_RED }, TWEEN_COLOR_TIME) end
+            safeSetText(selectBtn, "None")
+        elseif state == "waiting" then
+            tweenGui(selectBtn, { BackgroundColor3 = COLOR_YELLOW }, TWEEN_COLOR_TIME)
+            if selectStroke then tweenGui(selectStroke, { Color = COLOR_YELLOW }, TWEEN_COLOR_TIME) end
+            safeSetText(selectBtn, "Waiting...")
+        elseif state == "selected" then
+            tweenGui(selectBtn, { BackgroundColor3 = COLOR_GREEN }, TWEEN_COLOR_TIME)
+            if selectStroke then tweenGui(selectStroke, { Color = COLOR_GREEN }, TWEEN_COLOR_TIME) end
+            safeSetText(selectBtn, tostring(keyName or "None"))
+        end
+    end
+
+    -- initial select button default: red + "None"
+    pcall(function()
+        selectBtn.BackgroundColor3 = COLOR_RED
+        if selectStroke then selectStroke.Color = COLOR_RED end
+        selectBtn.Text = selectedKey and tostring(selectedKey) or "None"
+    end)
+
+    -- ToggleUI setup for teleport toggle
+    pcall(function() ToggleUI.Set(TOGGLE_NAME, false) end)
+
+    -- helper infer toggle on from BG (same pattern)
+    local function inferToggleOn(btn)
+        local bg
+        pcall(function() bg = btn.BackgroundColor3 end)
+        if not bg then return false end
+        return bg.G and bg.G > bg.R and bg.G > bg.B and bg.G > 0.5
+    end
+
+    local function syncToggleFromBtn()
+        local on = inferToggleOn(toggleBtn)
+        if teleportEnabled == on then return end
+        teleportEnabled = on
+    end
+
+    toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        task.delay(0.05, syncToggleFromBtn)
+    end)
+
+    local function requestToggle()
+        local cur = inferToggleOn(toggleBtn)
+        pcall(function() ToggleUI.Set(TOGGLE_NAME, not cur) end)
+    end
+
+    if toggleBtn.Activated then
+        toggleBtn.Activated:Connect(requestToggle)
+    else
+        toggleBtn.MouseButton1Click:Connect(requestToggle)
+    end
+
+    -- Listening logic (CHANGED: during listening we DO NOT ignore gameProcessed so keys already handled elsewhere are still captured)
+    local function startListening()
+        if listeningForKey then return end
+        listeningForKey = true
+
+        -- create token so other functions can cancel/disconnect
+        local token = {}
+        listenCancelToken = token
+
+        -- set UI to waiting asynchronously so this function is not blocked by tweens
+        task.spawn(function()
+            -- only show waiting if still this token
+            if listenCancelToken == token then
+                setSelectAppearance("waiting")
+            end
+        end)
+
+        local conn
+        conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            -- deliberately do NOT bail out on gameProcessed here; allows capturing keys that other scripts/games processed
+            if listenCancelToken ~= token or not listeningForKey then return end
+
+            local inputName = nil
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                inputName = input.KeyCode and input.KeyCode.Name
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+                inputName = "MouseButton1"
+            elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+                inputName = "MouseButton2"
+            elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+                inputName = "MouseButton3"
+            end
+
+            if inputName and inputName ~= "" then
+                -- Stop listening IMMEDIATELY, disconnect connection, clear token
+                listeningForKey = false
+                -- disconnect first to avoid any further events
+                if conn then
+                    conn:Disconnect()
+                    conn = nil
+                end
+                -- clear the global token reference so timeout won't act
+                listenCancelToken = nil
+
+                -- set selectedKey immediately
+                selectedKey = inputName
+
+                -- run UI update asynchronously so we don't block InputBegan handler
+                task.spawn(function()
+                    setSelectAppearance("selected", selectedKey)
+                end)
+            end
+        end)
+
+        -- attach conn reference to token so external canceller can disconnect
+        token.conn = conn
+
+        -- timeout handler
+        task.delay(WAIT_TIMEOUT, function()
+            if listenCancelToken == token and listeningForKey then
+                -- cancel listening
+                listeningForKey = false
+                -- disconnect conn if exists
+                if token.conn then
+                    pcall(function() token.conn:Disconnect() end)
+                    token.conn = nil
+                end
+                listenCancelToken = nil
+                selectedKey = nil
+                -- update UI asynchronously
+                task.spawn(function() setSelectAppearance("none") end)
+            end
+        end)
+    end
+
+    local function stopListeningCancel()
+        if listeningForKey then
+            listeningForKey = false
+            -- if there's an active token with a connection, disconnect it
+            if listenCancelToken and listenCancelToken.conn then
+                pcall(function() listenCancelToken.conn:Disconnect() end)
+                listenCancelToken.conn = nil
+            end
+            listenCancelToken = nil
+            -- update UI asynchronously (do not block caller)
+            task.spawn(function() setSelectAppearance("none") end)
+        end
+    end
+
+    local function onSelectActivated()
+        if listeningForKey then
+            stopListeningCancel()
+            return
+        end
+        startListening()
+    end
+
+    if selectBtn.Activated then
+        selectBtn.Activated:Connect(onSelectActivated)
+    else
+        selectBtn.MouseButton1Click:Connect(onSelectActivated)
+    end
+
+    -- Teleport logic (copied/adapted)
+    local TP_ANIM_ID = "17555632156"
+    local function playTpAnim(character)
+        if not character or not character.Parent then character = player.Character end
+        if not character then return end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        local anim = Instance.new("Animation")
+        anim.Name = "TP_Anim"
+        anim.AnimationId = "rbxassetid://" .. TP_ANIM_ID
+
+        local ok, track = pcall(function()
+            local animator = humanoid:FindFirstChildOfClass("Animator")
+            if animator then return animator:LoadAnimation(anim) else return humanoid:LoadAnimation(anim) end
+        end)
+
+        if ok and track then
+            pcall(function() track.Priority = Enum.AnimationPriority.Action end)
+            track:Play()
+            delay(8, function()
+                pcall(function() if track.IsPlaying then track:Stop() end anim:Destroy() end)
+            end)
+        else
+            pcall(function() anim:Destroy() end)
+        end
+    end
+
+    local function teleportToMouse()
+        if not teleportEnabled or not selectedKey then return end
+        local character = player.Character
+        if not character then return end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local mouse = player:GetMouse()
+        local pos = mouse.Hit.Position
+
+        local dx = hrp.Position.X - pos.X
+        local dz = hrp.Position.Z - pos.Z
+        if (dx*dx + dz*dz) ^ 0.5 > 250 then return end
+
+        local yOffset = 4
+        hrp.CFrame = CFrame.new(pos.X, pos.Y + yOffset, pos.Z)
+        playTpAnim(character)
+    end
+
+    -- Input handler for performing teleport when toggle ON
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        -- NOTE: deliberately do NOT return on gameProcessed; this lets the teleport trigger even if another handler consumed the input.
+        if listeningForKey then return end
+        if not teleportEnabled then return end
+        if not selectedKey then return end
+
+        local inputName = nil
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            inputName = input.KeyCode and input.KeyCode.Name
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            inputName = "MouseButton1"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+            inputName = "MouseButton2"
+        elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+            inputName = "MouseButton3"
+        end
+
+        if inputName == selectedKey then
+            teleportToMouse()
+        end
+    end)
+
+    -- Keep toggle state in sync and ensure initial states
+    task.delay(0.05, syncToggleFromBtn)
+    if selectedKey then
+        task.spawn(function() setSelectAppearance("selected", selectedKey) end)
+    else
+        task.spawn(function() setSelectAppearance("none") end)
+    end
+end
+
 --=== SILENT AIM =========================================================================================--
 
 do
