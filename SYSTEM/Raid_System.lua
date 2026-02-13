@@ -589,6 +589,40 @@ do
         return tw
     end
 
+    -- ---- text tween + safe set text (needed by Mode button) ----
+    local TWEEN_COLOR_TIME = 0.25
+    local TWEEN_TEXT_TIME  = 0.18
+    local animLocks = {}
+
+    local function tweenTextTransparency(btn, target, time)
+        if not btn then return nil end
+        local info = TweenInfo.new(time or TWEEN_TEXT_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local ok, tw = pcall(function() return TweenService:Create(btn, info, { TextTransparency = target }) end)
+        if ok and tw then
+            tw:Play()
+            return tw
+        end
+        return nil
+    end
+
+    local function safeSetText(btn, newText)
+        if not btn then return end
+        if animLocks[btn] then animLocks[btn].cancel = true end
+        local lock = { cancel = false }
+        animLocks[btn] = lock
+
+        local twOut = tweenTextTransparency(btn, 1, TWEEN_TEXT_TIME)
+        if twOut then twOut.Completed:Wait() end
+        if lock.cancel then animLocks[btn] = nil return end
+
+        pcall(function() btn.Text = newText end)
+
+        local twIn = tweenTextTransparency(btn, 0, TWEEN_TEXT_TIME)
+        if twIn then twIn.Completed:Wait() end
+        if animLocks[btn] == lock then animLocks[btn] = nil end
+    end
+    -- ---- end text helpers ----
+
     -- settings từ script gốc
     local DISTANCE_LIMIT = 900
     local SCAN_INTERVAL = 0.08
@@ -616,6 +650,12 @@ do
     local movementLock = false
     local followLock = false
     local currentTarget = nil
+
+    -- ===== Mode: Nearest / Random =====
+    local dungeonMode = "Nearest" -- default
+    local RANDOM_DWELL = 0.75      -- giây: khi Mode == "Random", ở trên 1 enemy tối đa bao lâu rồi nhảy tiếp
+    local NEAREST_COLOR = Color3.fromRGB(50, 255, 120)
+    local RANDOM_COLOR  = Color3.fromRGB(168, 85, 247)
 
     local IGNORED_ENEMIES = { ["Blank Buddy"] = true }
     local function isIgnoredEnemy(m) return IGNORED_ENEMIES[m.Name] == true end
@@ -726,6 +766,25 @@ do
         return nearest
     end
 
+    -- trả về mảng enemy khả dụng trong DISTANCE_LIMIT từ centerPos
+    local function getAllEnemiesWithinDistance(centerPos)
+    	local folder = workspace:FindFirstChild("Enemies")
+    	if not folder then return {} end
+    	local list = {}
+    	for _, mob in ipairs(folder:GetChildren()) do
+    		if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+    			local hp = mob:FindFirstChildOfClass("Humanoid")
+    			if hp and hp.Health > 0 then
+    				local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+    				if dist <= DISTANCE_LIMIT then
+    					table.insert(list, mob)
+    				end
+    			end
+    		end
+    	end
+    	return list
+    end
+
     local function getNearestDungeonModel()
         local map = workspace:FindFirstChild("Map")
         if not map then return nil end
@@ -811,7 +870,13 @@ do
             return
         end
 
+        local startTick = tick()
         while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
+            -- nếu mode Random: giới hạn thời gian ở mục tiêu
+            if dungeonMode == "Random" and (tick() - startTick) >= RANDOM_DWELL then
+                break
+            end
+
             local center = hrp.Position
             local priNow = getNearestPriorityEnemy(center)
             if priNow and priNow ~= enemy then break end
@@ -916,10 +981,21 @@ do
                 continue
             end
 
-            local enemy = getNearestEnemy(farmCenter)
-            if enemy then
-                task.spawn(function() pcall(function() followEnemy(enemy) end) end)
-                continue
+            if dungeonMode == "Random" then
+                -- lấy tất cả enemy khả dụng, chọn random 1 cái, follow
+                local all = getAllEnemiesWithinDistance(farmCenter)
+                if #all > 0 then
+                    local pick = all[math.random(1, #all)]
+                    task.spawn(function() pcall(function() followEnemy(pick) end) end)
+                    continue
+                end
+            else
+                -- Nearest (mặc định cũ)
+                local enemy = getNearestEnemy(farmCenter)
+                if enemy then
+                    task.spawn(function() pcall(function() followEnemy(enemy) end) end)
+                    continue
+                end
             end
 
             local nearestDungeonModel = getNearestDungeonModel()
@@ -1145,6 +1221,45 @@ do
             supportBtn.Activated:Connect(onSupportActivated)
         else
             supportBtn.MouseButton1Click:Connect(onSupportActivated)
+        end
+    end
+
+    -- ===== ModeDungeonButton (Nearest / Random) =====
+    local modeBtn = raidFrame:FindFirstChild("ModeDungeonButton", true)
+    local modeStroke = modeBtn and findStroke(modeBtn)
+
+    local function setModeAppearance(mode)
+        if not modeBtn then return end
+        if mode == "Nearest" then
+            -- tween to nearest color + text
+            tweenGui(modeBtn, { BackgroundColor3 = NEAREST_COLOR }, 0.18)
+            if modeStroke then tweenGui(modeStroke, { Color = NEAREST_COLOR }, 0.18) end
+            safeSetText(modeBtn, "Mode: Nearest")
+        else
+            tweenGui(modeBtn, { BackgroundColor3 = RANDOM_COLOR }, 0.18)
+            if modeStroke then tweenGui(modeStroke, { Color = RANDOM_COLOR }, 0.18) end
+            safeSetText(modeBtn, "Mode: Random")
+        end
+    end
+
+    if modeBtn then
+        -- init appearance (default Nearest)
+        pcall(function()
+            modeBtn.BackgroundColor3 = NEAREST_COLOR
+            if modeStroke then modeStroke.Color = NEAREST_COLOR end
+            modeBtn.Text = "Mode: Nearest"
+            dungeonMode = "Nearest"
+        end)
+
+        local function toggleMode()
+            dungeonMode = (dungeonMode == "Nearest") and "Random" or "Nearest"
+            setModeAppearance(dungeonMode)
+        end
+
+        if modeBtn.Activated then
+            modeBtn.Activated:Connect(toggleMode)
+        else
+            modeBtn.MouseButton1Click:Connect(toggleMode)
         end
     end
 
