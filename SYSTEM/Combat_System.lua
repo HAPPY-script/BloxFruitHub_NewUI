@@ -2715,7 +2715,7 @@ do
     			if not localHRP or not hrp then return end
     			local dx = localHRP.Position.X - hrp.Position.X
     			local dz = localHRP.Position.Z - hrp.Position.Z
-    			if (dx*dx + dz*dz) ^ 0.5 > 250 then return end
+    			if (dx*dx + dz*dz) ^ 0.5 > 300 then return end
     
     			teleportToTarget()
     		end
