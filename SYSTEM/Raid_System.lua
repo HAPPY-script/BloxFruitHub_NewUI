@@ -1,4 +1,4 @@
-print("🔴🟢🔴UPD AUTO DUNGEON P3🔴🟢🔴")
+print("🟢🔴UPD AUTO DUNGEON P4🔴🟢")
 --=== RAID ===================================================================================================================--
 
 do
@@ -741,7 +741,69 @@ do
         return nearest
     end
 
-    -- NEW: return list of enemies in range (non-priority), excluding ignored; returns array
+    -- NEW pool: map enemyModel -> { visited = bool }
+    local enemiesPool = {}
+
+    local function updateEnemiesPool(centerPos)
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then
+            -- clear pool
+            for k in pairs(enemiesPool) do enemiesPool[k] = nil end
+            return
+        end
+
+        local present = {}
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+                local h = mob:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= DISTANCE_LIMIT then
+                        present[mob] = true
+                        if not enemiesPool[mob] then
+                            enemiesPool[mob] = { visited = false }
+                        end
+                    end
+                end
+            end
+        end
+
+        -- remove pool entries that are no longer present
+        for mob, _ in pairs(enemiesPool) do
+            if not present[mob] then
+                enemiesPool[mob] = nil
+            end
+        end
+    end
+
+    local function resetPoolVisited()
+        for mob, v in pairs(enemiesPool) do
+            if v then v.visited = false end
+        end
+    end
+
+    local function getRandomUnvisitedFromPool()
+        local list = {}
+        for mob, v in pairs(enemiesPool) do
+            if mob and mob.Parent and v and not v.visited then
+                table.insert(list, mob)
+            end
+        end
+        if #list == 0 then return nil end
+        return list[math.random(1, #list)]
+    end
+
+    local function getAnyFromPool()
+        local list = {}
+        for mob, v in pairs(enemiesPool) do
+            if mob and mob.Parent and v then
+                table.insert(list, mob)
+            end
+        end
+        if #list == 0 then return nil end
+        return list[math.random(1, #list)]
+    end
+
     local function getEnemiesInRange(centerPos)
         local list = {}
         local folder = workspace:FindFirstChild("Enemies")
@@ -838,7 +900,7 @@ do
             return false
         end
 
-        moveToPositionInterruptible(highPos, interruptIfBetterEnemy)
+        local arrived = moveToPositionInterruptible(highPos, interruptIfBetterEnemy)
 
         if not autoDungeon or not hrp or not hrp.Parent then
             followLock = false
@@ -846,10 +908,39 @@ do
             return
         end
 
-        -- For Random mode: start timer so we don't stay too long on one enemy
-        local startTick = tick()
-        local RANDOM_DWELL = 0.2
+        -- If we arrived at the enemy (or at least reached the highPos), handle visited marking for Random mode
+        if mode == MODE_RANDOM and arrived then
+            pcall(function()
+                if enemiesPool[enemy] then
+                    enemiesPool[enemy].visited = true
+                end
+            end)
 
+            -- try to pick another unvisited from pool (update pool first)
+            if hrp and hrp.Parent then
+                updateEnemiesPool(hrp.Position) -- refresh pool
+            end
+
+            local next = getRandomUnvisitedFromPool()
+            if not next then
+                -- reset visited flags and try again
+                resetPoolVisited()
+                next = getRandomUnvisitedFromPool()
+            end
+
+            if next then
+                -- release lock and immediately go to next
+                followLock = false
+                task.spawn(function()
+                    pcall(function() followEnemy(next) end)
+                end)
+                currentTarget = nil
+                return
+            end
+            -- else fallthrough: no candidate available -> continue following current until dies or other conditions
+        end
+
+        -- normal follow loop (same as original)
         while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
             local center = hrp.Position
             local priNow = getNearestPriorityEnemy(center)
@@ -861,48 +952,6 @@ do
                     local newDist = (center - newNearest.HumanoidRootPart.Position).Magnitude
                     local curDist = (center - hrpEnemy.Position).Magnitude
                     if newDist + 1 < curDist then break end
-                end
-            end
-
-            -- RANDOM mode behavior: after dwell, attempt to pick a random other enemy and switch
-            if mode == MODE_RANDOM then
-                if tick() - startTick >= RANDOM_DWELL then
-                    local all = getEnemiesInRange(center)
-                    local candidates = {}
-
-                    -- build candidate list: exclude current enemy, exclude priority targets,
-                    -- require alive HRP & Humanoid, and ensure it's not identical to current enemy
-                    for _, m in ipairs(all) do
-                        if m and m ~= enemy and m:FindFirstChild("HumanoidRootPart") then
-                            local h = m:FindFirstChildOfClass("Humanoid")
-                            if h and h.Health > 0 then
-                                -- optional: skip priority named ones (they are handled earlier)
-                                if m.Name ~= "PropHitboxPlaceholder" then
-                                    table.insert(candidates, m)
-                                end
-                            end
-                        end
-                    end
-
-                    if #candidates > 0 then
-                        -- choose random different enemy
-                        local nextEnemy = candidates[ math.random(1, #candidates) ]
-
-                        -- release lock so new follow can start safely
-                        followLock = false
-
-                        -- spawn follow for nextEnemy (pcall to be safe)
-                        task.spawn(function()
-                            pcall(function() followEnemy(nextEnemy) end)
-                        end)
-
-                        -- clear currentTarget and stop this follow
-                        currentTarget = nil
-                        return
-                    else
-                        -- no other candidates available; reset dwell timer and try again later
-                        startTick = tick()
-                    end
                 end
             end
 
@@ -981,7 +1030,7 @@ do
         end
     end)
 
-    -- main scanning loop (adjusted: if mode == Random pick random enemy)
+    -- main scanning loop (adjusted: maintain pool, start random cycles)
     task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
@@ -997,30 +1046,35 @@ do
                 continue
             end
 
-            local enemy = nil
             if mode == MODE_RANDOM then
-                -- pick random enemy among all enemies in range (non-priority),
-                -- but exclude the currently-followed target to avoid picking same again.
-                local list = getEnemiesInRange(farmCenter)
-                -- remove currentTarget from candidate list (if present)
-                if currentTarget then
-                    for i = #list, 1, -1 do
-                        if list[i] == currentTarget then
-                            table.remove(list, i)
+                -- keep pool updated
+                updateEnemiesPool(farmCenter)
+
+                -- if already following someone, scanning won't start a new one
+                if not followLock then
+                    -- pick random unvisited; if none, reset visited and try again
+                    local next = getRandomUnvisitedFromPool()
+                    if not next then
+                        resetPoolVisited()
+                        next = getRandomUnvisitedFromPool()
+                    end
+
+                    if not next then
+                        -- fallback to nearest if pool empty
+                        local fallback = getNearestEnemy(farmCenter)
+                        if fallback then
+                            task.spawn(function() pcall(function() followEnemy(fallback) end) end)
                         end
+                    else
+                        task.spawn(function() pcall(function() followEnemy(next) end) end)
                     end
                 end
 
-                if #list > 0 then
-                    enemy = list[ math.random(1, #list) ]
-                end
+                continue
             end
 
-            -- fallback to nearest if Random mode found none or mode is Nearest
-            if not enemy then
-                enemy = getNearestEnemy(farmCenter)
-            end
-
+            -- Mode Nearest (original behavior)
+            local enemy = getNearestEnemy(farmCenter)
             if enemy then
                 task.spawn(function() pcall(function() followEnemy(enemy) end) end)
                 continue
@@ -1045,6 +1099,8 @@ do
         movementLock = false
         followLock = false
         currentTarget = nil
+        -- clear pool on respawn
+        for k in pairs(enemiesPool) do enemiesPool[k] = nil end
 
         task.delay(0.5, function()
             pauseForExit = false
@@ -1293,6 +1349,10 @@ do
         local function toggleMode()
             mode = (mode == MODE_NEAREST) and MODE_RANDOM or MODE_NEAREST
             setModeAppearance(mode)
+            -- clear pool when toggling to Nearest to avoid stale visited
+            if mode == MODE_NEAREST then
+                for k in pairs(enemiesPool) do enemiesPool[k] = nil end
+            end
         end
 
         if modeBtn.Activated then
