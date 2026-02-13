@@ -1,4 +1,4 @@
-print("🟢🔴UPD AUTO DUNGEON P5🔴🟢")
+print("🟢🔴UPD AUTO DUNGEON P6🔴🟢")
 --=== RAID ===================================================================================================================--
 
 do
@@ -534,7 +534,7 @@ end
 
 --=== AUTO DUNGEON ===================================================================================================================--
 
--- Full adjusted script with robust Random-mode list & patrol
+-- Full adjusted script with robust Random-mode list & patrol (fallback to Nearest/Dungeon when Random list empty)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1134,7 +1134,7 @@ do
         end
     end)
 
-    -- main scanning loop (adjusted: if mode == Random use list/patrol)
+    -- main scanning loop (adjusted: if mode == Random use list/patrol; if list empty -> behave like Nearest)
     task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
@@ -1155,6 +1155,32 @@ do
             if mode == MODE_RANDOM then
                 -- ensure enemy list maintained
                 refreshEnemyList()
+
+                -- if enemyList empty -> fallback to Nearest/Dungeon behavior
+                if next(enemyList) == nil then
+                    -- try nearest enemy first (fallback)
+                    local enemy = getNearestEnemy(farmCenter)
+                    if enemy then
+                        stopRandomPatrol()
+                        task.spawn(function() pcall(function() followEnemy(enemy) end) end)
+                        continue
+                    end
+
+                    -- fallback to nearest dungeon root (same as Nearest mode behavior)
+                    local nearestDungeonModel = getNearestDungeonModel()
+                    if nearestDungeonModel then
+                        local rootPart = checkDungeonExitOnModel(nearestDungeonModel)
+                        if rootPart then
+                            stopRandomPatrol()
+                            task.spawn(function() pcall(function() handleDungeonRoot(rootPart) end) end)
+                            continue
+                        end
+                    end
+
+                    -- nothing to do for now (no enemies and no dungeon root) — wait and loop again
+                    task.wait(SCAN_INTERVAL)
+                    continue
+                end
 
                 -- if not currently following/patrolling, start patrol
                 if not followLock then
@@ -1461,6 +1487,7 @@ do
             modeBtn.MouseButton1Click:Connect(toggleMode)
         end
     end
+
 end
 
 --=== SELECT BUFF DUNGEON ===================================================================================================================--
