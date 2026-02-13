@@ -1815,7 +1815,7 @@ do
     -- CHANGED: tìm CombatFrame thay vì Player Setting
     local combatFrame = ScrollingTab:FindFirstChild("Combat", true) or ScrollingTab:FindFirstChild("Combat")
     if not combatFrame then
-        warn("Không tìm thấy Frame 'CombatFrame' trong ScrollingTab")
+        warn("Không tìm thấy Frame 'Combat' trong ScrollingTab")
         return
     end
 
