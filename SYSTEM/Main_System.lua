@@ -1270,7 +1270,7 @@ do
             MobName = "Ocean Prophet",
             FarmPos = Vector3.new(10985.31, -2047.34, 10188.33),
             QuestNPCPos = Vector3.new(10883.67, -2082.30, 10034.12),
-            QuestName = "SubmergedQuest3",
+            QuestName = "SubmergedQuest1",
             QuestIndex = 2,
             RewardBeli = 15600
         },
