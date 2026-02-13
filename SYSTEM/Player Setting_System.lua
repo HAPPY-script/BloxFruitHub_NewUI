@@ -235,7 +235,7 @@ do
 
     local player = Players.LocalPlayer
 
-    -- Wait for ToggleUI global if available (mô phỏng theo mẫu)
+    -- Wait for ToggleUI helper (mẫu)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
@@ -264,11 +264,11 @@ do
 
     -- ===== STATE =====
     local isActive = false
-    local jumpValue = nil         -- giá trị hiện tại (do user đặt)
-    local MIN_JUMP = nil          -- lưu jumpPower ban đầu làm minimum
-    local MAX_JUMP = 100          -- giới hạn trên cố định
+    local jumpValue = nil        -- giá trị hiện tại do user đặt (number or nil)
+    local MIN_JUMP = nil         -- lưu JumpPower ban đầu làm minimum (set khi CharacterAdded)
+    local MAX_JUMP = 100         -- giới hạn trên cố định
 
-    -- infer toggle color (green-ish) giống sample
+    -- helper: detect toggle state via background color (giống mẫu)
     local function inferToggleOn(btn)
         local bg
         pcall(function() bg = btn.BackgroundColor3 end)
@@ -283,12 +283,10 @@ do
         task.delay(0.05, syncFromButtonColor)
     end)
 
-    -- Toggle button activation (bật/tắt qua ToggleUI nếu có)
+    -- Toggle via ToggleUI
     local function onButtonActivated()
         local cur = inferToggleOn(powerBtn)
-        pcall(function()
-            ToggleUI.Set(BUTTON_NAME, not cur)
-        end)
+        pcall(function() ToggleUI.Set(BUTTON_NAME, not cur) end)
     end
 
     if powerBtn.Activated then
@@ -297,15 +295,12 @@ do
         powerBtn.MouseButton1Click:Connect(onButtonActivated)
     end
 
-    -- ===== helpers để apply jump power cho humanoid (an toàn) =====
+    -- ===== helpers to apply jump power safely =====
     local function applyJumpToHumanoid(humanoid, value)
-        if not humanoid then return end
-        pcall(function()
-            humanoid.JumpPower = value
-        end)
+        if not humanoid or type(value) ~= "number" then return end
+        pcall(function() humanoid.JumpPower = value end)
     end
 
-    -- apply to player's current character (if exists)
     local function applyToPlayerCurrent(value)
         local char = player.Character
         if not char then return end
@@ -315,80 +310,105 @@ do
         end
     end
 
-    if not MIN_JUMP then
-        MIN_JUMP = humanoid.JumpPower
+    -- ===== Character spawn handling: capture MIN_JUMP and sync UI =====
+    local function onCharacterAdded(char)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if not humanoid then return end
 
-        jumpValue = MIN_JUMP
-        jumpBox.Text = tostring(MIN_JUMP)
+        -- capture MIN_JUMP first time
+        if not MIN_JUMP then
+            local ok, val = pcall(function() return humanoid.JumpPower end)
+            if ok and type(val) == "number" then
+                MIN_JUMP = val
+            else
+                MIN_JUMP = 50 -- safe fallback (very unlikely)
+            end
+
+            -- if box empty or invalid, fill with MIN_JUMP
+            local parsed = tonumber(jumpBox.Text)
+            if not parsed then
+                jumpBox.Text = tostring(MIN_JUMP)
+                jumpValue = MIN_JUMP
+            end
+        end
+
+        -- ensure jumpValue is valid number now
+        if not jumpValue then
+            local n = tonumber(jumpBox.Text)
+            if not n then n = MIN_JUMP end
+            if MIN_JUMP and n < MIN_JUMP then n = MIN_JUMP end
+            if n > MAX_JUMP then n = MAX_JUMP end
+            jumpValue = n
+            jumpBox.Text = tostring(n)
+        end
+
+        -- apply according to toggle
+        syncFromButtonColor()
+        if isActive then
+            applyToPlayerCurrent(jumpValue)
+        else
+            applyToPlayerCurrent(MIN_JUMP)
+        end
     end
 
-    -- connect to existing character
+    -- connect if character already exists
     if player.Character then
-        -- spawn on next frame to allow humanoid present
         task.defer(function() onCharacterAdded(player.Character) end)
     end
     player.CharacterAdded:Connect(onCharacterAdded)
 
-    -- ===== JumpBox validate and save =====
+    -- ===== JumpBox validate and save (same UX as SpeedBox) =====
     jumpBox.FocusLost:Connect(function()
         local n = tonumber(jumpBox.Text)
 
         if not n then
-            -- nếu ko phải số, fallback về MIN_JUMP (an toàn)
             n = MIN_JUMP or 50
         end
 
-        -- clamp to [MIN_JUMP, MAX_JUMP] (MIN_JUMP may only be known after first char spawn)
+        -- clamp to [MIN_JUMP, MAX_JUMP]
         if MIN_JUMP then
             if n < MIN_JUMP then n = MIN_JUMP end
         else
-            -- nếu MIN_JUMP chưa biết, đảm bảo không nhỏ hơn 0
             if n < 0 then n = 0 end
         end
-
         if n > MAX_JUMP then n = MAX_JUMP end
 
         jumpValue = n
         jumpBox.Text = tostring(n)
 
-        -- nếu đang active thì apply ngay
         if isActive then
             applyToPlayerCurrent(n)
         end
     end)
 
-    -- ===== monitor toggle state change và apply =====
+    -- ===== monitor toggle changes and apply =====
     local function syncState()
-        -- gọi để cập nhật isActive
         syncFromButtonColor()
 
         if isActive then
-            -- bật: apply hiện value (đảm bảo hợp lệ)
             if not jumpValue then
                 local parsed = tonumber(jumpBox.Text)
                 if parsed then jumpValue = parsed else jumpValue = MIN_JUMP or 50 end
             end
-            -- clamp just in case
             if MIN_JUMP and jumpValue < MIN_JUMP then jumpValue = MIN_JUMP end
             if jumpValue > MAX_JUMP then jumpValue = MAX_JUMP end
 
             applyToPlayerCurrent(jumpValue)
         else
-            -- tắt: reset về MIN_JUMP
             if MIN_JUMP then
                 applyToPlayerCurrent(MIN_JUMP)
-                -- also update box to reflect min if you want; we keep user value in box
             end
         end
     end
 
-    -- gọi sau một chút để đồng bộ ban đầu
+    -- ensure ToggleUI initial state is off (mimic Speed sample)
+    pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
+
+    -- call once after short delay to sync initial state
     task.delay(0.05, syncState)
 
-    -- Nếu ToggleUI thay đổi theo code, nó sẽ cập nhật màu, và property changed sẽ gọi syncFromButtonColor.
-    -- Tuy nhiên ta muốn theo dõi state và apply khi có thay đổi: poll nhẹ ở RenderStepped (như mẫu không dùng loop, ta dùng signal màu)
+    -- react to color change (apply only if value changed)
     powerBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        -- small delay to let color settle
         task.delay(0.05, function()
             local prev = isActive
             syncFromButtonColor()
@@ -397,6 +417,11 @@ do
             end
         end)
     end)
+
+    -- ensure box shows something (if MIN_JUMP unknown it'll be set on character spawn)
+    if not jumpBox.Text or jumpBox.Text == "" then
+        jumpBox.Text = tostring(MIN_JUMP or 50)
+    end
 end
 
 --=== IFN JUMP =======================================================================================================--
