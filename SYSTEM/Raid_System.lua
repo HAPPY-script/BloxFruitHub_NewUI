@@ -1,4 +1,4 @@
-print("🟢🔴UPD AUTO DUNGEON P6🔴🟢")
+print("🟢🔴UPD AUTO DUNGEON P7🔴🟢")
 --=== RAID ===================================================================================================================--
 
 do
@@ -534,7 +534,6 @@ end
 
 --=== AUTO DUNGEON ===================================================================================================================--
 
--- Full adjusted script with robust Random-mode list & patrol (fallback to Nearest/Dungeon when Random list empty)
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -742,245 +741,63 @@ do
         return nearest
     end
 
-    -- NEW: enemy list management for Random mode
-    local enemyList = {} -- keys = mob model, value = { visited = bool }
-
-    local function addEnemyToList(mob)
-        if not mob or not mob:IsA("Model") then return end
-        if isIgnoredEnemy(mob) then return end
-        if mob.Name == "PropHitboxPlaceholder" then return end -- exclude priority from random-list
-        if enemyList[mob] then return end
-        local hrpM = mob:FindFirstChild("HumanoidRootPart")
-        local hum = mob:FindFirstChildOfClass("Humanoid")
-        if not hrpM or not hum or hum.Health <= 0 then return end
-        if not hrp then return end
-        local dist = (hrp.Position - hrpM.Position).Magnitude
-        if dist > DISTANCE_LIMIT then return end
-        enemyList[mob] = { visited = false }
-    end
-
-    local function removeEnemyFromList(mob)
-        if enemyList[mob] then
-            enemyList[mob] = nil
-        end
-    end
-
-    local function refreshEnemyList()
-        -- add new enemies
+    -- NEW: return list of enemies in range (non-priority), excluding ignored; returns array
+    local function getEnemiesInRange(centerPos)
+        local list = {}
         local folder = workspace:FindFirstChild("Enemies")
-        if folder then
-            for _, mob in ipairs(folder:GetChildren()) do
-                if mob:IsA("Model") then
-                    -- only non-priority, non-ignored are in random list
-                    if not isIgnoredEnemy(mob) and mob.Name ~= "PropHitboxPlaceholder" and mob:FindFirstChild("HumanoidRootPart") then
-                        local hum = mob:FindFirstChildOfClass("Humanoid")
-                        if hum and hum.Health > 0 then
-                            if hrp then
-                                local dist = (hrp.Position - mob.HumanoidRootPart.Position).Magnitude
-                                if dist <= DISTANCE_LIMIT then
-                                    if not enemyList[mob] then
-                                        enemyList[mob] = { visited = false }
-                                    end
-                                end
-                            end
-                        end
+        if not folder then return list end
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+                local hp = mob:FindFirstChildOfClass("Humanoid")
+                if hp and hp.Health > 0 then
+                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= DISTANCE_LIMIT then
+                        table.insert(list, mob)
                     end
                 end
             end
         end
+        return list
+    end
 
-        -- remove dead/out-of-range/invalid from list
-        for mob, info in pairs(enemyList) do
-            local ok = pcall(function() return mob.Parent end)
-            if not ok or not mob or not mob.Parent then
-                enemyList[mob] = nil
-            else
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                local hrpM = mob:FindFirstChild("HumanoidRootPart")
-                if not hum or not hrpM or hum.Health <= 0 then
-                    enemyList[mob] = nil
+    local function getNearestDungeonModel()
+        local map = workspace:FindFirstChild("Map")
+        if not map then return nil end
+        local dungeon = map:FindFirstChild("Dungeon")
+        if not dungeon then return nil end
+
+        local nearest, nearestDist
+        local myPos = (hrp and hrp.Position) or Vector3.new(0,0,0)
+        for _, mdl in ipairs(dungeon:GetChildren()) do
+            if mdl:IsA("Model") then
+                local pos
+                if mdl.PrimaryPart then
+                    pos = mdl.PrimaryPart.Position
                 else
-                    if hrp then
-                        local d = (hrp.Position - hrpM.Position).Magnitude
-                        if d > DISTANCE_LIMIT then
-                            enemyList[mob] = nil
-                        end
-                    else
-                        enemyList[mob] = nil
+                    local ok, pivot = pcall(function() return mdl:GetPivot().Position end)
+                    pos = ok and pivot or nil
+                end
+                if pos then
+                    local d = (myPos - pos).Magnitude
+                    if not nearestDist or d < nearestDist then
+                        nearest = mdl
+                        nearestDist = d
                     end
                 end
             end
         end
+        return nearest
     end
 
-    local function anyUnvisitedExists()
-        for mob, info in pairs(enemyList) do
-            if info and info.visited == false then
-                return true
-            end
-        end
-        return false
-    end
-
-    local function pickRandomUnvisited()
-        refreshEnemyList()
-        local candidates = {}
-        for mob, info in pairs(enemyList) do
-            if info and info.visited == false then
-                -- ensure still valid
-                local hrpM = mob:FindFirstChild("HumanoidRootPart")
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                if mob and hrpM and hum and hum.Health > 0 and hrp then
-                    local d = (hrp.Position - hrpM.Position).Magnitude
-                    if d <= DISTANCE_LIMIT then
-                        table.insert(candidates, mob)
-                    else
-                        enemyList[mob] = nil -- prune out of range
-                    end
-                else
-                    enemyList[mob] = nil -- prune dead/invalid
-                end
-            end
-        end
-
-        if #candidates == 0 then
-            -- if empty and there are entries, reset flags and try again
-            local any = false
-            for mob, info in pairs(enemyList) do
-                any = true
-                info.visited = false
-            end
-            if any then
-                -- rebuild candidates
-                for mob, info in pairs(enemyList) do
-                    if info and info.visited == false then
-                        local hrpM = mob:FindFirstChild("HumanoidRootPart")
-                        local hum = mob:FindFirstChildOfClass("Humanoid")
-                        if mob and hrpM and hum and hum.Health > 0 and hrp then
-                            local d = (hrp.Position - hrpM.Position).Magnitude
-                            if d <= DISTANCE_LIMIT then
-                                table.insert(candidates, mob)
-                            else
-                                enemyList[mob] = nil
-                            end
-                        else
-                            enemyList[mob] = nil
-                        end
-                    end
-                end
-            end
-        end
-
-        if #candidates == 0 then return nil end
-        return candidates[ math.random(1, #candidates) ]
-    end
-
-    -- randomPatrol: continuously visit unvisited enemies in enemyList until stopped / priority appears
-    local randomPatrolToken = nil
-    local function startRandomPatrol()
-        if followLock then return end
-        followLock = true
-        currentTarget = nil
-        local token = {}
-        randomPatrolToken = token
-
-        task.spawn(function()
-            -- make sure list is initially populated
-            refreshEnemyList()
-            while autoDungeon and not pauseForExit and randomPatrolToken == token do
-                -- if priority appears, break so priority handler takes over
-                if getNearestPriorityEnemy(hrp.Position) then
-                    break
-                end
-
-                -- refresh list
-                refreshEnemyList()
-
-                -- pick next unvisited
-                local target = pickRandomUnvisited()
-                if not target then
-                    -- no candidates -> small wait and loop again
-                    task.wait(SCAN_INTERVAL)
-                    continue
-                end
-
-                -- validate target
-                if not target or not target.Parent then
-                    enemyList[target] = nil
-                    task.wait(0.05)
-                    continue
-                end
-
-                local hum = target:FindFirstChildOfClass("Humanoid")
-                local hrpEnemy = target:FindFirstChild("HumanoidRootPart")
-                if not hum or not hrpEnemy or hum.Health <= 0 then
-                    enemyList[target] = nil
-                    task.wait(0.05)
-                    continue
-                end
-
-                if not hrp or not hrp.Parent then break end
-                currentTarget = target
-
-                -- compute high pos
-                local highPos = hrpEnemy.Position + Vector3.new(0, FOLLOW_HEIGHT, 0)
-
-                -- interrupt if priority appears or autoDungeon off
-                local function interruptIfPriorityOrCancel()
-                    if not autoDungeon then return true end
-                    if getNearestPriorityEnemy(hrp.Position) then return true end
-                    -- also if this target died or left range, interrupt
-                    local ok, valid = pcall(function()
-                        return target and target.Parent and target:FindFirstChildOfClass("Humanoid") and target:FindFirstChild("HumanoidRootPart")
-                    end)
-                    if not ok or not valid then return true end
-                    local h = target:FindFirstChildOfClass("Humanoid")
-                    local mhrp = target:FindFirstChild("HumanoidRootPart")
-                    if not h or not mhrp or h.Health <= 0 then return true end
-                    local d = (hrp.Position - mhrp.Position).Magnitude
-                    if d > DISTANCE_LIMIT then return true end
-                    return false
-                end
-
-                -- move to target highPos
-                local arrived = moveToPositionInterruptible(highPos, interruptIfPriorityOrCancel)
-
-                -- if arrived and still valid, mark visited
-                local stillValid = (target and target.Parent and target:FindFirstChildOfClass("Humanoid") and target:FindFirstChild("HumanoidRootPart"))
-                if arrived and stillValid and autoDungeon and not pauseForExit then
-                    -- mark visited
-                    if enemyList[target] then enemyList[target].visited = true end
-
-                    -- small dwell so "we reached it"
-                    task.wait(0.05)
-                    -- immediately continue loop to pick next
-                    -- loop will pick next unvisited (or reset visited flags when all done)
-                    -- Also allow a tiny yield to let refresh happen
-                    task.wait(0.01)
-                    -- continue to next iteration
-                else
-                    -- didn't arrive or invalid -> remove target from list if invalid
-                    if not stillValid then enemyList[target] = nil end
-                    -- tiny wait to avoid busy loop
-                    task.wait(0.05)
-                end
-
-                -- allow short break to check conditions
-                task.wait(0.01)
-            end
-
-            -- cleanup on exit
-            followLock = false
-            currentTarget = nil
-            -- clear token only if same
-            if randomPatrolToken == token then randomPatrolToken = nil end
-        end)
-    end
-
-    local function stopRandomPatrol()
-        -- stopping will just change token; the coroutine will exit naturally on next checks
-        randomPatrolToken = nil
-        -- followLock will be reset by patrol itself
+    local function checkDungeonExitOnModel(mdl)
+        if not mdl then return nil end
+        local exit = mdl:FindFirstChild("ExitTeleporter", true)
+        if not exit then return nil end
+        local root = exit:FindFirstChild("Root")
+        if not root or not root:IsA("BasePart") then return nil end
+        local hasTouch = root:FindFirstChild("TouchInterest") or root:FindFirstChildOfClass("TouchTransmitter")
+        if hasTouch then return root end
+        return nil
     end
 
     -- follow and root handlers (chỉnh để hỗ trợ mode Random)
@@ -1029,7 +846,7 @@ do
             return
         end
 
-        -- For Random mode the randomPatrol handles switching; here we keep behavior similar to original
+        -- For Random mode: start timer so we don't stay too long on one enemy
         local startTick = tick()
         local RANDOM_DWELL = 0.2
 
@@ -1047,18 +864,17 @@ do
                 end
             end
 
-            -- If mode is Random, we don't use the original random switching inside followEnemy,
-            -- because randomPatrol is responsible for list-based visiting.
+            -- RANDOM mode behavior: after dwell, attempt to pick a random other enemy and switch
             if mode == MODE_RANDOM then
-                -- just hover around current target until something forces us out
-                local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + FOLLOW_HEIGHT, hrpEnemy.Position.Z)
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.5)
-                RunService.RenderStepped:Wait()
-                continue
+                if tick() - startTick >= RANDOM_DWELL then
+                    -- The random-switch logic is now handled centrally by enemyList manager.
+                    -- Here we simply allow follow to exit so the central loop can pick the next.
+                    followLock = false
+                    currentTarget = nil
+                    return
+                end
             end
 
-            -- original nearest-mode movement
             local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + FOLLOW_HEIGHT, hrpEnemy.Position.Z)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.5)
@@ -1134,7 +950,136 @@ do
         end
     end)
 
-    -- main scanning loop (adjusted: if mode == Random use list/patrol; if list empty -> behave like Nearest)
+    -- ========== ENEMY LIST MANAGER FOR RANDOM MODE ==========
+    -- Maintains enemyList (array of {mob=Model, visited=bool})
+    local enemyList = {}   -- array
+    local enemyIndexMap = {} -- mob -> index in enemyList for quick lookup
+
+    local function addEnemyToList(mob)
+        if not mob or enemyIndexMap[mob] then return end
+        local entry = { mob = mob, visited = false }
+        table.insert(enemyList, entry)
+        enemyIndexMap[mob] = #enemyList
+    end
+
+    local function removeEnemyFromListAt(i)
+        local entry = enemyList[i]
+        if not entry then return end
+        enemyIndexMap[entry.mob] = nil
+        table.remove(enemyList, i)
+        -- fix map indexes
+        for j = i, #enemyList do
+            enemyIndexMap[ enemyList[j].mob ] = j
+        end
+    end
+
+    local function removeEnemyByMob(mob)
+        local idx = enemyIndexMap[mob]
+        if idx then
+            removeEnemyFromListAt(idx)
+        end
+    end
+
+    -- mark visited for mob
+    local function markVisited(mob)
+        local idx = enemyIndexMap[mob]
+        if idx then enemyList[idx].visited = true end
+    end
+
+    -- reset visited flags on all entries
+    local function resetAllVisited()
+        for _, e in ipairs(enemyList) do
+            e.visited = false
+        end
+    end
+
+    -- clean the list: remove dead, nil, out of range, ignored
+    local function cleanEnemyList(center)
+        local i = 1
+        while i <= #enemyList do
+            local e = enemyList[i]
+            local mob = e and e.mob
+            local keep = true
+            if not mob or not mob.Parent then keep = false end
+            if keep then
+                if isIgnoredEnemy(mob) then keep = false end
+            end
+            if keep then
+                local hrpm = mob:FindFirstChild("HumanoidRootPart")
+                local humanoid = mob:FindFirstChildOfClass("Humanoid")
+                if not hrpm or not humanoid or humanoid.Health <= 0 then keep = false end
+                if keep and center then
+                    local d = (center - hrpm.Position).Magnitude
+                    if d > DISTANCE_LIMIT then keep = false end
+                end
+            end
+
+            if not keep then
+                removeEnemyFromListAt(i)
+            else
+                i = i + 1
+            end
+        end
+    end
+
+    -- update list from workspace enemies: add new valid ones (respect DISTANCE_LIMIT)
+    local function updateEnemyList(center)
+        if not center then return end
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return end
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob and mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+                local h = mob:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    local d = (center - mob.HumanoidRootPart.Position).Magnitude
+                    if d <= DISTANCE_LIMIT then
+                        if not enemyIndexMap[mob] then
+                            -- do not add priority named ones into random pool (they are handled separately)
+                            if mob.Name ~= "PropHitboxPlaceholder" then
+                                addEnemyToList(mob)
+                            end
+                        end
+                    else
+                        -- if present but now out of range, remove
+                        if enemyIndexMap[mob] then
+                            removeEnemyByMob(mob)
+                        end
+                    end
+                else
+                    if enemyIndexMap[mob] then removeEnemyByMob(mob) end
+                end
+            end
+        end
+        -- also clean any stale entries
+        cleanEnemyList(center)
+    end
+
+    -- pick a random unvisited mob (returns model or nil)
+    local function pickRandomUnvisited()
+        -- build candidate list of entries that are valid & unvisited
+        local cand = {}
+        for _, e in ipairs(enemyList) do
+            if e and e.mob and not e.visited then
+                table.insert(cand, e.mob)
+            end
+        end
+
+        if #cand == 0 then
+            -- if none unvisited but list non-empty, reset visited and retry once
+            if #enemyList > 0 then
+                resetAllVisited()
+                -- build again
+                for _, e in ipairs(enemyList) do
+                    if e and e.mob then table.insert(cand, e.mob) end
+                end
+            end
+        end
+
+        if #cand == 0 then return nil end
+        return cand[ math.random(1, #cand) ]
+    end
+
+    -- ========== MAIN scanning loop (improved Random mode) ==========
     task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
@@ -1144,61 +1089,67 @@ do
 
             farmCenter = hrp.Position
 
+            -- priority enemy handler (always immediate)
             local priorityEnemy = getNearestPriorityEnemy(farmCenter)
             if priorityEnemy then
-                -- stop any random patrol and prioritize this
-                stopRandomPatrol()
-                task.spawn(function() pcall(function() followEnemy(priorityEnemy) end) end)
+                -- clear random list visited flags? no need; priority interrupts follow anyway
+                if not followLock then
+                    task.spawn(function() pcall(function() followEnemy(priorityEnemy) end) end)
+                end
                 continue
             end
 
             if mode == MODE_RANDOM then
-                -- ensure enemy list maintained
-                refreshEnemyList()
+                -- update list with current nearby enemies
+                updateEnemyList(farmCenter)
 
-                -- if enemyList empty -> fallback to Nearest/Dungeon behavior
-                if next(enemyList) == nil then
-                    -- try nearest enemy first (fallback)
-                    local enemy = getNearestEnemy(farmCenter)
-                    if enemy then
-                        stopRandomPatrol()
-                        task.spawn(function() pcall(function() followEnemy(enemy) end) end)
-                        continue
+                -- remove currentTarget from list if it's not valid anymore
+                if currentTarget and enemyIndexMap[currentTarget] then
+                    -- leave it if still valid; follow process will handle visited marking
+                end
+
+                -- If we already following something, don't spawn another follow.
+                if followLock then
+                    -- but also ensure the enemy we follow is in list and mark it visited
+                    if currentTarget and enemyIndexMap[currentTarget] then
+                        markVisited(currentTarget)
                     end
-
-                    -- fallback to nearest dungeon root (same as Nearest mode behavior)
-                    local nearestDungeonModel = getNearestDungeonModel()
-                    if nearestDungeonModel then
-                        local rootPart = checkDungeonExitOnModel(nearestDungeonModel)
-                        if rootPart then
-                            stopRandomPatrol()
-                            task.spawn(function() pcall(function() handleDungeonRoot(rootPart) end) end)
-                            continue
-                        end
-                    end
-
-                    -- nothing to do for now (no enemies and no dungeon root) — wait and loop again
-                    task.wait(SCAN_INTERVAL)
                     continue
                 end
 
-                -- if not currently following/patrolling, start patrol
-                if not followLock then
-                    startRandomPatrol()
-                end
+                -- pick next random unvisited enemy from the managed list
+                local nextEnemy = pickRandomUnvisited()
 
-                continue
+                -- if none found from list, fallback to nearest search for safety
+                if not nextEnemy then
+                    local fallback = getNearestEnemy(farmCenter)
+                    if fallback then
+                        if not followLock then
+                            task.spawn(function() pcall(function() followEnemy(fallback) end) end)
+                        end
+                        continue
+                    end
+                else
+                    -- mark as visited immediately so it won't be picked again
+                    markVisited(nextEnemy)
+                    -- start follow if not currently locked
+                    if not followLock then
+                        task.spawn(function() pcall(function() followEnemy(nextEnemy) end) end)
+                    end
+                    continue
+                end
             end
 
-            -- MODE_NEAREST (fallback)
+            -- mode is Nearest OR Random fallback: find nearest and follow
             local enemy = getNearestEnemy(farmCenter)
             if enemy then
-                -- stop random patrol if somehow running
-                stopRandomPatrol()
-                task.spawn(function() pcall(function() followEnemy(enemy) end) end)
+                if not followLock then
+                    task.spawn(function() pcall(function() followEnemy(enemy) end) end)
+                end
                 continue
             end
 
+            -- if no enemies, look for dungeon exit
             local nearestDungeonModel = getNearestDungeonModel()
             if nearestDungeonModel then
                 local rootPart = checkDungeonExitOnModel(nearestDungeonModel)
@@ -1218,7 +1169,10 @@ do
         movementLock = false
         followLock = false
         currentTarget = nil
-        enemyList = {} -- clear list on respawn (will repopulate)
+
+        -- clear and rebuild enemyList on respawn (safety)
+        enemyList = {}
+        enemyIndexMap = {}
 
         task.delay(0.5, function()
             pauseForExit = false
@@ -1277,8 +1231,6 @@ do
         else
             -- when turned off: allow loops to stop gracefully
             pauseForExit = false
-            -- stop any running random patrol
-            stopRandomPatrol()
         end
     end
 
@@ -1469,16 +1421,6 @@ do
         local function toggleMode()
             mode = (mode == MODE_NEAREST) and MODE_RANDOM or MODE_NEAREST
             setModeAppearance(mode)
-            -- if switched to Random and autoDungeon currently on, clear & start patrol
-            if mode == MODE_RANDOM then
-                enemyList = {}
-                if autoDungeon then
-                    startRandomPatrol()
-                end
-            else
-                -- switching to Nearest: stop patrol
-                stopRandomPatrol()
-            end
         end
 
         if modeBtn.Activated then
