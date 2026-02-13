@@ -1314,13 +1314,19 @@ do
         return nil
     end
 
-    -- movement / tween config
-    local MOVE_SPEED_OVERRIDE = 300 -- used by tweenTo (studs/s)
+    -- movement / lunge config
+    local LUNGE_SPEED = 300 -- studs/s for lunge
     local STOP_DIST = 4
     local HEIGHT_OFFSET = 6
 
-    -- distanceLimit (dùng cho Billboard)
+    -- distanceLimit (dùng cho Billboard và kiểm tra server-distance)
     local distanceLimit = 2500
+
+    -- movement token for cancelling lunges
+    local movementToken = 0
+    local function stopMovement()
+        movementToken = movementToken + 1
+    end
 
     -- utility safe getters
     local function safeHRP()
@@ -1357,84 +1363,58 @@ do
         return closest
     end
 
-    -- ===== improved tween management (teleport Y + immediate cancel) =====
-    local currentTween = nil
-    local function cancelCurrentTween()
-        if currentTween then
-            pcall(function() currentTween:Cancel() end)
-            currentTween = nil
-        end
-    end
-
-    -- improved tweenTo: smoother polling via Heartbeat, responsive cancel
-    local function tweenTo(pos)
+    -- ===== unified lunge movement (replaces tweenTo) =====
+    local function lungeTo(targetPos)
         local hrp = safeHRP()
         if not hrp or not hrp.Parent then return false end
 
-        local dist = (hrp.Position - pos).Magnitude
+        -- safety: if target is extremely far (possible invalid request), refuse
+        local startPos = hrp.Position
+        local delta = targetPos - startPos
+        local dist = delta.Magnitude
+        if dist < 0.5 then return true end
         if dist > 10000 then return false end
 
-        -- teleport Y only (maintain current X/Z). Reset velocity to avoid physics surprises.
-        local cur = hrp.Position
-        local targetY = pos.Y
-        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
-        hrp.CFrame = CFrame.new(cur.X, targetY, cur.Z)
+        local dir = delta.Unit
+        local duration = math.max(0.01, dist / LUNGE_SPEED)
+        local elapsed = 0
+        local myToken = movementToken
 
-        -- Build target CFrame with correct Y
-        local targetCFrame = CFrame.new(pos.X, targetY, pos.Z)
+        -- reset vertical velocity to avoid unexpected physics behaviour
+        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end)
 
-        -- Cancel any existing tween to avoid overlaps
-        cancelCurrentTween()
-
-        -- compute duration based on planar distance
-        local planarDistance = (Vector3.new(cur.X, 0, cur.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
-        local duration = math.max(0.01, planarDistance / MOVE_SPEED_OVERRIDE)
-
-        local ok, tw = pcall(function()
-            return TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
-        end)
-        if not ok or not tw then return false end
-
-        currentTween = tw
-        local completed = false
-        local conn
-        conn = tw.Completed:Connect(function()
-            completed = true
-            if conn then conn:Disconnect() end
-            if currentTween == tw then
-                currentTween = nil
+        while elapsed < duration do
+            -- cancel if another movement requested or script stopped
+            if myToken ~= movementToken then
+                return false
             end
-        end)
-
-        tw:Play()
-
-        -- smoother poll using Heartbeat
-        local pollAcc = 0
-        local pollInterval = 0.05 -- kiểm tra mỗi 0.05s
-        while currentTween == tw do
             if not running then
-                pcall(function() tw:Cancel() end)
-                currentTween = nil
-                if conn then conn:Disconnect() end
+                -- if script turned off while lunging -> cancel
                 return false
             end
 
             local dt = RunService.Heartbeat:Wait()
-            pollAcc = pollAcc + dt
-            if pollAcc >= pollInterval then
-                pollAcc = 0
-                -- placeholder nếu muốn checkDuring sau này
-            end
+            elapsed = elapsed + dt
+            local alpha = math.clamp(elapsed / duration, 0, 1)
+            local newPos = startPos + dir * (dist * alpha)
+            -- set CFrame directly (preserve orientation)
+            hrp.CFrame = CFrame.new(newPos)
         end
 
-        return completed and running
+        -- final ensure position
+        if myToken ~= movementToken then
+            return false
+        end
+        hrp.CFrame = CFrame.new(targetPos)
+        return true
     end
     -- ======================================================================
 
-    -- acceptQuest (kept)
+    -- acceptQuest (kept, nhưng dùng lungeTo)
     local function acceptQuest(zone)
         if not zone then return end
-        local ok = tweenTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
+        -- go to NPC (a little above)
+        local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
         if not ok then return end -- interrupted or couldn't reach, abort accept
         task.wait(1)
 
@@ -1495,14 +1475,16 @@ do
         restoreCameraToPlayer()
     end
 
-    -- followMob (kept mostly same)
+    -- followMob (converted to lunge-based following)
     local function followMob(mob)
         if not mob then return end
+        if not mob:FindFirstChild("HumanoidRootPart") then return end
+
         local char = player.Character or player.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
         local cameraLocal = workspace.CurrentCamera
 
-        -- create anchor
+        -- create anchor for camera smoothing
         local anchor = Instance.new("Part")
         anchor.Anchored = true
         anchor.CanCollide = false
@@ -1517,28 +1499,30 @@ do
         cameraLocal.CameraType = Enum.CameraType.Custom
         cameraLocal.CameraSubject = anchor
 
-        local anchorY = mob.HumanoidRootPart.Position.Y + 25
-        local lastUpdate = tick()
-
+        -- keep lunging to the mob as it moves; loop until mob dead or running false
         while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
             and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
 
-            local hrpEnemy = mob:FindFirstChild("HumanoidRootPart")
+            local hrpEnemy = mob.HumanoidRootPart
             if not hrpEnemy then break end
 
-            if (tick() - lastUpdate) > 2 or math.abs(anchorY - hrpEnemy.Position.Y) > 15 then
-                anchorY = hrpEnemy.Position.Y + 25
-                lastUpdate = tick()
+            -- target slightly above enemy to hover
+            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + 3, hrpEnemy.Position.Z)
+            -- perform lunge towards the target
+            local arrived = lungeTo(targetPos + Vector3.new(0, 5, 0))
+            if not arrived then
+                -- if lunge cancelled, break out
+                break
             end
 
-            local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
-            anchor.Position = anchor.Position:Lerp(targetPos, 0.15)
-            if hrp and hrp.Parent then
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+            -- small wait to let attacks happen / avoid busy loop
+            local waitTime = 0.12
+            local e = 0
+            while e < waitTime do
+                if not running then break end
+                if not (mob and mob.Parent) then break end
+                e = e + RunService.Heartbeat:Wait()
             end
-
-            RunService.RenderStepped:Wait()
         end
 
         -- restore camera and cleanup
@@ -1554,10 +1538,24 @@ do
     local farmCenter = nil
 
     local function createFarmPoint(pos)
+        -- If farm point exists, replace it
         if farmPoint and farmPoint.Parent then
             farmPoint:Destroy()
             farmPoint = nil
             farmBillboard = nil
+        end
+
+        -- If the target pos is very far from player, lunge there first to avoid server refusing remote part creation
+        local hrp = safeHRP()
+        if hrp then
+            local dist = (hrp.Position - pos).Magnitude
+            if dist > distanceLimit then
+                -- attempt to lunge to farm pos to move into range
+                -- note: if lunge fails, we still try to create but this reduces hanging
+                pcall(function()
+                    lungeTo(pos + Vector3.new(0, 5, 0))
+                end)
+            end
         end
 
         farmPoint = Instance.new("Part")
@@ -1634,7 +1632,7 @@ do
         end)
     end
 
-    -- patrol logic (orbit around farmCenter)
+    -- patrol logic (orbit around farmCenter) using lungeTo
     local patrolActive = false
 
     local function circlePoint(center, radius, angleRad)
@@ -1657,8 +1655,8 @@ do
             local ang = startAng + s * angStep
             local pt = circlePoint(center, radius, ang)
 
-            -- Tween to patrol point (do NOT modify farmPoint)
-            local arrived = tweenTo(pt + Vector3.new(0, 5, 0))
+            -- Lunge to patrol point (do NOT modify farmPoint)
+            local arrived = lungeTo(pt + Vector3.new(0, 5, 0))
             if not arrived then return false end
 
             -- tiny smooth pause using Heartbeat
@@ -1687,7 +1685,7 @@ do
             local ang = math.random() * math.pi * 2
             local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
 
-            local ok = tweenTo(startPt + Vector3.new(0, 5, 0))
+            local ok = lungeTo(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
 
             local completedOrbit = orbitOnce(center, radiusPercent, zoneMobName)
@@ -1753,8 +1751,8 @@ do
             -- check for nearest mob of this zone
             local mob = getNearestMob(zone.MobName)
             if mob then
-                -- cancel any ongoing patrol/tween and follow
-                cancelCurrentTween()
+                -- cancel any ongoing patrol/movement and follow
+                stopMovement()
                 patrolActive = false
                 followMob(mob)
                 currentQuestKills = currentQuestKills + 1
@@ -1769,13 +1767,13 @@ do
                     if hrp then
                         local distToFarm = (hrp.Position - zone.FarmPos).Magnitude
                         if distToFarm > distanceLimit then
-                            -- too far: cancel patrols and return to farm center immediately
-                            cancelCurrentTween()
+                            -- too far: cancel patrols and return to farm center immediately via lunge
+                            stopMovement()
                             patrolActive = false
-                            tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                            lungeTo(zone.FarmPos + Vector3.new(0, 5, 0))
                         elseif distToFarm > 50 then
                             -- minor reposition inside farm area
-                            tweenTo(zone.FarmPos + Vector3.new(0, 5, 0))
+                            lungeTo(zone.FarmPos + Vector3.new(0, 5, 0))
                         end
                     end
 
@@ -1835,7 +1833,7 @@ do
             restoreCameraState()
 
             -- cleanup farmPoint/patrol
-            cancelCurrentTween()
+            stopMovement()
             patrolActive = false
             destroyFarmPoint()
         end
@@ -1865,10 +1863,10 @@ do
             pausedByDeath = true
             running = false
         end
-        -- LƯU Ý: không tắt ToggleUI; chỉ trả camera về người chơi và clear các tween/patrol
+        -- LƯU Ý: không tắt ToggleUI; chỉ trả camera về người chơi và clear các movement/patrol
         restoreCameraToPlayer()
         -- không xóa savedCameraState để có thể restore khi resume
-        cancelCurrentTween()
+        stopMovement()
         patrolActive = false
         -- giữ farmPoint để khi respawn có thể tiếp tục nhanh
         -- destroyFarmPoint() -- *bị loại bỏ* để không reset vùng làm việc
