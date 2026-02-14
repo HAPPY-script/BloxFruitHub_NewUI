@@ -561,8 +561,11 @@ do
 
     local BUTTON_NAME = "AutoDungeonButton"
     local SUPPORT_BTN_NAME = "SupportStyleDungeonButton"
+    local MODE_BTN_NAME = "ModeDungeonButton"
+
     local autoBtn = raidFrame:FindFirstChild(BUTTON_NAME, true)
     local supportBtn = raidFrame:FindFirstChild(SUPPORT_BTN_NAME, true)
+    local modeBtn = raidFrame:FindFirstChild(MODE_BTN_NAME, true)
 
     if not autoBtn then
         warn("Không tìm thấy Button:", BUTTON_NAME)
@@ -571,10 +574,9 @@ do
     if not supportBtn then
         warn("Không tìm thấy SupportStyleDungeonButton:", SUPPORT_BTN_NAME, "- tiếp tục nhưng không có UI support.")
     end
-
-    -- NEW: find ModeDungeonButton (mode toggle)
-    local MODE_BTN_NAME = "ModeDungeonButton"
-    local modeBtn = raidFrame:FindFirstChild(MODE_BTN_NAME, true) or raidFrame:FindFirstChild(MODE_BTN_NAME)
+    if not modeBtn then
+        warn("Không tìm thấy ModeDungeonButton:", MODE_BTN_NAME, "- chế độ sẽ mặc định Nearest (nhưng không có UI để đổi).")
+    end
 
     -- helper: tìm UIStroke descendant đầu tiên
     local function findStroke(inst)
@@ -612,6 +614,18 @@ do
     local supportStyle = "Melee" -- mặc định
     local _prevSupportStyle = nil
 
+    -- Mode config (Nearest default)
+    local MODE_NEAREST = "Nearest"
+    local MODE_RANDOM = "Random"
+    local dungeonMode = MODE_NEAREST -- mặc định
+    -- colors & texts for mode button
+    local MODE_NEAREST_COLOR = Color3.fromRGB(50, 255, 120)
+    local MODE_RANDOM_COLOR = Color3.fromRGB(168, 85, 247)
+    local MODE_TEXT = {
+        [MODE_NEAREST] = "Mode: Nearest",
+        [MODE_RANDOM] = "Mode: Random"
+    }
+
     -- internal state
     local autoDungeon = false
     local pauseForExit = false
@@ -626,14 +640,8 @@ do
     local IGNORED_ENEMIES = { ["Blank Buddy"] = true }
     local function isIgnoredEnemy(m) return IGNORED_ENEMIES[m.Name] == true end
 
-    -- Mode control (Nearest / Random)
-    local MODE_NEAREST = "Nearest"
-    local MODE_RANDOM  = "Random"
-    local mode = MODE_NEAREST -- default
-
-    -- Mode colors/text
-    local MODE_NEAREST_COLOR = Color3.fromRGB(50, 255, 120)
-    local MODE_RANDOM_COLOR  = Color3.fromRGB(168, 85, 247)
+    -- marked table for Random mode
+    local markedEnemies = {} -- keys: enemy instance -> true
 
     -- character refs
     local character = player.Character or player.CharacterAdded:Wait()
@@ -694,7 +702,7 @@ do
         return arrived
     end
 
-    -- enemy finders (giữ nguyên logic, thêm helper lấy tất cả enemy trong range)
+    -- enemy finders (giữ nguyên logic, nhưng getNearestEnemy bỏ qua marked khi mode Random)
     local function getNearestPriorityEnemy(centerPos)
         local folder = workspace:FindFirstChild("Enemies")
         if not folder then return nil end
@@ -726,6 +734,11 @@ do
         local nearest, nearestDist
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
+                -- skip marked if Random mode
+                if dungeonMode == MODE_RANDOM and markedEnemies[mob] then
+                    continue
+                end
+
                 local hp = mob:FindFirstChildOfClass("Humanoid")
                 if hp and hp.Health > 0 then
                     local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
@@ -741,23 +754,25 @@ do
         return nearest
     end
 
-    -- NEW: return list of enemies in range (non-priority), excluding ignored; returns array
-    local function getEnemiesInRange(centerPos)
-        local list = {}
+    -- helper: check if there exists any alive non-priority enemy (ignoring marks)
+    local function anyAliveNonPriorityEnemies(centerPos)
         local folder = workspace:FindFirstChild("Enemies")
-        if not folder then return list end
+        if not folder then return false end
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and not isIgnoredEnemy(mob) and mob:FindFirstChild("HumanoidRootPart") then
                 local hp = mob:FindFirstChildOfClass("Humanoid")
                 if hp and hp.Health > 0 then
-                    local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
-                    if dist <= DISTANCE_LIMIT then
-                        table.insert(list, mob)
+                    -- ensure not priority
+                    if mob.Name ~= "PropHitboxPlaceholder" then
+                        local dist = (centerPos - mob.HumanoidRootPart.Position).Magnitude
+                        if dist <= DISTANCE_LIMIT then
+                            return true
+                        end
                     end
                 end
             end
         end
-        return list
+        return false
     end
 
     local function getNearestDungeonModel()
@@ -800,104 +815,8 @@ do
         return nil
     end
 
-    -- ========== NEW: enemiesList management for RANDOM mode ==========
-    -- enemiesList: array of { mob = <Model>, visited = bool }
-    local enemiesList = {}
-    local enemiesMap = {} -- mob -> index in enemiesList (for quick removal / existence checks)
-
-    local function clearEnemiesList()
-        enemiesList = {}
-        enemiesMap = {}
-    end
-
-    local function addEnemyToList(mob)
-        if not mob or not mob.Parent then return end
-        if enemiesMap[mob] then return end
-        local entry = { mob = mob, visited = false }
-        table.insert(enemiesList, entry)
-        enemiesMap[mob] = #enemiesList
-    end
-
-    local function removeEnemyFromListByIndex(idx)
-        if not idx then return end
-        local entry = enemiesList[idx]
-        if not entry then return end
-        enemiesMap[entry.mob] = nil
-        table.remove(enemiesList, idx)
-        -- fix map indexes
-        for i = idx, #enemiesList do
-            enemiesMap[enemiesList[i].mob] = i
-        end
-    end
-
-    local function removeEnemyFromListByMob(mob)
-        local idx = enemiesMap[mob]
-        if idx then
-            removeEnemyFromListByIndex(idx)
-        end
-    end
-
-    -- update the enemiesList to reflect current enemies in range
-    local function updateEnemiesList(centerPos)
-        if not centerPos then return end
-        local current = getEnemiesInRange(centerPos)
-        local presentMap = {}
-        for _, m in ipairs(current) do
-            presentMap[m] = true
-            -- add new ones
-            if not enemiesMap[m] then
-                addEnemyToList(m)
-            end
-        end
-
-        -- remove any in enemiesList that are no longer present, died, or destroyed
-        for i = #enemiesList, 1, -1 do
-            local entry = enemiesList[i]
-            local m = entry.mob
-            if not m or not m.Parent then
-                removeEnemyFromListByIndex(i)
-            else
-                local h = m:FindFirstChildOfClass("Humanoid")
-                local hrp_e = m:FindFirstChild("HumanoidRootPart")
-                local okAlive = h and h.Health > 0 and hrp_e
-                local distOk = true
-                if hrp and hrp_e then
-                    local d = (centerPos - hrp_e.Position).Magnitude
-                    if d > DISTANCE_LIMIT then distOk = false end
-                end
-                if (not okAlive) or (not distOk) then
-                    removeEnemyFromListByIndex(i)
-                end
-            end
-        end
-    end
-
-    local function pickRandomUnvisited()
-        local candidates = {}
-        for _, entry in ipairs(enemiesList) do
-            if entry and entry.mob and not entry.visited then
-                table.insert(candidates, entry)
-            end
-        end
-        if #candidates == 0 then
-            -- reset visited flags and try again
-            for _, entry in ipairs(enemiesList) do
-                entry.visited = false
-            end
-            for _, entry in ipairs(enemiesList) do
-                if entry and entry.mob and not entry.visited then
-                    table.insert(candidates, entry)
-                end
-            end
-        end
-        if #candidates == 0 then return nil end
-        local choice = candidates[math.random(1, #candidates)]
-        return choice
-    end
-
-    -- ========== followEnemy (modified to support external Random manager) ==========
-    -- When disableInternalRandom == true, followEnemy will NOT perform internal random switching logic.
-    local function followEnemy(enemy, disableInternalRandom)
+    -- follow and root handlers (giữ logic cũ với điều chỉnh cho Random mode)
+    local function followEnemy(enemy)
         local isPriorityTarget = (enemy and enemy.Name == "PropHitboxPlaceholder")
         if followLock then return end
         followLock = true
@@ -918,7 +837,6 @@ do
         end
 
         local highPos = hrpEnemy.Position + Vector3.new(0, FOLLOW_HEIGHT, 0)
-
         local function interruptIfBetterEnemy()
             if not autoDungeon then return true end
             local center = hrp.Position
@@ -934,7 +852,6 @@ do
             return false
         end
 
-        -- Move to above enemy (interruptible)
         moveToPositionInterruptible(highPos, interruptIfBetterEnemy)
 
         if not autoDungeon or not hrp or not hrp.Parent then
@@ -943,10 +860,19 @@ do
             return
         end
 
-        -- For non-disabled-internal-random: original internal random logic remains
-        local startTick = tick()
-        local RANDOM_DWELL = 0.2
+        -- NEW: Random mode behavior: mark immediately and stop following non-priority enemies,
+        -- so scanning can pick next unmarked enemy. Priority enemies unaffected.
+        if dungeonMode == MODE_RANDOM and not isPriorityTarget then
+            -- mark this enemy now
+            pcall(function() markedEnemies[enemy] = true end)
 
+            -- release follow immediately (we already moved to its position), allow scanning to choose next
+            followLock = false
+            currentTarget = nil
+            return
+        end
+
+        -- original loop (Nearest behavior or priority enemy in Random mode)
         while autoDungeon and not pauseForExit and humanoid and humanoid.Health > 0 and hrp and hrp.Parent do
             local center = hrp.Position
             local priNow = getNearestPriorityEnemy(center)
@@ -958,34 +884,6 @@ do
                     local newDist = (center - newNearest.HumanoidRootPart.Position).Magnitude
                     local curDist = (center - hrpEnemy.Position).Magnitude
                     if newDist + 1 < curDist then break end
-                end
-            end
-
-            -- ONLY perform internal random switching if mode==MODE_RANDOM AND internal not disabled
-            if mode == MODE_RANDOM and (not disableInternalRandom) then
-                if tick() - startTick >= RANDOM_DWELL then
-                    local all = getEnemiesInRange(center)
-                    local candidates = {}
-                    for _, m in ipairs(all) do
-                        if m and m ~= enemy and m:FindFirstChild("HumanoidRootPart") then
-                            local h = m:FindFirstChildOfClass("Humanoid")
-                            if h and h.Health > 0 and m.Name ~= "PropHitboxPlaceholder" then
-                                table.insert(candidates, m)
-                            end
-                        end
-                    end
-
-                    if #candidates > 0 then
-                        local nextEnemy = candidates[ math.random(1, #candidates) ]
-                        followLock = false
-                        task.spawn(function()
-                            pcall(function() followEnemy(nextEnemy) end)
-                        end)
-                        currentTarget = nil
-                        return
-                    else
-                        startTick = tick()
-                    end
                 end
             end
 
@@ -1064,7 +962,7 @@ do
         end
     end)
 
-    -- ========== MAIN SCAN/CONTROL LOOP ==========
+    -- main scanning loop
     task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
@@ -1074,59 +972,28 @@ do
 
             farmCenter = hrp.Position
 
-            -- priority handling always immediate
             local priorityEnemy = getNearestPriorityEnemy(farmCenter)
             if priorityEnemy then
-                -- clear random list so it doesn't interfere
-                clearEnemiesList()
                 task.spawn(function() pcall(function() followEnemy(priorityEnemy) end) end)
                 continue
             end
 
-            -- RANDOM mode: manage enemiesList, pick and follow unvisited entries
-            if mode == MODE_RANDOM then
-                -- update list based on current range & alive status
-                updateEnemiesList(farmCenter)
-
-                -- if list empty: fallback to nearest
-                if #enemiesList == 0 then
-                    local fallback = getNearestEnemy(farmCenter)
-                    if fallback then
-                        task.spawn(function() pcall(function() followEnemy(fallback) end) end)
-                    else
-                        -- maybe handle dungeon exit
-                        local nearestDungeonModel = getNearestDungeonModel()
-                        if nearestDungeonModel then
-                            local rootPart = checkDungeonExitOnModel(nearestDungeonModel)
-                            if rootPart then
-                                task.spawn(function() pcall(function() handleDungeonRoot(rootPart) end) end)
-                            end
-                        end
-                    end
-                    continue
-                end
-
-                -- if currently not following, pick next unvisited and follow
-                if not followLock then
-                    local entry = pickRandomUnvisited()
-                    if entry and entry.mob then
-                        -- mark visited now
-                        entry.visited = true
-                        -- follow but disable internal random-switch so external manager controls switching
-                        task.spawn(function()
-                            pcall(function() followEnemy(entry.mob, true) end)
-                        end)
-                    end
-                end
-
-                continue
-            end
-
-            -- NEAREST mode fallback (unchanged)
             local enemy = getNearestEnemy(farmCenter)
             if enemy then
                 task.spawn(function() pcall(function() followEnemy(enemy) end) end)
                 continue
+            end
+
+            -- If in Random mode and there are alive non-priority enemies but none returned because all are marked,
+            -- then reset markedEnemies so we can repeat the cycle.
+            if dungeonMode == MODE_RANDOM then
+                local anyNonPriority = anyAliveNonPriorityEnemies(farmCenter)
+                if anyNonPriority then
+                    -- none returned but some exist -> likely all are marked; reset marks
+                    markedEnemies = {}
+                    -- continue loop to pick targets again
+                    continue
+                end
             end
 
             local nearestDungeonModel = getNearestDungeonModel()
@@ -1148,9 +1015,6 @@ do
         movementLock = false
         followLock = false
         currentTarget = nil
-
-        -- clear enemy list on respawn to avoid stale references (will be rebuilt by scan)
-        clearEnemiesList()
 
         task.delay(0.5, function()
             pauseForExit = false
@@ -1209,8 +1073,6 @@ do
         else
             -- when turned off: allow loops to stop gracefully
             pauseForExit = false
-            -- also clear random list when turning off to avoid stale refs
-            clearEnemiesList()
         end
     end
 
@@ -1363,55 +1225,45 @@ do
     -- ensure attribute initial value set to default supportStyle (một lần)
     pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
 
-    -- ========== NEW: ModeDungeonButton handling ==========
-    local function setModeAppearance(newMode)
+    -- ========== ModeDungeonButton handling & visuals ==========
+    local function applyModeVisuals(mode)
         if not modeBtn then return end
-        local out = tweenProperty(modeBtn:FindFirstChildOfClass("TextLabel") or modeBtn, {TextTransparency = 1}, 0.12)
-        if out then out.Completed:Wait() end
-
-        if newMode == MODE_NEAREST then
-            pcall(function() tweenGui(modeBtn, { BackgroundColor3 = MODE_NEAREST_COLOR }, 0.18) end)
-            if modeStroke then pcall(function() tweenGui(modeStroke, { Color = MODE_NEAREST_COLOR }, 0.18) end) end
-            pcall(function()
-                local textObj = modeBtn:FindFirstChildOfClass("TextLabel") or modeBtn
-                if textObj then textObj.Text = "Mode: Nearest" end
-            end)
-        else
-            pcall(function() tweenGui(modeBtn, { BackgroundColor3 = MODE_RANDOM_COLOR }, 0.18) end)
-            if modeStroke then pcall(function() tweenGui(modeStroke, { Color = MODE_RANDOM_COLOR }, 0.18) end) end
-            pcall(function()
-                local textObj = modeBtn:FindFirstChildOfClass("TextLabel") or modeBtn
-                if textObj then textObj.Text = "Mode: Random" end
-            end)
+        local color = (mode == MODE_NEAREST) and MODE_NEAREST_COLOR or MODE_RANDOM_COLOR
+        -- instant set (no flicker) to match user spec
+        pcall(function() modeBtn.BackgroundColor3 = color end)
+        if modeStroke then pcall(function() modeStroke.Color = color end) end
+        local textObj = getTextHolder(modeBtn)
+        if textObj then
+            pcall(function() textObj.TextTransparency = 0 end)
+            pcall(function() textObj.Text = MODE_TEXT[mode] or ("Mode: " .. mode) end)
         end
-
-        local inn = tweenProperty(modeBtn:FindFirstChildOfClass("TextLabel") or modeBtn, {TextTransparency = 0}, 0.12)
-        if inn then inn.Completed:Wait() end
     end
 
+    local function toggleDungeonMode()
+        dungeonMode = (dungeonMode == MODE_NEAREST) and MODE_RANDOM or MODE_NEAREST
+        -- when switching back to Nearest, clear marks to avoid stale marks
+        if dungeonMode == MODE_NEAREST then
+            markedEnemies = {}
+        end
+        applyModeVisuals(dungeonMode)
+        pcall(function() player:SetAttribute("DungeonMode", dungeonMode) end)
+    end
+
+    -- initialize mode visuals (default Nearest)
     if modeBtn then
-        -- initialize visuals (Nearest default)
-        pcall(function() modeBtn.BackgroundColor3 = MODE_NEAREST_COLOR end)
-        if modeStroke then pcall(function() modeStroke.Color = MODE_NEAREST_COLOR end) end
-        pcall(function()
-            local textObj = modeBtn:FindFirstChildOfClass("TextLabel") or modeBtn
-            if textObj then textObj.Text = "Mode: Nearest" end
-        end)
+        applyModeVisuals(dungeonMode)
 
-        local function toggleMode()
-            mode = (mode == MODE_NEAREST) and MODE_RANDOM or MODE_NEAREST
-            setModeAppearance(mode)
-            -- when switching to Random, clear and let scanner rebuild list
-            if mode == MODE_RANDOM then
-                clearEnemiesList()
-            end
+        local function onModeActivated()
+            toggleDungeonMode()
         end
-
         if modeBtn.Activated then
-            modeBtn.Activated:Connect(toggleMode)
+            modeBtn.Activated:Connect(onModeActivated)
         else
-            modeBtn.MouseButton1Click:Connect(toggleMode)
+            modeBtn.MouseButton1Click:Connect(onModeActivated)
         end
+    else
+        -- no modeBtn found: still set attribute for scripts reading it
+        pcall(function() player:SetAttribute("DungeonMode", dungeonMode) end)
     end
 
 end
