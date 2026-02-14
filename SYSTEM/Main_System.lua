@@ -372,9 +372,10 @@ do
     -- Chờ ToggleUI helper (theo mẫu bạn đưa)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    if ToggleUI and ToggleUI.Refresh then
-        pcall(ToggleUI.Refresh)
+    if ToggleUI and type(ToggleUI.Refresh) == "function" then
+        pcall(function() ToggleUI.Refresh() end)
     end
+
 
     -- Helpers: so sánh màu với ngưỡng
     local function colorEquals(c, r, g, b)
@@ -1377,9 +1378,11 @@ do
         local delta = targetPos - startPos
         local dist = delta.Magnitude
         if dist < 0.5 then return true end
-        if dist > 100000 then return false -- safety hard cap
+        if dist > 100000 then
+            return false -- safety hard cap
+        end
 
-        local MAX_STEP = 1000              -- max studs per chunk (tùy chỉnh)
+        local MAX_STEP = 700              -- max studs per chunk (tùy chỉnh)
         local SUBSTEP_MIN = 0.02          -- min duration per chunk interpolation
         local SLEEP_BETWEEN_CHUNKS = 0.05 -- pause between chunks to help replication
         local myToken = movementToken
