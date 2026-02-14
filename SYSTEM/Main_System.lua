@@ -1367,49 +1367,88 @@ do
         return closest
     end
 
-    -- ===== unified lunge movement (replaces tweenTo) =====
+    -- ===== improved chunked lungeTo (replace the old one) =====
     local function lungeTo(targetPos)
         local hrp = safeHRP()
+        local humanoid = safeHumanoid()
         if not hrp or not hrp.Parent then return false end
 
-        -- safety: if target is extremely far (possible invalid request), refuse
         local startPos = hrp.Position
         local delta = targetPos - startPos
         local dist = delta.Magnitude
         if dist < 0.5 then return true end
-        if dist > 10000 then return false end
+        if dist > 100000 then return false -- safety hard cap
 
-        local dir = delta.Unit
-        local duration = math.max(0.01, dist / LUNGE_SPEED)
-        local elapsed = 0
+        local MAX_STEP = 700              -- max studs per chunk (tùy chỉnh)
+        local SUBSTEP_MIN = 0.02          -- min duration per chunk interpolation
+        local SLEEP_BETWEEN_CHUNKS = 0.05 -- pause between chunks to help replication
         local myToken = movementToken
 
-        -- reset vertical velocity to avoid unexpected physics behaviour
-        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end)
+        -- try to reduce physics corrections by briefly disabling motor-like behavior
+        local prevPlatformStand
+        if humanoid then
+            pcall(function()
+                prevPlatformStand = humanoid.PlatformStand
+                humanoid.PlatformStand = true
+            end)
+        end
 
-        while elapsed < duration do
-            -- cancel if another movement requested or script stopped
+        -- zero velocity once
+        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
+
+        -- loop chunk-by-chunk until near target
+        while true do
+            -- cancel checks
             if myToken ~= movementToken then
+                if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
                 return false
             end
             if not running then
-                -- if script turned off while lunging -> cancel
+                if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
                 return false
             end
 
-            local dt = RunService.Heartbeat:Wait()
-            elapsed = elapsed + dt
-            local alpha = math.clamp(elapsed / duration, 0, 1)
-            local newPos = startPos + dir * (dist * alpha)
-            -- set CFrame directly (preserve orientation)
-            hrp.CFrame = CFrame.new(newPos)
+            local curPos = hrp.Position
+            local remVec = targetPos - curPos
+            local remaining = remVec.Magnitude
+            if remaining <= 0.5 then break end
+
+            local stepDist = math.min(remaining, MAX_STEP)
+            local stepDir = remVec.Unit
+            local chunkTarget = curPos + stepDir * stepDist
+
+            -- smooth interpolate towards chunkTarget over time based on LUNGE_SPEED
+            local chunkDuration = math.max(SUBSTEP_MIN, stepDist / LUNGE_SPEED)
+            local elapsed = 0
+
+            while elapsed < chunkDuration do
+                if myToken ~= movementToken or not running then
+                    if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
+                    return false
+                end
+
+                local dt = RunService.Heartbeat:Wait()
+                elapsed = elapsed + dt
+                local alpha = math.clamp(elapsed / chunkDuration, 0, 1)
+                local newPos = curPos + stepDir * (stepDist * alpha)
+                pcall(function() hrp.CFrame = CFrame.new(newPos) end)
+            end
+
+            -- ensure chunk target reached exactly
+            pcall(function() hrp.CFrame = CFrame.new(chunkTarget) end)
+
+            -- short pause to let replication / server processing catch up
+            task.wait(SLEEP_BETWEEN_CHUNKS)
         end
 
-        -- final ensure position
-        if myToken ~= movementToken then
-            return false
+        -- final ensure exact target
+        pcall(function() hrp.CFrame = CFrame.new(targetPos) end)
+
+        -- restore PlatformStand
+        if humanoid then
+            pcall(function() humanoid.PlatformStand = prevPlatformStand end)
         end
-        hrp.CFrame = CFrame.new(targetPos)
+
         return true
     end
     -- ======================================================================
