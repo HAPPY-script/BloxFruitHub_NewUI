@@ -661,7 +661,7 @@ shared.load(0.95)
 
 print("✅COMPLETE✅")
 
--- se
+--[[ se
 local BLOX_FRUITS_GAME_ID = 85211729168715
 local BLOX_FRUITS_GAME_ID2 = 2753915549
 
@@ -719,5 +719,5 @@ if currentGameId == BLOX_FRUITS_GAME_ID or currentGameId == BLOX_FRUITS_GAME_ID2
 else
     warn("⚠️ Script Sea Protection chỉ hoạt động trong Blox Fruits (S1-2-3).")
 end
-
+]]
 shared.load(1)
