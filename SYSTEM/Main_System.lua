@@ -372,10 +372,9 @@ do
     -- Chờ ToggleUI helper (theo mẫu bạn đưa)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    if ToggleUI and type(ToggleUI.Refresh) == "function" then
-        pcall(function() ToggleUI.Refresh() end)
+    if ToggleUI and ToggleUI.Refresh then
+        pcall(ToggleUI.Refresh)
     end
-
 
     -- Helpers: so sánh màu với ngưỡng
     local function colorEquals(c, r, g, b)
