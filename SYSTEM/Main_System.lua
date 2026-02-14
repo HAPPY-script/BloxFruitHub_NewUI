@@ -1367,118 +1367,57 @@ do
         return closest
     end
 
-    -- ===== improved chunked lungeTo (replace the old one) =====
+    -- ===== unified lunge movement (replaces tweenTo) =====
     local function lungeTo(targetPos)
         local hrp = safeHRP()
-        local humanoid = safeHumanoid()
         if not hrp or not hrp.Parent then return false end
 
+        -- safety: if target is extremely far (possible invalid request), refuse
         local startPos = hrp.Position
         local delta = targetPos - startPos
         local dist = delta.Magnitude
         if dist < 0.5 then return true end
-        if dist > 100000 then
-            return false -- safety hard cap
-        end
+        if dist > 10000 then return false end
 
-        local MAX_STEP = 700              -- max studs per chunk (tùy chỉnh)
-        local SUBSTEP_MIN = 0.02          -- min duration per chunk interpolation
-        local SLEEP_BETWEEN_CHUNKS = 0.05 -- pause between chunks to help replication
+        local dir = delta.Unit
+        local duration = math.max(0.01, dist / LUNGE_SPEED)
+        local elapsed = 0
         local myToken = movementToken
 
-        -- try to reduce physics corrections by briefly disabling motor-like behavior
-        local prevPlatformStand
-        if humanoid then
-            pcall(function()
-                prevPlatformStand = humanoid.PlatformStand
-                humanoid.PlatformStand = true
-            end)
-        end
+        -- reset vertical velocity to avoid unexpected physics behaviour
+        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end)
 
-        -- zero velocity once
-        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0,0,0) end)
-
-        -- loop chunk-by-chunk until near target
-        while true do
-            -- cancel checks
+        while elapsed < duration do
+            -- cancel if another movement requested or script stopped
             if myToken ~= movementToken then
-                if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
                 return false
             end
             if not running then
-                if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
+                -- if script turned off while lunging -> cancel
                 return false
             end
 
-            local curPos = hrp.Position
-            local remVec = targetPos - curPos
-            local remaining = remVec.Magnitude
-            if remaining <= 0.5 then break end
-
-            local stepDist = math.min(remaining, MAX_STEP)
-            local stepDir = remVec.Unit
-            local chunkTarget = curPos + stepDir * stepDist
-
-            -- smooth interpolate towards chunkTarget over time based on LUNGE_SPEED
-            local chunkDuration = math.max(SUBSTEP_MIN, stepDist / LUNGE_SPEED)
-            local elapsed = 0
-
-            while elapsed < chunkDuration do
-                if myToken ~= movementToken or not running then
-                    if humanoid then pcall(function() humanoid.PlatformStand = prevPlatformStand end) end
-                    return false
-                end
-
-                local dt = RunService.Heartbeat:Wait()
-                elapsed = elapsed + dt
-                local alpha = math.clamp(elapsed / chunkDuration, 0, 1)
-                local newPos = curPos + stepDir * (stepDist * alpha)
-                pcall(function() hrp.CFrame = CFrame.new(newPos) end)
-            end
-
-            -- ensure chunk target reached exactly
-            pcall(function() hrp.CFrame = CFrame.new(chunkTarget) end)
-
-            -- short pause to let replication / server processing catch up
-            task.wait(SLEEP_BETWEEN_CHUNKS)
+            local dt = RunService.Heartbeat:Wait()
+            elapsed = elapsed + dt
+            local alpha = math.clamp(elapsed / duration, 0, 1)
+            local newPos = startPos + dir * (dist * alpha)
+            -- set CFrame directly (preserve orientation)
+            hrp.CFrame = CFrame.new(newPos)
         end
 
-        -- final ensure exact target
-        pcall(function() hrp.CFrame = CFrame.new(targetPos) end)
-
-        -- restore PlatformStand
-        if humanoid then
-            pcall(function() humanoid.PlatformStand = prevPlatformStand end)
+        -- final ensure position
+        if myToken ~= movementToken then
+            return false
         end
-
+        hrp.CFrame = CFrame.new(targetPos)
         return true
     end
     -- ======================================================================
 
-    -- acceptQuest (SỬA: nếu xa farmCenter hơn distanceLimit thì Lunge tới farmCenter trước rồi mới đến NPC)
+    -- acceptQuest (kept, nhưng dùng lungeTo) -> giờ trả về true/false
     local function acceptQuest(zone)
         if not zone then return false end
-
-        -- ensure character exists
-        local hrp = safeHRP()
-        if not hrp then return false end
-
-        -- If farmCenter is defined and we're farther than distanceLimit from it,
-        -- first lunge to farmCenter (so we return to the area) before going to NPC.
-        if farmCenter then
-            local distToFarm = (hrp.Position - farmCenter).Magnitude
-            if distToFarm > distanceLimit then
-                -- try lunge to farm center; if fail -> abort accept
-                local okFarm = lungeTo(farmCenter + Vector3.new(0, 5, 0))
-                if not okFarm then
-                    return false
-                end
-                -- small delay to stabilize
-                task.wait(0.2)
-            end
-        end
-
-        -- now lunge to NPC to accept quest
+        -- go to NPC (a little above)
         local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
         if not ok then return false end -- interrupted or couldn't reach, abort accept
         task.wait(1)
