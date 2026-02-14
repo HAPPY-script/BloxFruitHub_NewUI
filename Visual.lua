@@ -234,6 +234,30 @@ UIStroke4.Thickness = 2
 UIStroke4.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke4.Parent = CheckPlayersButton
 
+local AntiLagButton = Instance.new("TextButton")
+AntiLagButton.Name = "AntiLagButton"
+AntiLagButton.Position = UDim2.new(0.5, 0, 0.13, 0)
+AntiLagButton.Size = UDim2.new(0.9, 0, 0.03, 0)
+AntiLagButton.BackgroundColor3 = Color3.new(0.686275, 0, 0.117647)
+AntiLagButton.BorderSizePixel = 0
+AntiLagButton.BorderColor3 = Color3.new(0, 0, 0)
+AntiLagButton.ZIndex = 2
+AntiLagButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AntiLagButton.Text = "Anti lag"
+AntiLagButton.TextColor3 = Color3.new(1, 1, 1)
+AntiLagButton.TextSize = 14
+AntiLagButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AntiLagButton.TextScaled = true
+AntiLagButton.TextWrapped = true
+AntiLagButton.Parent = Visual
+
+local UIStroke5 = Instance.new("UIStroke")
+UIStroke5.Name = "UIStroke"
+UIStroke5.Color = Color3.new(1, 1, 1)
+UIStroke5.Thickness = 2
+UIStroke5.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke5.Parent = AntiLagButton
+
 local Frame = Visual
 if not Frame then return end
 task.spawn(function()
