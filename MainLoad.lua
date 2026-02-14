@@ -661,7 +661,7 @@ shared.load(0.95)
 
 print("✅COMPLETE✅")
 
---[[ se
+-- se
 local BLOX_FRUITS_GAME_ID = 85211729168715
 local BLOX_FRUITS_GAME_ID2 = 2753915549
 
@@ -672,52 +672,112 @@ local THIRD_SEA_GAME_ID = 7449423635
 local THIRD_SEA_GAME_ID2 = 100117331123089
 
 local currentGameId = game.PlaceId
-if currentGameId == BLOX_FRUITS_GAME_ID or currentGameId == BLOX_FRUITS_GAME_ID2 or currentGameId == SECOND_SEA_GAME_ID or currentGameId == SECOND_SEA_GAME_ID2 or currentGameId == THIRD_SEA_GAME_ID or currentGameId == THIRD_SEA_GAME_ID2 then
+if currentGameId == BLOX_FRUITS_GAME_ID
+or currentGameId == BLOX_FRUITS_GAME_ID2
+or currentGameId == SECOND_SEA_GAME_ID
+or currentGameId == SECOND_SEA_GAME_ID2
+or currentGameId == THIRD_SEA_GAME_ID
+or currentGameId == THIRD_SEA_GAME_ID2 then
 
     local RunService = game:GetService("RunService")
-    local player = game.Players.LocalPlayer
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
 
+    -- create single part used as protection layer (keep a reference even if unparented)
     local blockMain = Instance.new("Part")
+    blockMain.Name = "SeaProtection_BlockMain"
     blockMain.Size = Vector3.new(500, 2.1, 500)
     blockMain.Anchored = true
-    blockMain.Position = Vector3.new(0, 0, 0)
+    blockMain.Position = Vector3.new(0, -5, 0) -- initial
     blockMain.Transparency = 1
     blockMain.CanCollide = true
+    blockMain.CanTouch = false
+    blockMain.CastShadow = false
+    -- NOTE: initially parented so protection available right away
     blockMain.Parent = workspace
 
     local function updateBlockPosition(character)
-        local hrp = character:WaitForChild("HumanoidRootPart")
-        local humanoid = character:WaitForChild("Humanoid")
+        if not character then return end
+
+        local hrp = character:WaitForChild("HumanoidRootPart", 5)
+        local humanoid = character:FindFirstChild("Humanoid")
+
+        if not hrp then return end
 
         local connection
+        -- debounce state to avoid parent/unparent spam
+        local currentlyPresent = (blockMain.Parent == workspace)
+
         connection = RunService.RenderStepped:Connect(function()
             if not character or not hrp then return end
 
             local playerPos = hrp.Position
 
-            blockMain.Position = Vector3.new(playerPos.X, -5, playerPos.Z)
-            local mainSurfaceY = blockMain.Position.Y + (blockMain.Size.Y / 2)
+            -- decide whether block should "exist" (reparented into workspace) or be effectively removed
+            -- rule: exist only when player Y <= 0.5
+            local shouldExist = (hrp.Position.Y <= 0.5)
 
-            if hrp.Position.Y < mainSurfaceY and hrp.Position.Y > blockMain.Position.Y - 250 then
-                hrp.CFrame = CFrame.new(hrp.Position.X, mainSurfaceY + 5, hrp.Position.Z)
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            if shouldExist and not currentlyPresent then
+                -- re-parent and refresh settings
+                pcall(function()
+                    blockMain.Parent = workspace
+                    blockMain.Anchored = true
+                    blockMain.Transparency = 1
+                    blockMain.CanCollide = true
+                    blockMain.CanTouch = false
+                    blockMain.CastShadow = false
+                end)
+                currentlyPresent = true
+            elseif (not shouldExist) and currentlyPresent then
+                -- remove from world to make it 'non-existent' to other systems
+                pcall(function()
+                    blockMain.Parent = nil
+                end)
+                currentlyPresent = false
+            end
+
+            -- if part is present, keep it under player XZ and run rescue logic
+            if currentlyPresent then
+                local newBlockPos = Vector3.new(playerPos.X, -5, playerPos.Z)
+                if blockMain.Position ~= newBlockPos then
+                    pcall(function() blockMain.Position = newBlockPos end)
+                end
+
+                local mainSurfaceY = blockMain.Position.Y + (blockMain.Size.Y / 2)
+
+                -- rescue logic: if player below top surface but not extremely low, push them up
+                if hrp.Position.Y < mainSurfaceY and hrp.Position.Y > blockMain.Position.Y - 250 then
+                    local safeY = mainSurfaceY + 5
+                    pcall(function() hrp.CFrame = CFrame.new(hrp.Position.X, safeY, hrp.Position.Z) end)
+                    if humanoid then
+                        pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end)
+                    end
+                end
             end
         end)
 
-        player.CharacterRemoving:Connect(function()
-            if connection then connection:Disconnect() end
+        -- disconnect when character removed
+        local removedConn
+        removedConn = player.CharacterRemoving:Connect(function()
+            if connection and connection.Connected then
+                connection:Disconnect()
+            end
+            if removedConn and removedConn.Connected then
+                removedConn:Disconnect()
+            end
         end)
     end
 
+    -- hook up new characters
     player.CharacterAdded:Connect(updateBlockPosition)
     if player.Character then
         updateBlockPosition(player.Character)
     end
-    
-    print("✅✅ Sea Protection Active (Single Layer) ✅✅")
+
+    print("✅✅ Sea Protection Active (Single Layer, presence toggles by Y) ✅✅")
 
 else
     warn("⚠️ Script Sea Protection chỉ hoạt động trong Blox Fruits (S1-2-3).")
 end
-]]
+
 shared.load(1)
