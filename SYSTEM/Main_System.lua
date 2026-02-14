@@ -1379,7 +1379,7 @@ do
         if dist < 0.5 then return true end
         if dist > 100000 then return false -- safety hard cap
 
-        local MAX_STEP = 700              -- max studs per chunk (tùy chỉnh)
+        local MAX_STEP = 1000              -- max studs per chunk (tùy chỉnh)
         local SUBSTEP_MIN = 0.02          -- min duration per chunk interpolation
         local SLEEP_BETWEEN_CHUNKS = 0.05 -- pause between chunks to help replication
         local myToken = movementToken
