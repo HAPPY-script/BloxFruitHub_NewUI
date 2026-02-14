@@ -777,7 +777,7 @@ do
         {
             MinLevel = 1150,
             MaxLevel = 1174,
-            MobName = "Lava Pirate",
+            MobName = "Magma Ninja",
             FarmPos = Vector3.new(-5293.55, 35.44, -4705.81),
             QuestNPCPos = Vector3.new(-5445.89, 15.99, -5292.91),
             QuestName = "FireSideQuest",
@@ -787,7 +787,7 @@ do
         {
             MinLevel = 1175,
             MaxLevel = 1199,
-            MobName = "Magma Ninja",
+            MobName = "Lava Pirate",
             FarmPos = Vector3.new(-5524.52, 60.59, -5935.76),
             QuestNPCPos = Vector3.new(-5445.89, 15.99, -5292.91),
             QuestName = "FireSideQuest",
