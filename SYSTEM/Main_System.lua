@@ -1414,10 +1414,30 @@ do
     end
     -- ======================================================================
 
-    -- acceptQuest (kept, nhưng dùng lungeTo) -> giờ trả về true/false
+    -- acceptQuest (SỬA: nếu xa farmCenter hơn distanceLimit thì Lunge tới farmCenter trước rồi mới đến NPC)
     local function acceptQuest(zone)
         if not zone then return false end
-        -- go to NPC (a little above)
+
+        -- ensure character exists
+        local hrp = safeHRP()
+        if not hrp then return false end
+
+        -- If farmCenter is defined and we're farther than distanceLimit from it,
+        -- first lunge to farmCenter (so we return to the area) before going to NPC.
+        if farmCenter then
+            local distToFarm = (hrp.Position - farmCenter).Magnitude
+            if distToFarm > distanceLimit then
+                -- try lunge to farm center; if fail -> abort accept
+                local okFarm = lungeTo(farmCenter + Vector3.new(0, 5, 0))
+                if not okFarm then
+                    return false
+                end
+                -- small delay to stabilize
+                task.wait(0.2)
+            end
+        end
+
+        -- now lunge to NPC to accept quest
         local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
         if not ok then return false end -- interrupted or couldn't reach, abort accept
         task.wait(1)
