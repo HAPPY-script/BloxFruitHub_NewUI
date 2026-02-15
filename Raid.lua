@@ -254,8 +254,8 @@ UIStroke4.Parent = AutoSelectBuffTitle
 
 local AutoRaidTitle = Instance.new("TextLabel")
 AutoRaidTitle.Name = "AutoRaidTitle"
-AutoRaidTitle.Position = UDim2.new(0.375, 0, 0.03, 0)
-AutoRaidTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+AutoRaidTitle.Position = UDim2.new(0.225, 0, 0.03, 0)
+AutoRaidTitle.Size = UDim2.new(0.4, 0, 0.03, 0)
 AutoRaidTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoRaidTitle.BorderSizePixel = 0
 AutoRaidTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -620,10 +620,55 @@ UIStroke12.Thickness = 2
 UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke12.Parent = ModeDungeonButton
 
-local Script = Instance.new("Script")
-Script.Name = "Script"
+local SupportStyleRaidButton = Instance.new("TextButton")
+SupportStyleRaidButton.Name = "SupportStyleRaidButton"
+SupportStyleRaidButton.Position = UDim2.new(0.674, 0, 0.03, 0)
+SupportStyleRaidButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+SupportStyleRaidButton.BackgroundColor3 = Color3.new(0, 0.784314, 1)
+SupportStyleRaidButton.BackgroundTransparency = 0.75
+SupportStyleRaidButton.BorderSizePixel = 0
+SupportStyleRaidButton.BorderColor3 = Color3.new(0, 0, 0)
+SupportStyleRaidButton.AnchorPoint = Vector2.new(0.5, 0.5)
+SupportStyleRaidButton.Transparency = 0.75
+SupportStyleRaidButton.Text = "Support: Melee"
+SupportStyleRaidButton.TextColor3 = Color3.new(1, 1, 1)
+SupportStyleRaidButton.TextSize = 14
+SupportStyleRaidButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+SupportStyleRaidButton.TextScaled = true
+SupportStyleRaidButton.TextWrapped = true
+SupportStyleRaidButton.Parent = Raid
 
-Script.Parent = ModeDungeonButton
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(0, 0.784314, 1)
+UIStroke13.Thickness = 2
+UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke13.Parent = SupportStyleRaidButton
+
+local ModeRaidButton = Instance.new("TextButton")
+ModeRaidButton.Name = "ModeRaidButton"
+ModeRaidButton.Position = UDim2.new(0.512, 0, 0.03, 0)
+ModeRaidButton.Size = UDim2.new(0.15, 0, 0.03, 0)
+ModeRaidButton.BackgroundColor3 = Color3.new(0.196078, 1, 0.470588)
+ModeRaidButton.BackgroundTransparency = 0.75
+ModeRaidButton.BorderSizePixel = 0
+ModeRaidButton.BorderColor3 = Color3.new(0, 0, 0)
+ModeRaidButton.AnchorPoint = Vector2.new(0.5, 0.5)
+ModeRaidButton.Transparency = 0.75
+ModeRaidButton.Text = "Mode: Nearest"
+ModeRaidButton.TextColor3 = Color3.new(1, 1, 1)
+ModeRaidButton.TextSize = 14
+ModeRaidButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+ModeRaidButton.TextScaled = true
+ModeRaidButton.TextWrapped = true
+ModeRaidButton.Parent = Raid
+
+local UIStroke14 = Instance.new("UIStroke")
+UIStroke14.Name = "UIStroke"
+UIStroke14.Color = Color3.new(0.196078, 1, 0.470588)
+UIStroke14.Thickness = 2
+UIStroke14.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke14.Parent = ModeRaidButton
 
 local Frame = Raid
 if not Frame then return end
