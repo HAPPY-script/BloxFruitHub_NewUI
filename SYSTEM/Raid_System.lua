@@ -10,7 +10,7 @@ do
     -- WAIT for ToggleUI
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    ToggleUI.Refresh()
+    pcall(function() if ToggleUI.Refresh then ToggleUI.Refresh() end end)
 
     local BUTTON_NAME = "AutoRaidButton"
 
@@ -27,6 +27,10 @@ do
         warn("Không tìm thấy Button:", BUTTON_NAME)
         return
     end
+
+    -- tìm Support & Mode UI buttons (optional)
+    local supportBtn = raidFrame:FindFirstChild("SupportStyleRaidButton", true)
+    local modeBtn = raidFrame:FindFirstChild("ModeRaidButton", true)
 
     -- đảm bảo UI toggle khởi tạo OFF (gọi ToggleUI, không set trực tiếp)
     pcall(function() ToggleUI.Set(BUTTON_NAME, false) end)
@@ -55,7 +59,7 @@ do
     local clickLock = false
     local animating = false
 
-    -- các hàm từ script cũ (giữ lại logic xử lý raid)
+    -- core refs
     local character = player.Character or player.CharacterAdded:Wait()
     local hrp = character:WaitForChild("HumanoidRootPart")
     local anchor = nil
@@ -133,12 +137,17 @@ do
         for _, mob in ipairs(folder:GetChildren()) do
             if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
                 local dist = (origin.Position - mob.HumanoidRootPart.Position).Magnitude
-                if dist <= 2500 and mob.Humanoid.Health > 0 then
-                    table.insert(enemies, mob)
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                if dist <= 2500 and hum and hum.Health > 0 then
+                    table.insert(enemies, { model = mob, dist = dist })
                 end
             end
         end
-        return enemies
+        -- sort by distance ascending for predictable nearest behavior
+        table.sort(enemies, function(a,b) return a.dist < b.dist end)
+        local out = {}
+        for _, t in ipairs(enemies) do table.insert(out, t.model) end
+        return out
     end
 
     -- auto attack loop (giữ nguyên)
@@ -176,56 +185,76 @@ do
         end
         for _, tw in ipairs(tweens) do tw:Play() end
         if #tweens > 0 then
-            -- wait all to finish by waiting the duration (safe and simple)
             task.wait(duration)
         end
     end
 
     -- BUTTON click behavior with spam-safe guards and animation for NO-ISLAND
-    button.Activated:Connect(function()
-        if clickLock or animating then return end
-        clickLock = true
-        task.delay(0.15, function() clickLock = false end) -- small debounce to avoid double clicks
+    if button.Activated then
+        button.Activated:Connect(function()
+            if clickLock or animating then return end
+            clickLock = true
+            task.delay(0.15, function() clickLock = false end)
 
-        -- If attempting to enable but no island -> animate warn and do not toggle
-        if not running and not hasIslandNearby() then
-            if animating then return end
-            animating = true
+            if not running and not hasIslandNearby() then
+                if animating then return end
+                animating = true
+                task.spawn(function()
+                    tweenButtonToColor(warnColor, 0.25)
+                    task.wait(1)
+                    tweenButtonToColor(origBg, 0.25)
+                    animating = false
+                end)
+                return
+            end
 
-            -- Tween to yellow over 2s, then back to original (2s). Do NOT call ToggleUI.Set(true).
-            task.spawn(function()
+            local requested = not running
+            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
+            running = requested
+            autoClicking = running
+            _G.BringMobGate2 = running
 
-                tweenButtonToColor(warnColor, 0.25)
+            if running then
+                player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                player:SetAttribute("FastAttackEnemy", true)
+            else
+                player:SetAttribute("FastAttackEnemy", false)
+            end
+        end)
+    else
+        button.MouseButton1Click:Connect(function()
+            if clickLock or animating then return end
+            clickLock = true
+            task.delay(0.15, function() clickLock = false end)
 
-                task.wait(1)
+            if not running and not hasIslandNearby() then
+                if animating then return end
+                animating = true
+                task.spawn(function()
+                    tweenButtonToColor(warnColor, 0.25)
+                    task.wait(1)
+                    tweenButtonToColor(origBg, 0.25)
+                    animating = false
+                end)
+                return
+            end
 
-                tweenButtonToColor(origBg, 0.25)
+            local requested = not running
+            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
+            running = requested
+            autoClicking = running
+            _G.BringMobGate2 = running
 
-                animating = false
-            end)
-
-            return
-        end
-
-        -- Otherwise toggle requested state and send via ToggleUI
-        local requested = not running
-        pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
-        running = requested
-        autoClicking = running
-
-        -- ===== Gate 2 control =====
-        _G.BringMobGate2 = running
-
-        if running then
-            -- same attribute behavior as trước
-            player:SetAttribute("FastAttackEnemyMode", "Toggle")
-            player:SetAttribute("FastAttackEnemyStyle", "Melee")
-            player:SetAttribute("FastAttackEnemy", true)
-        else
-            -- đảm bảo attribute tắt khi off
-            player:SetAttribute("FastAttackEnemy", false)
-        end
-    end)
+            if running then
+                player:SetAttribute("FastAttackEnemyMode", "Toggle")
+                player:SetAttribute("FastAttackEnemyStyle", "Melee")
+                player:SetAttribute("FastAttackEnemy", true)
+            else
+                player:SetAttribute("FastAttackEnemy", false)
+            end
+        end)
+    end
 
     -- respawn: tắt
     player.CharacterAdded:Connect(function(newChar)
@@ -240,7 +269,7 @@ do
         hrp = character:FindFirstChild("HumanoidRootPart") or hrp
     end
 
-    -- other helper functions from original: tweenCloseTo, followEnemy, updateHighlight
+    -- other helper functions from original: tweenCloseTo, updateHighlight, etc.
     local function tweenCloseTo(targetPos, stopDist, isEnemy)
         if not hrp then return end
         stopDist = stopDist or 40
@@ -290,36 +319,219 @@ do
         end)
     end
 
+    -- ========== NEW: Support & Mode state and UI handling ==========
+    local supportStyle = "Melee" -- "Melee" or "Fruit"
+    local MODE_NEAREST = "Nearest"
+    local MODE_RANDOM = "Random"
+    local raidMode = MODE_NEAREST
+    local markedEnemies = {} -- map: enemyInstance -> true
+
+    local STYLE_MELEE_COLOR = Color3.fromRGB(0,200,255)
+    local STYLE_FRUIT_COLOR = Color3.fromRGB(0,255,150)
+    local MODE_NEAREST_COLOR = Color3.fromRGB(50,255,120)
+    local MODE_RANDOM_COLOR  = Color3.fromRGB(168,85,247)
+
+    local function pruneMarked(center)
+        -- remove marked enemies that are dead, destroyed, or out of 2500 range
+        for e,_ in pairs(markedEnemies) do
+            local ok = pcall(function()
+                if not e or not e.Parent then return true end
+                local hum = e:FindFirstChildOfClass("Humanoid")
+                local hr = e:FindFirstChild("HumanoidRootPart")
+                if not hum or hum.Health <= 0 then return true end
+                if not hr then return true end
+                if center and (center - hr.Position).Magnitude > 2500 then return true end
+                return false
+            end)
+            if ok then
+                -- check returned true meaning remove
+                local toRemove = false
+                local success, val = pcall(function()
+                    if not e or not e.Parent then return true end
+                    local hum = e:FindFirstChildOfClass("Humanoid")
+                    local hr = e:FindFirstChild("HumanoidRootPart")
+                    if not hum or hum.Health <= 0 then return true end
+                    if not hr then return true end
+                    if center and (center - hr.Position).Magnitude > 2500 then return true end
+                    return false
+                end)
+                if success and val then
+                    markedEnemies[e] = nil
+                end
+            else
+                -- if pcall failed, be safe and remove
+                markedEnemies[e] = nil
+            end
+        end
+    end
+
+    local function anyAliveEnemies(center)
+        local folder = workspace:FindFirstChild("Enemies")
+        if not folder then return false end
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and mob:FindFirstChildOfClass("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local dist = (center - mob.HumanoidRootPart.Position).Magnitude
+                    if dist <= 2500 then return true end
+                end
+            end
+        end
+        return false
+    end
+
+    -- UI helpers
+    local function getTextHolder(btn)
+        if not btn then return nil end
+        if btn:IsA("TextButton") or btn:IsA("TextLabel") then return btn end
+        return btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+    end
+
+    local function tweenProperty(inst, props, t)
+        if not inst then return end
+        local ok, tw = pcall(function()
+            local info = TweenInfo.new(t or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            return TweenService:Create(inst, info, props)
+        end)
+        if ok and tw then tw:Play(); return tw end
+        return nil
+    end
+
+    local function applySupportVisuals(style)
+        if not supportBtn then return end
+        local targetColor = (style == "Melee") and STYLE_MELEE_COLOR or STYLE_FRUIT_COLOR
+        pcall(function() tweenProperty(supportBtn, { BackgroundColor3 = targetColor }, 0.18) end)
+        local stroke = findStroke(supportBtn)
+        if stroke then pcall(function() tweenProperty(stroke, { Color = targetColor }, 0.18) end) end
+        local t = getTextHolder(supportBtn)
+        if t then
+            local out = tweenProperty(t, { TextTransparency = 1 }, 0.12)
+            if out then out.Completed:Wait() end
+            pcall(function() t.Text = "Support: " .. style end)
+            local inn = tweenProperty(t, { TextTransparency = 0 }, 0.12)
+            if inn then inn.Completed:Wait() end
+        end
+    end
+
+    local function applyModeVisuals(mode)
+        if not modeBtn then return end
+        local color = (mode == MODE_NEAREST) and MODE_NEAREST_COLOR or MODE_RANDOM_COLOR
+        pcall(function() tweenProperty(modeBtn, { BackgroundColor3 = color }, 0.18) end)
+        local stroke = findStroke(modeBtn)
+        if stroke then pcall(function() tweenProperty(stroke, { Color = color }, 0.18) end) end
+        local t = getTextHolder(modeBtn)
+        if t then
+            local out = tweenProperty(t, { TextTransparency = 1 }, 0.12)
+            if out then out.Completed:Wait() end
+            pcall(function() t.Text = "Mode: " .. (mode == MODE_NEAREST and "Nearest" or "Random") end)
+            local inn = tweenProperty(t, { TextTransparency = 0 }, 0.12)
+            if inn then inn.Completed:Wait() end
+        end
+    end
+
+    -- support button wiring
+    if supportBtn then
+        -- initialize visuals
+        pcall(function() supportBtn.BackgroundColor3 = STYLE_MELEE_COLOR end)
+        local strokeBtn = findStroke(supportBtn)
+        if strokeBtn then pcall(function() strokeBtn.Color = STYLE_MELEE_COLOR end) end
+        local t = getTextHolder(supportBtn)
+        if t then pcall(function() t.Text = "Support: Melee" end) end
+
+        local function toggleSupport()
+            supportStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
+            applySupportVisuals(supportStyle)
+            pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+        end
+
+        if supportBtn.Activated then
+            supportBtn.Activated:Connect(toggleSupport)
+        else
+            supportBtn.MouseButton1Click:Connect(toggleSupport)
+        end
+    end
+
+    -- mode button wiring
+    if modeBtn then
+        pcall(function() modeBtn.BackgroundColor3 = MODE_NEAREST_COLOR end)
+        local strokeM = findStroke(modeBtn)
+        if strokeM then pcall(function() strokeM.Color = MODE_NEAREST_COLOR end) end
+        local t = getTextHolder(modeBtn)
+        if t then pcall(function() t.Text = "Mode: Nearest" end) end
+
+        local function toggleMode()
+            raidMode = (raidMode == MODE_NEAREST) and MODE_RANDOM or MODE_NEAREST
+            if raidMode == MODE_NEAREST then
+                markedEnemies = {}
+            end
+            applyModeVisuals(raidMode)
+            pcall(function() player:SetAttribute("DungeonMode", raidMode) end)
+        end
+
+        if modeBtn.Activated then
+            modeBtn.Activated:Connect(toggleMode)
+        else
+            modeBtn.MouseButton1Click:Connect(toggleMode)
+        end
+    else
+        -- no UI: still expose attribute
+        pcall(function() player:SetAttribute("DungeonMode", raidMode) end)
+    end
+
+    -- ========== Modified followEnemy (support + random behaviors) ==========
     local function followEnemy(enemy)
         if not enemy or not enemy.Parent then return end
-        local isClearingIsland = true
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
+
         updateHighlight(enemy)
         local anc = ensureAnchor()
         local camera = workspace.CurrentCamera
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = anc
 
+        -- anchor offset based on support style
+        local anchorOffset = (supportStyle == "Melee") and 35 or 10
+        local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + anchorOffset, hrpEnemy.Position.Z)
+
+        -- If Random mode: mark and perform brief visit then release
+        if raidMode == MODE_RANDOM then
+            -- mark
+            pcall(function() markedEnemies[enemy] = true end)
+
+            -- do a short visit: place anchor near and teleport/lerp player there quickly
+            anc.Position = targetPos
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = CFrame.new(targetPos)
+            -- small pause to allow "visit"
+            task.wait(0.18)
+
+            -- restore camera subject to player if possible
+            if hrp then
+                camera.CameraSubject = hrp
+            end
+            return
+        end
+
+        -- Nearest mode behavior: follow until dead or conditions break
         while humanoid.Health > 0 and running do
             if not hrp then break end
             updateHighlight(enemy)
-            local anchorY = hrpEnemy.Position.Y + 25
-            local targetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
-            anc.Position = anc.Position:Lerp(targetPos, 0.15)
+            local anchorY = hrpEnemy.Position.Y + anchorOffset
+            local curTargetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
+            anc.Position = anc.Position:Lerp(curTargetPos, 0.15)
             hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos), 0.25)
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(curTargetPos), 0.25)
             RunService.RenderStepped:Wait()
         end
 
         if hrp then
             camera.CameraSubject = hrp
         end
-        isClearingIsland = false
     end
 
-    -- main loop (giữ logic cũ, nhưng khi auto tắt do hết đảo -> gọi resetRaidButton)
+    -- main loop (giữ logic cũ, nhưng thêm Random selection + prune marks)
     task.spawn(function()
         while true do
             RunService.Heartbeat:Wait()
@@ -353,13 +565,48 @@ do
                 end
             end
 
+            -- prune marked enemies periodically (use current center)
+            pruneMarked(hrp.Position)
+
             local enemies = getEnemiesNear(hrp)
             if #enemies > 0 then
-                for _, enemy in ipairs(enemies) do
-                    local enemyHRP = enemy:FindFirstChild("HumanoidRootPart")
-                    if enemyHRP then tweenCloseTo(enemyHRP.Position, 250, true) end
-                    followEnemy(enemy)
-                    if not running then break end
+                if raidMode == MODE_RANDOM then
+                    -- build candidate list excluding marked
+                    local candidates = {}
+                    for _, enemy in ipairs(enemies) do
+                        if not markedEnemies[enemy] then
+                            table.insert(candidates, enemy)
+                        end
+                    end
+
+                    if #candidates == 0 then
+                        -- if there are alive enemies but all marked, reset marks and continue
+                        if anyAliveEnemies(hrp.Position) then
+                            markedEnemies = {}
+                            -- recompute enemies next tick
+                            continue
+                        end
+                    else
+                        -- pick random candidate and visit it
+                        local chosen = candidates[ math.random(1, #candidates) ]
+                        if chosen then
+                            -- approach quickly then call followEnemy (which will mark and visit)
+                            local enemyHRP = chosen:FindFirstChild("HumanoidRootPart")
+                            if enemyHRP then
+                                tweenCloseTo(enemyHRP.Position, 250, true)
+                            end
+                            followEnemy(chosen)
+                            if not running then break end
+                        end
+                    end
+                else
+                    -- Nearest mode: iterate normally (sorted by distance)
+                    for _, enemy in ipairs(enemies) do
+                        local enemyHRP = enemy:FindFirstChild("HumanoidRootPart")
+                        if enemyHRP then tweenCloseTo(enemyHRP.Position, 250, true) end
+                        followEnemy(enemy)
+                        if not running then break end
+                    end
                 end
             end
         end
