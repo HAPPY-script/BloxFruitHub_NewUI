@@ -1,5 +1,5 @@
 --=== RAID ===================================================================================================================--
-
+print("UPD RAID P1🔴🔴🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -190,6 +190,13 @@ do
     end
 
     -- BUTTON click behavior with spam-safe guards and animation for NO-ISLAND
+    local function enableSetAttributesOnStart()
+        -- ensure attribute for style matches current supportStyle
+        pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+        pcall(function() player:SetAttribute("FastAttackEnemyMode", "Toggle") end)
+        pcall(function() player:SetAttribute("FastAttackEnemy", true) end)
+    end
+
     if button.Activated then
         button.Activated:Connect(function()
             if clickLock or animating then return end
@@ -215,9 +222,8 @@ do
             _G.BringMobGate2 = running
 
             if running then
-                player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
-                player:SetAttribute("FastAttackEnemy", true)
+                -- send current style attribute (not hardcoded)
+                enableSetAttributesOnStart()
             else
                 player:SetAttribute("FastAttackEnemy", false)
             end
@@ -247,9 +253,7 @@ do
             _G.BringMobGate2 = running
 
             if running then
-                player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
-                player:SetAttribute("FastAttackEnemy", true)
+                enableSetAttributesOnStart()
             else
                 player:SetAttribute("FastAttackEnemy", false)
             end
@@ -325,6 +329,7 @@ do
     local MODE_RANDOM = "Random"
     local raidMode = MODE_NEAREST
     local markedEnemies = {} -- map: enemyInstance -> true
+    local currentTarget = nil -- track current enemy being followed (or visited)
 
     local STYLE_MELEE_COLOR = Color3.fromRGB(0,200,255)
     local STYLE_FRUIT_COLOR = Color3.fromRGB(0,255,150)
@@ -334,7 +339,7 @@ do
     local function pruneMarked(center)
         -- remove marked enemies that are dead, destroyed, or out of 2500 range
         for e,_ in pairs(markedEnemies) do
-            local ok = pcall(function()
+            local success, shouldRemove = pcall(function()
                 if not e or not e.Parent then return true end
                 local hum = e:FindFirstChildOfClass("Humanoid")
                 local hr = e:FindFirstChild("HumanoidRootPart")
@@ -343,23 +348,9 @@ do
                 if center and (center - hr.Position).Magnitude > 2500 then return true end
                 return false
             end)
-            if ok then
-                -- check returned true meaning remove
-                local toRemove = false
-                local success, val = pcall(function()
-                    if not e or not e.Parent then return true end
-                    local hum = e:FindFirstChildOfClass("Humanoid")
-                    local hr = e:FindFirstChild("HumanoidRootPart")
-                    if not hum or hum.Health <= 0 then return true end
-                    if not hr then return true end
-                    if center and (center - hr.Position).Magnitude > 2500 then return true end
-                    return false
-                end)
-                if success and val then
-                    markedEnemies[e] = nil
-                end
-            else
-                -- if pcall failed, be safe and remove
+            if success and shouldRemove then
+                markedEnemies[e] = nil
+            elseif not success then
                 markedEnemies[e] = nil
             end
         end
@@ -441,7 +432,21 @@ do
         local function toggleSupport()
             supportStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
             applySupportVisuals(supportStyle)
+            -- always set attribute
             pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+            -- If running and currently following a target, update anchor/player height immediately
+            if running and anchor and currentTarget then
+                local hrpEnemy = currentTarget:FindFirstChild("HumanoidRootPart")
+                if hrpEnemy and hrp then
+                    local newOffset = (supportStyle == "Melee") and 35 or 10
+                    local newPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + newOffset, hrpEnemy.Position.Z)
+                    pcall(function()
+                        anchor.Position = newPos
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.CFrame = CFrame.new(newPos)
+                    end)
+                end
+            end
         end
 
         if supportBtn.Activated then
@@ -485,25 +490,28 @@ do
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
 
+        currentTarget = enemy
         updateHighlight(enemy)
         local anc = ensureAnchor()
         local camera = workspace.CurrentCamera
         camera.CameraType = Enum.CameraType.Custom
         camera.CameraSubject = anc
 
-        -- anchor offset based on support style
-        local anchorOffset = (supportStyle == "Melee") and 35 or 10
-        local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + anchorOffset, hrpEnemy.Position.Z)
-
-        -- If Random mode: mark and perform brief visit then release
+        -- If Random mode: compute offset now, mark and perform brief visit then release
         if raidMode == MODE_RANDOM then
+            local anchorOffset = (supportStyle == "Melee") and 35 or 10
+            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + anchorOffset, hrpEnemy.Position.Z)
+
             -- mark
             pcall(function() markedEnemies[enemy] = true end)
 
             -- do a short visit: place anchor near and teleport/lerp player there quickly
-            anc.Position = targetPos
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.CFrame = CFrame.new(targetPos)
+            pcall(function()
+                anc.Position = targetPos
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(targetPos)
+            end)
+
             -- small pause to allow "visit"
             task.wait(0.18)
 
@@ -511,6 +519,8 @@ do
             if hrp then
                 camera.CameraSubject = hrp
             end
+
+            currentTarget = nil
             return
         end
 
@@ -518,6 +528,8 @@ do
         while humanoid.Health > 0 and running do
             if not hrp then break end
             updateHighlight(enemy)
+            -- compute offset each loop so style changes apply immediately
+            local anchorOffset = (supportStyle == "Melee") and 35 or 10
             local anchorY = hrpEnemy.Position.Y + anchorOffset
             local curTargetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
             anc.Position = anc.Position:Lerp(curTargetPos, 0.15)
@@ -529,6 +541,8 @@ do
         if hrp then
             camera.CameraSubject = hrp
         end
+
+        currentTarget = nil
     end
 
     -- main loop (giữ logic cũ, nhưng thêm Random selection + prune marks)
