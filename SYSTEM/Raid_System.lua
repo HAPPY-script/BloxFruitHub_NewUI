@@ -1,5 +1,6 @@
 --=== RAID ===================================================================================================================--
-print("UPD RAID P2 🔴🔴🔴")
+print("UPD RAID P3 🔴🔴🔴")
+
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -189,21 +190,125 @@ do
         end
     end
 
-    -- ========== UI helpers (kept where they are) ==========
-    local function getTextHolder(btn)
-        if not btn then return nil end
-        if btn:IsA("TextButton") or btn:IsA("TextLabel") then return btn end
-        return btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+    -- BUTTON click behavior with spam-safe guards and animation for NO-ISLAND
+    -- ========= START: Style variable & init from attribute =========
+    local Style = "Melee" -- default "Melee" or "Fruit"
+    -- if player already has attribute saved, use it
+    pcall(function()
+        local existing = player:GetAttribute("FastAttackEnemyStyle")
+        if existing == "Fruit" then
+            Style = "Fruit"
+        elseif existing == "Melee" then
+            Style = "Melee"
+        end
+    end)
+
+    local function enableSetAttributesOnStart()
+        -- ensure attribute for style matches current Style variable (no hardcode)
+        pcall(function() player:SetAttribute("FastAttackEnemyStyle", Style) end)
+        pcall(function() player:SetAttribute("FastAttackEnemyMode", "Toggle") end)
+        pcall(function() player:SetAttribute("FastAttackEnemy", true) end)
+    end
+    -- ========= END: Style variable & init from attribute =========
+
+    if button.Activated then
+        button.Activated:Connect(function()
+            if clickLock or animating then return end
+            clickLock = true
+            task.delay(0.15, function() clickLock = false end)
+
+            if not running and not hasIslandNearby() then
+                if animating then return end
+                animating = true
+                task.spawn(function()
+                    tweenButtonToColor(warnColor, 0.25)
+                    task.wait(1)
+                    tweenButtonToColor(origBg, 0.25)
+                    animating = false
+                end)
+                return
+            end
+
+            local requested = not running
+            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
+            running = requested
+            autoClicking = running
+            _G.BringMobGate2 = running
+
+            if running then
+                -- send current style attribute (reads Style variable, not hardcoded)
+                enableSetAttributesOnStart()
+            else
+                player:SetAttribute("FastAttackEnemy", false)
+            end
+        end)
+    else
+        button.MouseButton1Click:Connect(function()
+            if clickLock or animating then return end
+            clickLock = true
+            task.delay(0.15, function() clickLock = false end)
+
+            if not running and not hasIslandNearby() then
+                if animating then return end
+                animating = true
+                task.spawn(function()
+                    tweenButtonToColor(warnColor, 0.25)
+                    task.wait(1)
+                    tweenButtonToColor(origBg, 0.25)
+                    animating = false
+                end)
+                return
+            end
+
+            local requested = not running
+            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
+            running = requested
+            autoClicking = running
+            _G.BringMobGate2 = running
+
+            if running then
+                enableSetAttributesOnStart()
+            else
+                player:SetAttribute("FastAttackEnemy", false)
+            end
+        end)
     end
 
-    local function tweenProperty(inst, props, t)
-        if not inst then return end
-        local ok, tw = pcall(function()
-            local info = TweenInfo.new(t or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            return TweenService:Create(inst, info, props)
-        end)
-        if ok and tw then tw:Play(); return tw end
-        return nil
+    -- respawn: tắt
+    player.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        hrp = character:WaitForChild("HumanoidRootPart")
+        resetRaidButton()
+    end)
+
+    -- keep hrp reference if changed (if script started before character fully present)
+    if player.Character then
+        character = player.Character
+        hrp = character:FindFirstChild("HumanoidRootPart") or hrp
+    end
+
+    -- other helper functions from original: tweenCloseTo, updateHighlight, etc.
+    local function tweenCloseTo(targetPos, stopDist, isEnemy)
+        if not hrp then return end
+        stopDist = stopDist or 40
+        local currentPos = hrp.Position
+
+        local targetY = targetPos.Y
+        if isEnemy then targetY = targetPos.Y + 100 end
+
+        hrp.CFrame = CFrame.new(currentPos.X, targetY, currentPos.Z)
+
+        local horizontalDist = (Vector2.new(currentPos.X, currentPos.Z) - Vector2.new(targetPos.X, targetPos.Z)).Magnitude
+
+        if horizontalDist > stopDist then
+            local direction = (Vector2.new(targetPos.X, targetPos.Z) - Vector2.new(hrp.Position.X, hrp.Position.Z)).Unit
+            local targetXZ = Vector2.new(targetPos.X, targetPos.Z) - direction * stopDist
+            local targetPoint = Vector3.new(targetXZ.X, targetY, targetXZ.Y)
+            local time = horizontalDist / 300
+            local tw = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), { CFrame = CFrame.new(targetPoint) })
+            tw:Play()
+            tw.Completed:Wait()
+        end
     end
 
     local function updateHighlight(enemy)
@@ -233,7 +338,7 @@ do
     end
 
     -- ========== NEW: Support & Mode state and UI handling ==========
-    local supportStyle = "Melee" -- "Melee" or "Fruit"
+    -- local Style = "Melee" -- moved above and initialized from attribute
     local MODE_NEAREST = "Nearest"
     local MODE_RANDOM = "Random"
     local raidMode = MODE_NEAREST
@@ -280,6 +385,23 @@ do
         return false
     end
 
+    -- UI helpers
+    local function getTextHolder(btn)
+        if not btn then return nil end
+        if btn:IsA("TextButton") or btn:IsA("TextLabel") then return btn end
+        return btn:FindFirstChildOfClass("TextLabel") or btn:FindFirstChildOfClass("TextButton")
+    end
+
+    local function tweenProperty(inst, props, t)
+        if not inst then return end
+        local ok, tw = pcall(function()
+            local info = TweenInfo.new(t or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            return TweenService:Create(inst, info, props)
+        end)
+        if ok and tw then tw:Play(); return tw end
+        return nil
+    end
+
     local function applySupportVisuals(style)
         if not supportBtn then return end
         local targetColor = (style == "Melee") and STYLE_MELEE_COLOR or STYLE_FRUIT_COLOR
@@ -312,57 +434,25 @@ do
         end
     end
 
-    -- Sync initial supportStyle from attribute if set (so changing style before enabling is respected)
-    do
-        local a = player:GetAttribute("FastAttackEnemyStyle")
-        if a then
-            supportStyle = (tostring(a) == "Fruit") and "Fruit" or "Melee"
-        end
-        -- ensure visuals reflect current supportStyle
-        applySupportVisuals(supportStyle)
-    end
-
-    -- Helper: when enabling, pick actual current style (prefer attribute, fallback local)
-    local function getCurrentSupportStyle()
-        local a = player:GetAttribute("FastAttackEnemyStyle")
-        if a then
-            if tostring(a) == "Fruit" then return "Fruit" end
-            return "Melee"
-        end
-        return supportStyle or "Melee"
-    end
-
-    -- Called when enabling to send correct attributes (reads current style)
-    local function enableSetAttributesOnStart()
-        local s = getCurrentSupportStyle()
-        supportStyle = s
-        -- update visuals to be safe
-        applySupportVisuals(s)
-        -- send proper attributes
-        pcall(function() player:SetAttribute("FastAttackEnemyStyle", s) end)
-        pcall(function() player:SetAttribute("FastAttackEnemyMode", "Toggle") end)
-        pcall(function() player:SetAttribute("FastAttackEnemy", true) end)
-    end
-
     -- support button wiring
     if supportBtn then
-        -- initialize visuals (already done above, but keep for safety)
-        pcall(function() supportBtn.BackgroundColor3 = (supportStyle == "Fruit") and STYLE_FRUIT_COLOR or STYLE_MELEE_COLOR end)
+        -- initialize visuals using current Style (may have been read from attribute)
+        applySupportVisuals(Style)
         local strokeBtn = findStroke(supportBtn)
-        if strokeBtn then pcall(function() strokeBtn.Color = supportBtn.BackgroundColor3 end) end
+        if strokeBtn then pcall(function() strokeBtn.Color = (Style == "Melee" and STYLE_MELEE_COLOR or STYLE_FRUIT_COLOR) end) end
         local t = getTextHolder(supportBtn)
-        if t then pcall(function() t.Text = "Support: " .. supportStyle end) end
+        if t then pcall(function() t.Text = "Support: " .. Style end) end
 
         local function toggleSupport()
-            supportStyle = (supportStyle == "Melee") and "Fruit" or "Melee"
-            applySupportVisuals(supportStyle)
-            -- always set attribute
-            pcall(function() player:SetAttribute("FastAttackEnemyStyle", supportStyle) end)
+            -- toggle and persist to attribute
+            Style = (Style == "Melee") and "Fruit" or "Melee"
+            applySupportVisuals(Style)
+            pcall(function() player:SetAttribute("FastAttackEnemyStyle", Style) end)
             -- If running and currently following a target, update anchor/player height immediately
             if running and anchor and currentTarget then
                 local hrpEnemy = currentTarget:FindFirstChild("HumanoidRootPart")
                 if hrpEnemy and hrp then
-                    local newOffset = (supportStyle == "Melee") and 35 or 10
+                    local newOffset = (Style == "Melee") and 35 or 10
                     local newPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + newOffset, hrpEnemy.Position.Z)
                     pcall(function()
                         anchor.Position = newPos
@@ -407,70 +497,6 @@ do
         pcall(function() player:SetAttribute("DungeonMode", raidMode) end)
     end
 
-    -- BUTTON click behavior with spam-safe guards and animation for NO-ISLAND
-    if button.Activated then
-        button.Activated:Connect(function()
-            if clickLock or animating then return end
-            clickLock = true
-            task.delay(0.15, function() clickLock = false end)
-
-            if not running and not hasIslandNearby() then
-                if animating then return end
-                animating = true
-                task.spawn(function()
-                    tweenButtonToColor(warnColor, 0.25)
-                    task.wait(1)
-                    tweenButtonToColor(origBg, 0.25)
-                    animating = false
-                end)
-                return
-            end
-
-            local requested = not running
-            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
-            running = requested
-            autoClicking = running
-            _G.BringMobGate2 = running
-
-            if running then
-                -- send current style attribute (not hardcoded)
-                enableSetAttributesOnStart()
-            else
-                player:SetAttribute("FastAttackEnemy", false)
-            end
-        end)
-    else
-        button.MouseButton1Click:Connect(function()
-            if clickLock or animating then return end
-            clickLock = true
-            task.delay(0.15, function() clickLock = false end)
-
-            if not running and not hasIslandNearby() then
-                if animating then return end
-                animating = true
-                task.spawn(function()
-                    tweenButtonToColor(warnColor, 0.25)
-                    task.wait(1)
-                    tweenButtonToColor(origBg, 0.25)
-                    animating = false
-                end)
-                return
-            end
-
-            local requested = not running
-            pcall(function() ToggleUI.Set(BUTTON_NAME, requested) end)
-            running = requested
-            autoClicking = running
-            _G.BringMobGate2 = running
-
-            if running then
-                enableSetAttributesOnStart()
-            else
-                player:SetAttribute("FastAttackEnemy", false)
-            end
-        end)
-    end
-
     -- ========== Modified followEnemy (support + random behaviors) ==========
     local function followEnemy(enemy)
         if not enemy or not enemy.Parent then return end
@@ -487,7 +513,7 @@ do
 
         -- If Random mode: compute offset now, mark and perform brief visit then release
         if raidMode == MODE_RANDOM then
-            local anchorOffset = (supportStyle == "Melee") and 35 or 10
+            local anchorOffset = (Style == "Melee") and 35 or 10
             local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + anchorOffset, hrpEnemy.Position.Z)
 
             -- mark
@@ -517,7 +543,7 @@ do
             if not hrp then break end
             updateHighlight(enemy)
             -- compute offset each loop so style changes apply immediately
-            local anchorOffset = (supportStyle == "Melee") and 35 or 10
+            local anchorOffset = (Style == "Melee") and 35 or 10
             local anchorY = hrpEnemy.Position.Y + anchorOffset
             local curTargetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
             anc.Position = anc.Position:Lerp(curTargetPos, 0.15)
