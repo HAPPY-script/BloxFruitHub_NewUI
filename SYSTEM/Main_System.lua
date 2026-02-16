@@ -3958,36 +3958,22 @@ do
         CancelTween = playerGui:FindFirstChild("CancelTweenTo")
     end
     
-    -- STREAM_Y (được set khi support trả về Y) để tránh nil warning
-    local STREAM_Y = nil
-    
-    -- Modified: callSupportAndWait returns (ok, returnedData)
     local function callSupportAndWait(name, tag, timeout)
         if not SupportTween or not DoneTween then
-            -- no support system available -> treat as success (backwards compat)
-            return true, nil
+            return true
         end
     
         local completed = false
         local ok = false
-        local returnedData = nil
         local conn
-    
-        conn = DoneTween.Event:Connect(function(success, doneTag, ...)
+        conn = DoneTween.Event:Connect(function(success, doneTag)
             if doneTag == tag then
                 completed = true
                 ok = success
-                local extras = {...}
-                if #extras >= 1 then
-                    returnedData = extras[1]
-                end
-                if conn and conn.Connected then
-                    conn:Disconnect()
-                end
+                conn:Disconnect()
             end
         end)
     
-        -- fire support with name and tag (protected)
         pcall(function() SupportTween:Fire(name, tag) end)
     
         local t0 = tick()
@@ -3996,38 +3982,7 @@ do
         end
     
         if conn and conn.Connected then conn:Disconnect() end
-        return ok or completed, returnedData
-    end
-    
-    -- helper to try parse returnedData into Vector3 or number
-    local function parseReturnedPosition(ret)
-        if not ret then return nil end
-        -- if it's already Vector3
-        if typeof(ret) == "Vector3" then
-            return ret
-        end
-        -- if number or string number => treat as Y value
-        if type(ret) == "number" then
-            return Vector3.new(0, ret, 0)
-        end
-        if type(ret) == "string" then
-            local n = tonumber(ret)
-            if n then
-                return Vector3.new(0, n, 0)
-            end
-        end
-        -- if table: try keys x,y,z or indices 1..3
-        if type(ret) == "table" then
-            local x = ret.x or ret[1]
-            local y = ret.y or ret[2]
-            local z = ret.z or ret[3]
-            if (type(y) == "number") and (type(x) == "number" or type(z) == "number") then
-                x = x or 0
-                z = z or 0
-                return Vector3.new(x, y, z)
-            end
-        end
-        return nil
+        return ok or completed
     end
     
     -- ========== Chest helpers (đảm bảo loại bỏ chest đã skip) ==========
@@ -4169,15 +4124,26 @@ do
         return false
     end
     
-    -- ========== ARENA waypoints (giữ dữ liệu) ==========
     local function TweenPoint(x,y,z, supportName, supportTag)
-        return {
-            pos = Vector3.new(x or 0, y or 0, z or 0),
-            support = (supportName and tostring(supportName)) or nil,
-            supportTag = supportTag
-        }
+        -- Nếu supportName (4th arg) tồn tại => ta không khởi tạo wp.pos ngay
+        if supportName and tostring(supportName) ~= "" then
+            return {
+                pos = nil, -- chưa tạo Vector3 để tránh set Y sớm
+                rawPos = { x = x or 0, y = y or 0, z = z or 0 },
+                support = tostring(supportName),
+                supportTag = supportTag
+            }
+        else
+            -- bình thường (không support) -> tạo pos ngay
+            return {
+                pos = Vector3.new(x or 0, y or 0, z or 0),
+                rawPos = nil,
+                support = nil,
+                supportTag = nil
+            }
+        end
     end
-    
+
     local AREA_DATA = {
         Sea1 = {
             ids = { 85211729168715, 2753915549 },
@@ -4215,6 +4181,8 @@ do
                 TweenPoint(432.57, 401.58, -5442.55),
                 TweenPoint(1293.03, 429.58, -5200.26),
                 TweenPoint(6561.01, 439.59, -6999.93), -- 13
+            
+            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
             }
         },
     
@@ -4231,7 +4199,6 @@ do
                 TweenPoint(291.32, 28.47, -12711.65),
                 TweenPoint(-16560.40, 201.88, 413.13),
                 TweenPoint(-5107.22, 443.48, -2967.22),
-                -- this waypoint uses support: we will CALL support and wait for returned Y (or Vector3)
                 TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
             }
         },
@@ -4275,6 +4242,17 @@ do
         end
     end
     
+    local function getWaypointVector(wp)
+        if not wp then return nil end
+        if wp.pos then
+            return wp.pos
+        elseif wp.rawPos then
+            return Vector3.new(wp.rawPos.x, wp.rawPos.y, wp.rawPos.z)
+        else
+            return nil
+        end
+    end
+
     -- ========== Main automation loop & UI (giữ nguyên) ==========
     local running = false
     local uiToggleButton = nil
@@ -4292,29 +4270,31 @@ do
         end
     end
     
-    -- Tìm waypoint gần nhất không bị skip. Nếu không còn cái nào, trả về nearest ignoring skip.
     local function findNearestAvailableWaypoint(fromPos)
         if #ARENA == 0 then return nil end
-    
+
         local bestIdx, bestDist = nil, math.huge
-        -- first pass: look for non-skipped
+        -- first pass: non-skipped and available
         for i = 1, #ARENA do
-            if ARENA[i] and ARENA[i].pos then
-                if not skippedWaypoints[i] then
-                    local d = (ARENA[i].pos - fromPos).Magnitude
-                    if d < bestDist then
-                        bestDist = d
-                        bestIdx = i
-                    end
+            local wp = ARENA[i]
+            local wpVec = getWaypointVector(wp)
+            if wpVec and not skippedWaypoints[i] then
+                local d = (wpVec - fromPos).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    bestIdx = i
                 end
             end
         end
-    
-        -- fallback: if all skipped, choose nearest ignoring skip
+
+        -- fallback: if all skipped or none non-skipped, choose nearest ignoring skip
         if not bestIdx then
+            bestDist = math.huge
             for i = 1, #ARENA do
-                if ARENA[i] and ARENA[i].pos then
-                    local d = (ARENA[i].pos - fromPos).Magnitude
+                local wp = ARENA[i]
+                local wpVec = getWaypointVector(wp)
+                if wpVec then
+                    local d = (wpVec - fromPos).Magnitude
                     if d < bestDist then
                         bestDist = d
                         bestIdx = i
@@ -4322,10 +4302,10 @@ do
                 end
             end
         end
-    
+
         return bestIdx, bestDist
     end
-    
+
     -- ================= runner (FIXED support flow) =================
     local function runner()
         while running do
@@ -4346,63 +4326,22 @@ do
                     local proceedToMove = true
                     if wp.support then
                         local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                        local ok, returned = callSupportAndWait(wp.support, tag, 25)
-                        -- If support did not succeed, skip this waypoint (do not set STREAM_Y)
+                        local ok = callSupportAndWait(wp.support, tag, 25)
                         if not ok then
                             warn("[ARENA] support failed/timeout for waypoint", wpIndex, wp.support)
                             proceedToMove = false
-                            -- Optionally mark it skipped for a short while
-                            skippedWaypoints[wpIndex] = (skippedWaypoints[wpIndex] or 0) + 1
                         else
-                            -- support succeeded -> try to parse returned data
-                            local parsed = parseReturnedPosition(returned)
-                            if parsed then
-                                -- if parsed is Vector3 we merge X/Z if returned contained them, otherwise keep original X/Z
-                                if parsed.X ~= 0 or parsed.Z ~= 0 then
-                                    wp.pos = parsed
-                                else
-                                    wp.pos = Vector3.new(wp.pos.X, parsed.Y, wp.pos.Z)
-                                end
-                                STREAM_Y = wp.pos.Y
-                            else
-                                -- no useful returned value -> fallback to waypoint's stored Y
-                                STREAM_Y = wp.pos.Y
+                            -- support succeeded -> now create wp.pos from rawPos (only now)
+                            if not wp.pos and wp.rawPos then
+                                wp.pos = Vector3.new(wp.rawPos.x, wp.rawPos.y, wp.rawPos.z)
+                                -- optional: clear rawPos if you want to free memory
+                                -- wp.rawPos = nil
                             end
-                            task.wait(0.12)
-                        end
-                    end
-    
-                    if not proceedToMove then
-                        task.wait(0.2)
-                    else
-                        stopMovement()
-                        movingToWaypoint = true
-                        local myToken = movementToken
-    
-                        -- Move to waypoint (no mid-teleport)
-                        local arrived = moveOptimizedTo(wp.pos, false, true) -- alignYOnStart = true now OK because support done
-                        movingToWaypoint = false
-    
-                        if arrived and movementToken == myToken then
-                            decrementWaypointSkips()
-                            skippedWaypoints[wpIndex] = getSkipRounds(CURRENT_AREA_KEY)
-                        end
-    
-                        if not arrived or movementToken ~= myToken then
-                            if not running then break end
-                            task.wait(0.2)
-                        else
-                            -- after arriving, collect chests at that location
-                            repeat
-                                if not running then break end
-                                local any = scanAndCollectInFolder()
-                                if any == false then
-                                    local modelsNow = listChestModels()
-                                    if #modelsNow == 0 then break end
-                                end
+                            -- only after pos exists set STREAM_Y
+                            if wp.pos then
+                                STREAM_Y = wp.pos.Y
                                 task.wait(0.12)
-                            until not running
-                            task.wait(ARENA_LOOP_DELAY)
+                            end
                         end
                     end
                 else
