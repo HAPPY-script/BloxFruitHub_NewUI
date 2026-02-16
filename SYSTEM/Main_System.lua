@@ -1,5 +1,4 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-print("FIX AUTO CHEST P1 🔴🔴🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
