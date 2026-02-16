@@ -182,7 +182,7 @@ function TP.Mode2()
 			local LUNGE_SPEED = 300            -- tốc độ ngang khi lunge
 			local DROP_HEIGHT = 3000           -- offset Y khi lunge (target.Y + DROP_HEIGHT)
 			local TELEPORT_DISTANCE = 200      -- khi cách <= giá trị này (horiz) => bật teleport 60/s
-			local DROP_DURATION = 1          -- thời gian giữ Y ở target (giây)
+			local DROP_DURATION = 0.5          -- thời gian giữ Y ở target (giây)
 			-- ====================
 			
 			--================ UI CREATE ================--
