@@ -3685,9 +3685,6 @@ do
     local MID_TELEPORT_THRESHOLD = 200
     -- ==============================
     
-    -- STREAM_Y (dùng nếu cần set luồng Y từ support); khởi tạo nil
-    local STREAM_Y = nil
-
     -- ========== Movement token (cancel) ==========
     local movementToken = 0
     local function stopMovement()
@@ -3961,9 +3958,7 @@ do
         CancelTween = playerGui:FindFirstChild("CancelTweenTo")
     end
     
-    -- WAIT INDEFINITELY for DoneTween with matching tag.
-    local function callSupportAndWait(name, tag)
-        -- If no support UI exist, just return true so behavior continues
+    local function callSupportAndWait(name, tag, timeout)
         if not SupportTween or not DoneTween then
             return true
         end
@@ -3974,21 +3969,19 @@ do
         conn = DoneTween.Event:Connect(function(success, doneTag)
             if doneTag == tag then
                 completed = true
-                ok = success == true or success -- treat any truthy success as success
-                if conn and conn.Connected then
-                    conn:Disconnect()
-                end
+                ok = success
+                conn:Disconnect()
             end
         end)
     
-        -- Fire the support request AFTER we connected (to avoid race)
         pcall(function() SupportTween:Fire(name, tag) end)
     
-        -- Wait indefinitely until DoneTween fires with our tag
-        while not completed do
+        local t0 = tick()
+        while not completed and (tick() - t0) < (timeout or 20) do
             task.wait(0.1)
         end
     
+        if conn and conn.Connected then conn:Disconnect() end
         return ok or completed
     end
     
@@ -4177,6 +4170,8 @@ do
                 TweenPoint(432.57, 401.58, -5442.55),
                 TweenPoint(1293.03, 429.58, -5200.26),
                 TweenPoint(6561.01, 439.59, -6999.93), -- 13
+            
+            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
             }
         },
     
@@ -4193,7 +4188,7 @@ do
                 TweenPoint(291.32, 28.47, -12711.65),
                 TweenPoint(-16560.40, 201.88, 413.13),
                 TweenPoint(-5107.22, 443.48, -2967.22),
-                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10 (support)
+                --TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
             }
         },
     
@@ -4230,7 +4225,7 @@ do
         elseif areaKey == "Sea2" then
             return 12
         elseif areaKey == "Sea3" then
-            return 9
+            return 8
         else
             return 10 -- fallback default
         end
@@ -4287,7 +4282,7 @@ do
         return bestIdx, bestDist
     end
     
-    -- ================= runner (FIXED support flow + ưu tiên support) =================
+    -- ================= runner (FIXED support flow) =================
     local function runner()
         while running do
             if not findChestModelsFolder() then
@@ -4301,38 +4296,19 @@ do
                 task.wait(1)
                 -- continue
             else
-                -- BEFORE using wpIndex, check if there's any non-skipped support waypoint and prefer it
-                local supportIdx = nil
-                local supportDist = math.huge
-                for i = 1, #ARENA do
-                    local w = ARENA[i]
-                    if w and w.pos and (not skippedWaypoints[i]) and w.support and w.supportTag then
-                        local d = (w.pos - hrp.Position).Magnitude
-                        if d < supportDist then
-                            supportDist = d
-                            supportIdx = i
-                        end
-                    end
-                end
-                if supportIdx then
-                    wpIndex = supportIdx
-                    wpDist = supportDist
-                end
-
                 local wp = ARENA[wpIndex]
                 if wp then
                     -- If waypoint has support, CALL support and WAIT for success BEFORE changing STREAM_Y or moving.
                     local proceedToMove = true
                     if wp.support then
                         local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                        -- Call support and WAIT INDEFINITELY until DoneTween signals completion for tag
-                        local ok = callSupportAndWait(wp.support, tag)
-                        -- If support did not succeed (ok ~= true) treat as failed — skip this waypoint for now
+                        local ok = callSupportAndWait(wp.support, tag, 25)
+                        -- If support did not succeed, skip this waypoint (do not set STREAM_Y)
                         if not ok then
-                            warn("[ARENA] support did not return success for waypoint", wpIndex, wp.support)
+                            warn("[ARENA] support failed/timeout for waypoint", wpIndex, wp.support)
                             proceedToMove = false
                         else
-                            -- support succeeded -> now set STREAM_Y to waypoint Y (do this after success)
+                            -- support succeeded -> now set STREAM_Y to waypoint Y
                             STREAM_Y = wp.pos.Y
                             task.wait(0.12)
                         end
@@ -4345,9 +4321,8 @@ do
                         movingToWaypoint = true
                         local myToken = movementToken
     
-                        -- Move to waypoint
-                        -- alignYOnStart = true is safe here because support (if any) already completed and STREAM_Y set
-                        local arrived = moveOptimizedTo(wp.pos, false, true)
+                        -- Move to waypoint (no mid-teleport)
+                        local arrived = moveOptimizedTo(wp.pos, false, true) -- alignYOnStart = true now OK because support done
                         movingToWaypoint = false
     
                         if arrived and movementToken == myToken then
