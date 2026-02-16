@@ -3958,33 +3958,58 @@ do
         CancelTween = playerGui:FindFirstChild("CancelTweenTo")
     end
     
-    local function callSupportAndWait(name, tag, timeout)
+    local function callSupportAndWait(name, tag)
+        -- nếu không có hệ thống support ở GUI => coi như success tức thì
         if not SupportTween or not DoneTween then
             return true
         end
-    
+
+        -- đảm bảo tag hợp lệ
+        tag = tag or ("AutoArena_support_" .. tostring(tick()) .. "_" .. tostring(math.random()))
+
         local completed = false
         local ok = false
         local conn
         conn = DoneTween.Event:Connect(function(success, doneTag)
+            -- chỉ xử lý event có đúng tag
             if doneTag == tag then
-                completed = true
-                ok = success
-                conn:Disconnect()
+                if success then
+                    ok = true
+                    completed = true
+                    if conn and conn.Connected then
+                        pcall(function() conn:Disconnect() end)
+                    end
+                else
+                    -- nếu ever có success==false (theo bạn sẽ không xảy ra) -> vẫn tiếp tục chờ
+                    -- không set completed để chờ lần DoneTween tiếp theo với success==true
+                end
             end
         end)
-    
+
+        -- fire support (bọc pcall để tránh lỗi)
         pcall(function() SupportTween:Fire(name, tag) end)
-    
-        local t0 = tick()
-        while not completed and (tick() - t0) < (timeout or 20) do
+
+        -- CHỜ VĨNH VIỄN cho tới khi DoneTween báo success cho tag
+        while not completed do
             task.wait(0.1)
+            -- optional safety: nếu script bị tắt global running = false thì thoát (tránh deadlock khi stop)
+            -- nếu bạn chắc chắn không cần điều này, có thể xóa khối dưới.
+            if running == false then
+                if conn and conn.Connected then
+                    pcall(function() conn:Disconnect() end)
+                end
+                return false
+            end
         end
-    
-        if conn and conn.Connected then conn:Disconnect() end
-        return ok or completed
+
+        -- đảm bảo disconnect
+        if conn and conn.Connected then
+            pcall(function() conn:Disconnect() end)
+        end
+
+        return ok
     end
-    
+
     -- ========== Chest helpers (đảm bảo loại bỏ chest đã skip) ==========
     local function findChestModelsFolder()
         return workspace:FindFirstChild("ChestModels")
@@ -4124,26 +4149,15 @@ do
         return false
     end
     
+    -- ========== ARENA waypoints (giữ dữ liệu) ==========
     local function TweenPoint(x,y,z, supportName, supportTag)
-        -- Nếu supportName (4th arg) tồn tại => ta không khởi tạo wp.pos ngay
-        if supportName and tostring(supportName) ~= "" then
-            return {
-                pos = nil, -- chưa tạo Vector3 để tránh set Y sớm
-                rawPos = { x = x or 0, y = y or 0, z = z or 0 },
-                support = tostring(supportName),
-                supportTag = supportTag
-            }
-        else
-            -- bình thường (không support) -> tạo pos ngay
-            return {
-                pos = Vector3.new(x or 0, y or 0, z or 0),
-                rawPos = nil,
-                support = nil,
-                supportTag = nil
-            }
-        end
+        return {
+            pos = Vector3.new(x or 0, y or 0, z or 0),
+            support = (supportName and tostring(supportName)) or nil,
+            supportTag = supportTag
+        }
     end
-
+    
     local AREA_DATA = {
         Sea1 = {
             ids = { 85211729168715, 2753915549 },
@@ -4242,17 +4256,6 @@ do
         end
     end
     
-    local function getWaypointVector(wp)
-        if not wp then return nil end
-        if wp.pos then
-            return wp.pos
-        elseif wp.rawPos then
-            return Vector3.new(wp.rawPos.x, wp.rawPos.y, wp.rawPos.z)
-        else
-            return nil
-        end
-    end
-
     -- ========== Main automation loop & UI (giữ nguyên) ==========
     local running = false
     local uiToggleButton = nil
@@ -4270,31 +4273,16 @@ do
         end
     end
     
+    -- Tìm waypoint gần nhất không bị skip. Nếu không còn cái nào, trả về nearest ignoring skip.
     local function findNearestAvailableWaypoint(fromPos)
         if #ARENA == 0 then return nil end
-
+    
         local bestIdx, bestDist = nil, math.huge
-        -- first pass: non-skipped and available
+        -- first pass: look for non-skipped
         for i = 1, #ARENA do
-            local wp = ARENA[i]
-            local wpVec = getWaypointVector(wp)
-            if wpVec and not skippedWaypoints[i] then
-                local d = (wpVec - fromPos).Magnitude
-                if d < bestDist then
-                    bestDist = d
-                    bestIdx = i
-                end
-            end
-        end
-
-        -- fallback: if all skipped or none non-skipped, choose nearest ignoring skip
-        if not bestIdx then
-            bestDist = math.huge
-            for i = 1, #ARENA do
-                local wp = ARENA[i]
-                local wpVec = getWaypointVector(wp)
-                if wpVec then
-                    local d = (wpVec - fromPos).Magnitude
+            if ARENA[i] and ARENA[i].pos then
+                if not skippedWaypoints[i] then
+                    local d = (ARENA[i].pos - fromPos).Magnitude
                     if d < bestDist then
                         bestDist = d
                         bestIdx = i
@@ -4302,10 +4290,23 @@ do
                 end
             end
         end
-
+    
+        -- fallback: if all skipped, choose nearest ignoring skip
+        if not bestIdx then
+            for i = 1, #ARENA do
+                if ARENA[i] and ARENA[i].pos then
+                    local d = (ARENA[i].pos - fromPos).Magnitude
+                    if d < bestDist then
+                        bestDist = d
+                        bestIdx = i
+                    end
+                end
+            end
+        end
+    
         return bestIdx, bestDist
     end
-
+    
     -- ================= runner (FIXED support flow) =================
     local function runner()
         while running do
@@ -4326,22 +4327,19 @@ do
                     local proceedToMove = true
                     if wp.support then
                         local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                        local ok = callSupportAndWait(wp.support, tag, 25)
+                        -- gọi support và CHỜ VĨNH VIỄN cho tới khi hệ thống trả về success
+                        local ok = callSupportAndWait(wp.support, tag)
                         if not ok then
-                            warn("[ARENA] support failed/timeout for waypoint", wpIndex, wp.support)
+                            warn("[ARENA] support did not complete successfully for waypoint", wpIndex, wp.support)
                             proceedToMove = false
                         else
-                            -- support succeeded -> now create wp.pos from rawPos (only now)
+                            -- support đã success -> bây giờ mới set STREAM_Y (và an toàn để dùng wp.pos.Y)
+                            -- nếu wp.pos tồn tại thì dùng, nếu không thì cố tạo từ rawPos nếu bạn từng lưu
                             if not wp.pos and wp.rawPos then
                                 wp.pos = Vector3.new(wp.rawPos.x, wp.rawPos.y, wp.rawPos.z)
-                                -- optional: clear rawPos if you want to free memory
-                                -- wp.rawPos = nil
                             end
-                            -- only after pos exists set STREAM_Y
-                            if wp.pos then
-                                STREAM_Y = wp.pos.Y
-                                task.wait(0.12)
-                            end
+                            STREAM_Y = wp.pos and wp.pos.Y or STREAM_Y
+                            task.wait(0.12)
                         end
                     end
                 else
