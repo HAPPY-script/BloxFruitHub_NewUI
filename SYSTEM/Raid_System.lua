@@ -1,6 +1,4 @@
 --=== RAID ===================================================================================================================--
-print("UPD RAID P3 🔴🔴🔴")
-
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
