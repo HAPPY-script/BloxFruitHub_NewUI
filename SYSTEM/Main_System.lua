@@ -1,5 +1,5 @@
 --=== AUTO HOLD TOOL =====================================================================================================--
-
+print("FIX AUTO CHEST P1 🔴🔴🔴")
 do
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -3685,6 +3685,9 @@ do
     local MID_TELEPORT_THRESHOLD = 200
     -- ==============================
     
+    -- STREAM_Y (dùng nếu cần set luồng Y từ support); khởi tạo nil
+    local STREAM_Y = nil
+
     -- ========== Movement token (cancel) ==========
     local movementToken = 0
     local function stopMovement()
@@ -3958,58 +3961,37 @@ do
         CancelTween = playerGui:FindFirstChild("CancelTweenTo")
     end
     
+    -- WAIT INDEFINITELY for DoneTween with matching tag.
     local function callSupportAndWait(name, tag)
-        -- nếu không có hệ thống support ở GUI => coi như success tức thì
+        -- If no support UI exist, just return true so behavior continues
         if not SupportTween or not DoneTween then
             return true
         end
-
-        -- đảm bảo tag hợp lệ
-        tag = tag or ("AutoArena_support_" .. tostring(tick()) .. "_" .. tostring(math.random()))
-
+    
         local completed = false
         local ok = false
         local conn
         conn = DoneTween.Event:Connect(function(success, doneTag)
-            -- chỉ xử lý event có đúng tag
             if doneTag == tag then
-                if success then
-                    ok = true
-                    completed = true
-                    if conn and conn.Connected then
-                        pcall(function() conn:Disconnect() end)
-                    end
-                else
-                    -- nếu ever có success==false (theo bạn sẽ không xảy ra) -> vẫn tiếp tục chờ
-                    -- không set completed để chờ lần DoneTween tiếp theo với success==true
+                completed = true
+                ok = success == true or success -- treat any truthy success as success
+                if conn and conn.Connected then
+                    conn:Disconnect()
                 end
             end
         end)
-
-        -- fire support (bọc pcall để tránh lỗi)
+    
+        -- Fire the support request AFTER we connected (to avoid race)
         pcall(function() SupportTween:Fire(name, tag) end)
-
-        -- CHỜ VĨNH VIỄN cho tới khi DoneTween báo success cho tag
+    
+        -- Wait indefinitely until DoneTween fires with our tag
         while not completed do
             task.wait(0.1)
-            -- optional safety: nếu script bị tắt global running = false thì thoát (tránh deadlock khi stop)
-            -- nếu bạn chắc chắn không cần điều này, có thể xóa khối dưới.
-            if running == false then
-                if conn and conn.Connected then
-                    pcall(function() conn:Disconnect() end)
-                end
-                return false
-            end
         end
-
-        -- đảm bảo disconnect
-        if conn and conn.Connected then
-            pcall(function() conn:Disconnect() end)
-        end
-
-        return ok
+    
+        return ok or completed
     end
-
+    
     -- ========== Chest helpers (đảm bảo loại bỏ chest đã skip) ==========
     local function findChestModelsFolder()
         return workspace:FindFirstChild("ChestModels")
@@ -4195,8 +4177,6 @@ do
                 TweenPoint(432.57, 401.58, -5442.55),
                 TweenPoint(1293.03, 429.58, -5200.26),
                 TweenPoint(6561.01, 439.59, -6999.93), -- 13
-            
-            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
             }
         },
     
@@ -4213,7 +4193,7 @@ do
                 TweenPoint(291.32, 28.47, -12711.65),
                 TweenPoint(-16560.40, 201.88, 413.13),
                 TweenPoint(-5107.22, 443.48, -2967.22),
-                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
+                TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10 (support)
             }
         },
     
@@ -4307,7 +4287,7 @@ do
         return bestIdx, bestDist
     end
     
-    -- ================= runner (FIXED support flow) =================
+    -- ================= runner (FIXED support flow + ưu tiên support) =================
     local function runner()
         while running do
             if not findChestModelsFolder() then
@@ -4321,25 +4301,75 @@ do
                 task.wait(1)
                 -- continue
             else
+                -- BEFORE using wpIndex, check if there's any non-skipped support waypoint and prefer it
+                local supportIdx = nil
+                local supportDist = math.huge
+                for i = 1, #ARENA do
+                    local w = ARENA[i]
+                    if w and w.pos and (not skippedWaypoints[i]) and w.support and w.supportTag then
+                        local d = (w.pos - hrp.Position).Magnitude
+                        if d < supportDist then
+                            supportDist = d
+                            supportIdx = i
+                        end
+                    end
+                end
+                if supportIdx then
+                    wpIndex = supportIdx
+                    wpDist = supportDist
+                end
+
                 local wp = ARENA[wpIndex]
                 if wp then
                     -- If waypoint has support, CALL support and WAIT for success BEFORE changing STREAM_Y or moving.
                     local proceedToMove = true
                     if wp.support then
                         local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                        -- gọi support và CHỜ VĨNH VIỄN cho tới khi hệ thống trả về success
+                        -- Call support and WAIT INDEFINITELY until DoneTween signals completion for tag
                         local ok = callSupportAndWait(wp.support, tag)
+                        -- If support did not succeed (ok ~= true) treat as failed — skip this waypoint for now
                         if not ok then
-                            warn("[ARENA] support did not complete successfully for waypoint", wpIndex, wp.support)
+                            warn("[ARENA] support did not return success for waypoint", wpIndex, wp.support)
                             proceedToMove = false
                         else
-                            -- support đã success -> bây giờ mới set STREAM_Y (và an toàn để dùng wp.pos.Y)
-                            -- nếu wp.pos tồn tại thì dùng, nếu không thì cố tạo từ rawPos nếu bạn từng lưu
-                            if not wp.pos and wp.rawPos then
-                                wp.pos = Vector3.new(wp.rawPos.x, wp.rawPos.y, wp.rawPos.z)
-                            end
-                            STREAM_Y = wp.pos and wp.pos.Y or STREAM_Y
+                            -- support succeeded -> now set STREAM_Y to waypoint Y (do this after success)
+                            STREAM_Y = wp.pos.Y
                             task.wait(0.12)
+                        end
+                    end
+    
+                    if not proceedToMove then
+                        task.wait(0.2)
+                    else
+                        stopMovement()
+                        movingToWaypoint = true
+                        local myToken = movementToken
+    
+                        -- Move to waypoint
+                        -- alignYOnStart = true is safe here because support (if any) already completed and STREAM_Y set
+                        local arrived = moveOptimizedTo(wp.pos, false, true)
+                        movingToWaypoint = false
+    
+                        if arrived and movementToken == myToken then
+                            decrementWaypointSkips()
+                            skippedWaypoints[wpIndex] = getSkipRounds(CURRENT_AREA_KEY)
+                        end
+    
+                        if not arrived or movementToken ~= myToken then
+                            if not running then break end
+                            task.wait(0.2)
+                        else
+                            -- after arriving, collect chests at that location
+                            repeat
+                                if not running then break end
+                                local any = scanAndCollectInFolder()
+                                if any == false then
+                                    local modelsNow = listChestModels()
+                                    if #modelsNow == 0 then break end
+                                end
+                                task.wait(0.12)
+                            until not running
+                            task.wait(ARENA_LOOP_DELAY)
                         end
                     end
                 else
