@@ -13,14 +13,15 @@ gui.ResetOnSpawn = false
 gui.Parent = lp:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 150) -- tăng size vì thêm time box
+frame.Size = UDim2.new(0, 200, 0, 150)
 frame.Position = UDim2.new(0.05, 0, 0.3, 0)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.Active = true
-frame.Draggable = true
 frame.Parent = gui
 
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local drag = Instance.new("UIDragDetector")
+drag.Parent = frame
 
 -- Title
 local title = Instance.new("TextLabel")
