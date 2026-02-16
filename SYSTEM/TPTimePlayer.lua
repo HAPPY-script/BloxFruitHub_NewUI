@@ -520,9 +520,9 @@ end
 return function(mode)
     mode = tonumber(mode)
 
-    if mode == 1 then
+    if mode == a then
         TP.Mode1()
-    elseif mode == 2 then
+    elseif mode == b then
         TP.Mode2()
     end
 end
