@@ -1,12 +1,6 @@
-return function(mode)
-    mode = tonumber(mode)
+local TP = {}
 
-    warn("TPTimePlayer Loaded | Mode =", mode)
-
-    local modes = {}
-
-    modes[1] = function()
-        warn("Running Mode 1")
+function TP.Mode1()
         -- TP TIME ================================================================================================
 			local Players = game:GetService("Players")
 			local RunService = game:GetService("RunService")
@@ -176,10 +170,9 @@ return function(mode)
 				stopTP()
 				gui:Destroy()
 			end)
-    end
+end
 
-    modes[2] = function()
-        warn("Running Mode 2")
+function TP.Mode2()
             -- TP SKY TIME ============================================================================================
 			local Players = game:GetService("Players")
 			local RunService = game:GetService("RunService")
@@ -522,11 +515,14 @@ return function(mode)
 				stopMovement()
 				gui:Destroy()
 			end)
-    end
+end
 
-    if modes[mode] then
-        modes[mode]()
-    else
-        warn("Invalid Mode:", mode)
+return function(mode)
+    mode = tonumber(mode)
+
+    if mode == 1 then
+        TP.Mode1()
+    elseif mode == 2 then
+        TP.Mode2()
     end
 end
