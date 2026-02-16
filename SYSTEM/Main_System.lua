@@ -3958,22 +3958,36 @@ do
         CancelTween = playerGui:FindFirstChild("CancelTweenTo")
     end
     
+    -- STREAM_Y (được set khi support trả về Y) để tránh nil warning
+    local STREAM_Y = nil
+    
+    -- Modified: callSupportAndWait returns (ok, returnedData)
     local function callSupportAndWait(name, tag, timeout)
         if not SupportTween or not DoneTween then
-            return true
+            -- no support system available -> treat as success (backwards compat)
+            return true, nil
         end
     
         local completed = false
         local ok = false
+        local returnedData = nil
         local conn
-        conn = DoneTween.Event:Connect(function(success, doneTag)
+    
+        conn = DoneTween.Event:Connect(function(success, doneTag, ...)
             if doneTag == tag then
                 completed = true
                 ok = success
-                conn:Disconnect()
+                local extras = {...}
+                if #extras >= 1 then
+                    returnedData = extras[1]
+                end
+                if conn and conn.Connected then
+                    conn:Disconnect()
+                end
             end
         end)
     
+        -- fire support with name and tag (protected)
         pcall(function() SupportTween:Fire(name, tag) end)
     
         local t0 = tick()
@@ -3982,7 +3996,38 @@ do
         end
     
         if conn and conn.Connected then conn:Disconnect() end
-        return ok or completed
+        return ok or completed, returnedData
+    end
+    
+    -- helper to try parse returnedData into Vector3 or number
+    local function parseReturnedPosition(ret)
+        if not ret then return nil end
+        -- if it's already Vector3
+        if typeof(ret) == "Vector3" then
+            return ret
+        end
+        -- if number or string number => treat as Y value
+        if type(ret) == "number" then
+            return Vector3.new(0, ret, 0)
+        end
+        if type(ret) == "string" then
+            local n = tonumber(ret)
+            if n then
+                return Vector3.new(0, n, 0)
+            end
+        end
+        -- if table: try keys x,y,z or indices 1..3
+        if type(ret) == "table" then
+            local x = ret.x or ret[1]
+            local y = ret.y or ret[2]
+            local z = ret.z or ret[3]
+            if (type(y) == "number") and (type(x) == "number" or type(z) == "number") then
+                x = x or 0
+                z = z or 0
+                return Vector3.new(x, y, z)
+            end
+        end
+        return nil
     end
     
     -- ========== Chest helpers (đảm bảo loại bỏ chest đã skip) ==========
@@ -4170,8 +4215,6 @@ do
                 TweenPoint(432.57, 401.58, -5442.55),
                 TweenPoint(1293.03, 429.58, -5200.26),
                 TweenPoint(6561.01, 439.59, -6999.93), -- 13
-            
-            --TweenPoint(-380.09, 227.12, 648.07, "Cafe", "simpleCall_001"),
             }
         },
     
@@ -4188,6 +4231,7 @@ do
                 TweenPoint(291.32, 28.47, -12711.65),
                 TweenPoint(-16560.40, 201.88, 413.13),
                 TweenPoint(-5107.22, 443.48, -2967.22),
+                -- this waypoint uses support: we will CALL support and wait for returned Y (or Vector3)
                 TweenPoint(10582.63, -1955.72, 9603.65, "Submerged Island", "simpleCall_SubmergedIsland"), --10
             }
         },
@@ -4302,14 +4346,28 @@ do
                     local proceedToMove = true
                     if wp.support then
                         local tag = wp.supportTag or ("AutoArena_support_"..tostring(wpIndex).."_"..tostring(tick()))
-                        local ok = callSupportAndWait(wp.support, tag, 25)
+                        local ok, returned = callSupportAndWait(wp.support, tag, 25)
                         -- If support did not succeed, skip this waypoint (do not set STREAM_Y)
                         if not ok then
                             warn("[ARENA] support failed/timeout for waypoint", wpIndex, wp.support)
                             proceedToMove = false
+                            -- Optionally mark it skipped for a short while
+                            skippedWaypoints[wpIndex] = (skippedWaypoints[wpIndex] or 0) + 1
                         else
-                            -- support succeeded -> now set STREAM_Y to waypoint Y
-                            STREAM_Y = wp.pos.Y
+                            -- support succeeded -> try to parse returned data
+                            local parsed = parseReturnedPosition(returned)
+                            if parsed then
+                                -- if parsed is Vector3 we merge X/Z if returned contained them, otherwise keep original X/Z
+                                if parsed.X ~= 0 or parsed.Z ~= 0 then
+                                    wp.pos = parsed
+                                else
+                                    wp.pos = Vector3.new(wp.pos.X, parsed.Y, wp.pos.Z)
+                                end
+                                STREAM_Y = wp.pos.Y
+                            else
+                                -- no useful returned value -> fallback to waypoint's stored Y
+                                STREAM_Y = wp.pos.Y
+                            end
                             task.wait(0.12)
                         end
                     end
