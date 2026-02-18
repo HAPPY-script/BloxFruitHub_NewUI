@@ -2879,7 +2879,7 @@ do
                     TweenService:Create(ModeButton, TweenInfo.new(0.12), {TextTransparency = 0}):Play()
                 end
             end)
-            local targetPos = (mode == "Limit") and UDim2.new(0.275,0,0.4,0) or UDim2.new(0.375,0,0.4,0)
+            local targetPos = (mode == "Limit") and UDim2.new(0.275,0,0.5,0) or UDim2.new(0.375,0,0.5,0)
             local targetSize = (mode == "Limit") and UDim2.new(0.5,0,0.03,0) or UDim2.new(0.7,0,0.03,0)
             if ModeTitle and ModeTitle.Parent then
                 TweenService:Create(ModeTitle, tweenInfo, {Position = targetPos, Size = targetSize}):Play()
