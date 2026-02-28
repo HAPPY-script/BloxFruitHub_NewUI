@@ -1543,7 +1543,7 @@ end
 --=== SELECT BUFF DUNGEON ===================================================================================================================--
 
 do
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BLOX_FRUIT/refs/heads/main/UISelectBuffDungeon.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/Dungeon_SelectBuff.lua"))()
     -- CONFIG
     local SCAN_INTERVAL = 2
     local MIN_SG_REQUIRED = 3
