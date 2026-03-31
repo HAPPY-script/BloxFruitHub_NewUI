@@ -580,15 +580,26 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFrui
 print("Status tab System 1/10✅")
 shared.load(0.475)
 
+local ok, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua"))()
+end)
+
+if not ok then
+    warn("[Island_System]:", err)
+end
+
+print("Island tab System 2/10✅")
+shared.load(0.5)
+
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
 
-print("Main tab System 2/10✅")
-shared.load(0.5)
+print("Main tab System 3/10✅")
+shared.load(0.55)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
 
-print("Raid tab System 3/10✅")
-shared.load(0.55)
+print("Raid tab System 4/10✅")
+shared.load(0.625)
 
 local ok, err = pcall(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
@@ -598,23 +609,12 @@ if not ok then
     warn("[Combat_System]:", err)
 end
 
-print("Combat tab System 4/10✅")
-shared.load(0.625)
+print("Combat tab System 5/10✅")
+shared.load(0.7)
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua"))()
 
-print("Player Setting tab System 5/10✅")
-shared.load(0.7)
-
-local ok, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua"))()
-end)
-
-if not ok then
-    warn("[Island_System]:", err)
-end
-
-print("Island tab System 6/10✅")
+print("Player Setting tab System 6/10✅")
 shared.load(0.775)
 
 local ok, err = pcall(function()
