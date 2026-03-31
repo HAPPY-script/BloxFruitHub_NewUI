@@ -4534,3 +4534,834 @@ do
         end)
     end
 end
+
+--========================================================================================================--
+--========================================================================================================--
+--=========== EVEN =======================================================================================--
+--========================================================================================================--
+--========================================================================================================--
+
+do
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local HttpService = game:GetService("HttpService")
+
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+
+    local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
+    local DoneTween = playerGui:WaitForChild("DoneTweenTo")
+    local CancelTween = playerGui:WaitForChild("CancelTweenTo")
+
+    -- ========= helper =========
+    local function sentHelp(name)
+        return { Type = "sentHelp", Name = name }
+    end
+
+    local function isSentHelp(v)
+        return type(v) == "table" and v.Type == "sentHelp" and type(v.Name) == "string"
+    end
+
+    local function randomTag8()
+        return HttpService:GenerateGUID(false):gsub("%-", ""):sub(1, 8)
+    end
+
+    local function formatClock(sec)
+        sec = math.max(0, math.floor(sec))
+
+        local h = math.floor(sec / 3600)
+        local m = math.floor((sec % 3600) / 60)
+        local s = sec % 60
+
+        return string.format("%d:%02d:%02d", h, m, s)
+    end
+
+    -- ================= UI PATH =================
+    local ScrollingTab = playerGui
+        :WaitForChild("BloxFruitHubGui")
+        :WaitForChild("Main")
+        :WaitForChild("ScrollingTab")
+
+    local uiMain = ScrollingTab:FindFirstChild("Main", true)
+    if not uiMain then
+        warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
+        return
+    end
+
+    local eggStatusLabel = uiMain:FindFirstChild("AutoEggCollectStartus", true)
+        or uiMain:FindFirstChild("AutoEggCollectStatus", true)
+
+    local toggleBtn = uiMain:FindFirstChild("AutoEggCollectButton", true)
+
+    if not eggStatusLabel then
+        warn("Không tìm thấy TextLabel 'AutoEggCollectStartus' trong Main")
+        return
+    end
+
+    if not toggleBtn then
+        warn("Không tìm thấy button 'AutoEggCollectButton' trong Main")
+        return
+    end
+
+    -- ToggleUI helper
+    repeat task.wait() until _G.ToggleUI
+    local ToggleUI = _G.ToggleUI
+    pcall(function()
+        if ToggleUI.Refresh then
+            ToggleUI.Refresh()
+        end
+    end)
+
+    local BUTTON_NAME = "AutoEggCollectButton"
+
+    -- đảm bảo OFF lúc đầu
+    pcall(function()
+        if ToggleUI.Set then
+            ToggleUI.Set(BUTTON_NAME, false)
+        end
+    end)
+
+    -- màu ON/OFF theo hub
+    local function isOnColor(c)
+        if not c then return false end
+        local r = math.floor(c.R * 255 + 0.5)
+        local g = math.floor(c.G * 255 + 0.5)
+        local b = math.floor(c.B * 255 + 0.5)
+        return (r == 0 and g == 255 and b == 0)
+    end
+
+    local function isToggleOn()
+        local ok, val = pcall(function()
+            if ToggleUI.Get then
+                return ToggleUI.Get(BUTTON_NAME)
+            end
+            return nil
+        end)
+
+        if ok and type(val) == "boolean" then
+            return val
+        end
+
+        return isOnColor(toggleBtn.BackgroundColor3)
+    end
+
+    local function requestToggle(target)
+        if ToggleUI and ToggleUI.Set then
+            pcall(function()
+                ToggleUI.Set(BUTTON_NAME, target)
+            end)
+        else
+            -- fallback nếu helper không có
+            toggleBtn.BackgroundColor3 = target and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        end
+    end
+
+    -- ================= CONFIG =================
+    local SEA_CONFIG = {
+
+        Sea1 = {
+            ids = { 85211729168715, 2753915549 },
+
+            cooldown = 16,
+
+            points = {
+                -- Vector3.new(X, Y, Z)
+            },
+
+            sentHelp = {
+                "Middle Town",
+                "Pirate Starter",
+                "Marine Starter",
+                "Jungle",
+                "Pirate Village",
+                "Desert",
+                "Frozen Village",
+                "Marine Fortress",
+                "Skylands",
+                "Upper Skylands",
+                "Prison",
+                "Magma Village",
+                "Whirlpool",
+                "Underwater City",
+                "Fountain City",
+                "Colosseum",
+            }
+        },
+
+
+        Sea2 = {
+            ids = { 79091703265657, 4442272183 },
+
+            cooldown = 11,
+
+            points = {
+                -- Vector3.new(X, Y, Z)
+            },
+
+            sentHelp = {
+                "Cafe",
+                "Factory",
+                "Swan Room",
+                "Green Zone",
+                "Graveyard Island",
+                "Hot and Cold",
+                "Snow Mountain",
+                "Dark Arena",
+                "Ice Castle",
+                "Forgotten Island",
+                "Cursed Ship",
+            }
+        },
+
+
+        Sea3 = {
+            ids = { 7449423635, 100117331123089 },
+
+            cooldown = 12,
+
+            points = {
+                -- Vector3.new(X, Y, Z)
+            },
+
+            sentHelp = {
+                "Port Town",
+                "Castle on the Sea",
+                "Hydra Island",
+                "Mansion",
+                "Haunted Castle",
+                "IcecreamLand",
+                "CakeLand",
+                "CandyLand",
+                "Tiki Outpost",
+                "Dojo",
+                "Great Tree",
+                "Submerged Island",
+            }
+        },
+
+        Dungeon = {
+            ids = { 73902483975735 },
+
+            cooldown = nil,
+
+            points = {
+            },
+
+            sentHelp = {}
+        }
+    }
+
+    local PositionData = {}
+    local POSITION_COOLDOWN = 5
+
+    do
+        local placeId = game.PlaceId
+        local seaData
+
+        for _, data in pairs(SEA_CONFIG) do
+            if table.find(data.ids, placeId) then
+                seaData = data
+                break
+            end
+        end
+
+        if not seaData then
+            warn("PlaceID không thuộc Sea1 / Sea2 / Sea3 / Dungeon")
+        else
+
+            POSITION_COOLDOWN = seaData.cooldown or 11
+
+            -- thêm vector teleport points
+            for _, pos in ipairs(seaData.points or {}) do
+                table.insert(PositionData, pos)
+            end
+
+            -- thêm sentHelp
+            for _, name in ipairs(seaData.sentHelp or {}) do
+                table.insert(PositionData, sentHelp(name))
+            end
+        end
+    end
+
+    local LUNGE_SPEED = 300
+    local CLOSE_DISTANCE = 200
+    local VECTOR_PRIORITY_DISTANCE = 1000
+    local BLOCK_FOLDER_NAME = "_AutoEggBlocked"
+    local EGG_STUCK_TIME = 3
+    -- ==========================================
+
+    local enabled = false
+    local loopId = 0
+
+    local movementToken = 0
+    local positionCooldown = table.create(#PositionData, 0)
+
+    local respawning = false
+    local respawnSerial = 0
+
+    local activeSupportTag = nil
+    local supportDone = false
+    local supportSuccess = false
+
+    local eggCount = 0
+    local currentTask = nil -- { kind = "vector"/"sentHelp", index = number, value = any }
+
+    -- timer state
+    local activeAccum = 0
+    local activeStart = nil
+    local timerRunning = false
+
+    local function updateEggUI()
+        pcall(function()
+            eggStatusLabel.Text = tostring(eggCount) .. " / " .. formatClock(activeAccum + ((enabled and timerRunning and activeStart) and (time() - activeStart) or 0))
+        end)
+    end
+
+    local function startTimer()
+        if timerRunning then return end
+        timerRunning = true
+        activeStart = time()
+    end
+
+    local function stopTimer()
+        if not timerRunning then return end
+        if activeStart then
+            activeAccum += math.max(0, time() - activeStart)
+        end
+        activeStart = nil
+        timerRunning = false
+    end
+
+    local function syncStatusFromButtonColor()
+        task.delay(0.05, function()
+            local on = isToggleOn()
+            enabled = on
+
+            if enabled then
+                startTimer()
+            else
+                stopTimer()
+            end
+
+            updateEggUI()
+        end)
+    end
+
+    local function isBlockedEgg(model)
+        return model:FindFirstChild(BLOCK_FOLDER_NAME) ~= nil
+    end
+
+    local function markBlockedEgg(model)
+        if not model or not model.Parent then return end
+        if model:FindFirstChild(BLOCK_FOLDER_NAME) then return end
+
+        local f = Instance.new("Folder")
+        f.Name = BLOCK_FOLDER_NAME
+        f.Parent = model
+    end
+
+    local function getHRP()
+        local char = player.Character or player.CharacterAdded:Wait()
+        return char:WaitForChild("HumanoidRootPart")
+    end
+
+    local function stopMovement()
+        movementToken += 1
+    end
+
+    local function clearTask()
+        currentTask = nil
+    end
+
+    local function cancelSupportOnly()
+        activeSupportTag = nil
+        supportDone = false
+        supportSuccess = false
+
+        pcall(function()
+            CancelTween:Fire()
+        end)
+    end
+
+    local function cancelAll()
+        movementToken += 1
+        clearTask()
+        cancelSupportOnly()
+    end
+
+    local function setRespawnPause()
+        respawnSerial += 1
+        local mySerial = respawnSerial
+
+        respawning = true
+        cancelAll()
+
+        task.spawn(function()
+            local char = player.Character or player.CharacterAdded:Wait()
+            char:WaitForChild("HumanoidRootPart")
+            task.wait(2)
+
+            if respawnSerial == mySerial then
+                respawning = false
+            end
+        end)
+    end
+
+    player.CharacterAdded:Connect(function()
+        setRespawnPause()
+    end)
+
+    DoneTween.Event:Connect(function(success, tag)
+        if activeSupportTag == tag then
+            supportDone = true
+            supportSuccess = success and true or false
+        end
+    end)
+
+    local function tickCooldowns()
+        for i, cd in ipairs(positionCooldown) do
+            if cd > 0 then
+                positionCooldown[i] = cd - 1
+            end
+        end
+    end
+
+    local function markVisited(index)
+        tickCooldowns()
+        positionCooldown[index] = POSITION_COOLDOWN
+    end
+
+    local function getTopLevelEggs()
+        local hrp = getHRP()
+        local eggs = {}
+
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj:IsA("Model") and obj.Name == "" and not isBlockedEgg(obj) then
+                local pp = obj:FindFirstChild("_PrimaryPart")
+                if pp and pp:IsA("BasePart") and pp:FindFirstChild("TouchInterest") then
+                    table.insert(eggs, {
+                        model = obj,
+                        part = pp,
+                        dist = (hrp.Position - pp.Position).Magnitude
+                    })
+                end
+            end
+        end
+
+        table.sort(eggs, function(a, b)
+            return a.dist < b.dist
+        end)
+
+        return eggs
+    end
+
+    local function getNearestPosition()
+        local hrp = getHRP()
+
+        local bestVectorIndex, bestVectorPos, bestVectorDist = nil, nil, math.huge
+        local fallbackVectorIndex, fallbackVectorPos, fallbackVectorDist = nil, nil, math.huge
+
+        local bestHelpIndex = nil
+        local fallbackHelpIndex = nil
+
+        for i, item in ipairs(PositionData) do
+            if typeof(item) == "Vector3" then
+                local d = (hrp.Position - item).Magnitude
+
+                if d < fallbackVectorDist then
+                    fallbackVectorIndex, fallbackVectorPos, fallbackVectorDist = i, item, d
+                end
+
+                if (positionCooldown[i] or 0) <= 0 and d < bestVectorDist then
+                    bestVectorIndex, bestVectorPos, bestVectorDist = i, item, d
+                end
+            elseif isSentHelp(item) then
+                if fallbackHelpIndex == nil then
+                    fallbackHelpIndex = i
+                end
+
+                if (positionCooldown[i] or 0) <= 0 and bestHelpIndex == nil then
+                    bestHelpIndex = i
+                end
+            end
+        end
+
+        if bestVectorIndex and bestVectorDist <= VECTOR_PRIORITY_DISTANCE then
+            return "vector", bestVectorIndex, bestVectorPos
+        end
+
+        if bestHelpIndex then
+            local item = PositionData[bestHelpIndex]
+            return "sentHelp", bestHelpIndex, item.Name
+        end
+
+        if bestVectorIndex then
+            return "vector", bestVectorIndex, bestVectorPos
+        end
+
+        if fallbackHelpIndex then
+            local item = PositionData[fallbackHelpIndex]
+            return "sentHelp", fallbackHelpIndex, item.Name
+        end
+
+        if fallbackVectorIndex then
+            return "vector", fallbackVectorIndex, fallbackVectorPos
+        end
+
+        return nil
+    end
+
+    local function waitReady(myLoopId)
+        while enabled and loopId == myLoopId and respawning do
+            RunService.Heartbeat:Wait()
+        end
+        return enabled and loopId == myLoopId
+    end
+
+    local function chaseEgg(eggPart, myLoopId)
+        stopMovement()
+
+        local eggModel = eggPart and eggPart.Parent
+        if not eggModel or isBlockedEgg(eggModel) then
+            return "blocked"
+        end
+
+        local myToken = movementToken
+        local startTick = time()
+        local startPos = getHRP().Position
+        local delta = eggPart.Position - startPos
+        local dist = delta.Magnitude
+        if dist < 0.5 then
+            return "aborted"
+        end
+
+        local dir = delta.Unit
+        local duration = dist / LUNGE_SPEED
+        local elapsed = 0
+        local reachedClose = false
+
+        local conn
+        conn = RunService.Heartbeat:Connect(function(dt)
+            if myToken ~= movementToken or not enabled or loopId ~= myLoopId or respawning then
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            if not eggPart.Parent or not eggPart:FindFirstChild("TouchInterest") then
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            if time() - startTick >= EGG_STUCK_TIME then
+                markBlockedEgg(eggModel)
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            elapsed += dt
+            local alpha = math.clamp(elapsed / duration, 0, 1)
+            local hrp = getHRP()
+            hrp.CFrame = CFrame.new(startPos + dir * (dist * alpha))
+
+            if alpha >= 1 then
+                conn:Disconnect()
+            end
+        end)
+
+        while enabled and loopId == myLoopId and eggPart.Parent and eggPart:FindFirstChild("TouchInterest") and not respawning do
+            if time() - startTick >= EGG_STUCK_TIME then
+                markBlockedEgg(eggModel)
+                if conn and conn.Connected then conn:Disconnect() end
+                return "blocked"
+            end
+
+            local hrp = getHRP()
+            if (hrp.Position - eggPart.Position).Magnitude <= CLOSE_DISTANCE then
+                reachedClose = true
+                break
+            end
+            RunService.Heartbeat:Wait()
+        end
+
+        if conn and conn.Connected then
+            conn:Disconnect()
+        end
+
+        if not enabled or loopId ~= myLoopId or respawning then
+            return "aborted"
+        end
+
+        if not eggPart.Parent or not eggPart:FindFirstChild("TouchInterest") then
+            if reachedClose then
+                eggCount += 1
+                updateEggUI()
+                return "done"
+            end
+            return "aborted"
+        end
+
+        if time() - startTick >= EGG_STUCK_TIME then
+            markBlockedEgg(eggModel)
+            return "blocked"
+        end
+
+        stopMovement()
+        local myToken2 = movementToken
+        local conn2
+
+        conn2 = RunService.Heartbeat:Connect(function()
+            if not enabled or loopId ~= myLoopId or respawning or myToken2 ~= movementToken then
+                if conn2 then conn2:Disconnect() end
+                return
+            end
+
+            if not eggPart.Parent or not eggPart:FindFirstChild("TouchInterest") then
+                if conn2 then conn2:Disconnect() end
+                return
+            end
+
+            if time() - startTick >= EGG_STUCK_TIME then
+                markBlockedEgg(eggModel)
+                if conn2 then conn2:Disconnect() end
+                return
+            end
+
+            local hrp = getHRP()
+            hrp.CFrame = eggPart.CFrame
+        end)
+
+        while enabled and loopId == myLoopId and eggPart.Parent and eggPart:FindFirstChild("TouchInterest") and not respawning do
+            if time() - startTick >= EGG_STUCK_TIME then
+                markBlockedEgg(eggModel)
+                if conn2 and conn2.Connected then conn2:Disconnect() end
+                return "blocked"
+            end
+            RunService.Heartbeat:Wait()
+        end
+
+        if conn2 and conn2.Connected then
+            conn2:Disconnect()
+        end
+
+        if not enabled or loopId ~= myLoopId or respawning then
+            return "aborted"
+        end
+
+        if reachedClose and (not eggPart.Parent or not eggPart:FindFirstChild("TouchInterest")) then
+            eggCount += 1
+            updateEggUI()
+            return "done"
+        end
+
+        return "aborted"
+    end
+
+    local function goToPosition(index, pos, myLoopId)
+        stopMovement()
+        local myToken = movementToken
+        local startPos = getHRP().Position
+        local delta = pos - startPos
+        local dist = delta.Magnitude
+        if dist < 0.5 then
+            markVisited(index)
+            return "done"
+        end
+
+        local dir = delta.Unit
+        local duration = dist / LUNGE_SPEED
+        local elapsed = 0
+
+        local conn
+        conn = RunService.Heartbeat:Connect(function(dt)
+            if myToken ~= movementToken or not enabled or loopId ~= myLoopId or respawning then
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            if #getTopLevelEggs() > 0 then
+                if conn then conn:Disconnect() end
+                return
+            end
+
+            elapsed += dt
+            local alpha = math.clamp(elapsed / duration, 0, 1)
+            local hrp = getHRP()
+            hrp.CFrame = CFrame.new(startPos + dir * (dist * alpha))
+
+            if alpha >= 1 then
+                conn:Disconnect()
+            end
+        end)
+
+        while enabled and loopId == myLoopId and not respawning do
+            if #getTopLevelEggs() > 0 then
+                if conn and conn.Connected then conn:Disconnect() end
+                return "interrupted"
+            end
+
+            local hrp = getHRP()
+            if (hrp.Position - pos).Magnitude <= CLOSE_DISTANCE then
+                break
+            end
+
+            RunService.Heartbeat:Wait()
+        end
+
+        if conn and conn.Connected then
+            conn:Disconnect()
+        end
+
+        if not enabled or loopId ~= myLoopId or respawning then
+            return "aborted"
+        end
+
+        if #getTopLevelEggs() > 0 then
+            return "interrupted"
+        end
+
+        stopMovement()
+        markVisited(index)
+        return "done"
+    end
+
+    local function runSentHelp(index, placeName, myLoopId)
+        stopMovement()
+
+        local tag = randomTag8()
+        activeSupportTag = tag
+        supportDone = false
+        supportSuccess = false
+
+        pcall(function()
+            SupportTween:Fire(placeName, tag)
+        end)
+
+        while enabled and loopId == myLoopId and not respawning and activeSupportTag == tag and not supportDone do
+            if #getTopLevelEggs() > 0 then
+                cancelSupportOnly()
+                return "interrupted"
+            end
+            RunService.Heartbeat:Wait()
+        end
+
+        if activeSupportTag == tag and not supportDone then
+            pcall(function()
+                CancelTween:Fire()
+            end)
+        end
+
+        if activeSupportTag == tag and supportDone and supportSuccess and enabled and loopId == myLoopId and not respawning then
+            markVisited(index)
+            activeSupportTag = nil
+            return "done"
+        end
+
+        if activeSupportTag == tag then
+            activeSupportTag = nil
+        end
+
+        if not enabled or loopId ~= myLoopId or respawning then
+            return "aborted"
+        end
+
+        return "done"
+    end
+
+    local function mainLoop(myLoopId)
+        while enabled and loopId == myLoopId do
+            if not waitReady(myLoopId) then
+                break
+            end
+
+            local eggs = getTopLevelEggs()
+            if #eggs > 0 then
+                local result = chaseEgg(eggs[1].part, myLoopId)
+                if result == "blocked" or result == "done" or result == "aborted" then
+                    clearTask()
+                end
+                RunService.Heartbeat:Wait()
+                continue
+            end
+
+            if not currentTask then
+                local kind, index, value = getNearestPosition()
+                if kind and index and value then
+                    currentTask = {
+                        kind = kind,
+                        index = index,
+                        value = value
+                    }
+                else
+                    RunService.Heartbeat:Wait()
+                    continue
+                end
+            end
+
+            local result
+            if currentTask.kind == "vector" then
+                result = goToPosition(currentTask.index, currentTask.value, myLoopId)
+            elseif currentTask.kind == "sentHelp" then
+                result = runSentHelp(currentTask.index, currentTask.value, myLoopId)
+            else
+                clearTask()
+                RunService.Heartbeat:Wait()
+                continue
+            end
+
+            if result == "done" or result == "aborted" then
+                clearTask()
+            elseif result == "interrupted" then
+                -- giữ currentTask để chạy lại sau khi nhặt egg xong
+            end
+
+            RunService.Heartbeat:Wait()
+        end
+    end
+
+    -- update label liên tục, nhưng timer chỉ tăng khi enabled
+    task.spawn(function()
+        while eggStatusLabel.Parent do
+            updateEggUI()
+            task.wait(0.1)
+        end
+    end)
+
+    -- toggle by button color
+    toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+        syncStatusFromButtonColor()
+    end)
+
+    -- click button -> nhờ ToggleUI đổi state
+    if toggleBtn.Activated then
+        toggleBtn.Activated:Connect(function()
+            local currentOn = isToggleOn()
+            requestToggle(not currentOn)
+        end)
+    else
+        toggleBtn.MouseButton1Click:Connect(function()
+            local currentOn = isToggleOn()
+            requestToggle(not currentOn)
+        end)
+    end
+
+    -- init theo màu hiện tại
+    syncStatusFromButtonColor()
+
+    -- main loop khi bật
+    task.spawn(function()
+        while true do
+            if enabled then
+                loopId += 1
+                local myLoopId = loopId
+                mainLoop(myLoopId)
+
+                -- đợi đến khi tắt hoặc loop bị reset
+                while enabled do
+                    RunService.Heartbeat:Wait()
+                end
+            else
+                RunService.Heartbeat:Wait()
+            end
+        end
+    end)
+end
