@@ -4549,9 +4549,11 @@ do
     local player = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
 
-    local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
-    local DoneTween = playerGui:WaitForChild("DoneTweenTo")
-    local CancelTween = playerGui:WaitForChild("CancelTweenTo")
+    do
+        local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
+        local DoneTween = playerGui:WaitForChild("DoneTweenTo")
+        local CancelTween = playerGui:WaitForChild("CancelTweenTo")
+    end
 
     -- ========= helper =========
     local function sentHelp(name)
