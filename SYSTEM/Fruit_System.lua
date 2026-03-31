@@ -432,6 +432,20 @@ do
     -- map model -> {billboard=Instance, conn=RBXScriptConnection}
     local fruitESPObjects = {}
 
+    local function isValidFruitModel(obj)
+        if not obj or not obj:IsA("Model") then
+            return false
+        end
+    
+        -- loại bỏ character của người chơi
+        if Players:GetPlayerFromCharacter(obj) then
+            return false
+        end
+    
+        -- chỉ lấy model có chứa "fruit"
+        return obj.Name:lower():find("fruit", 1, true) ~= nil
+    end
+    
     -- safe create/destroy helpers
     local function removeESPFor(model)
         if not model then return end
@@ -497,7 +511,7 @@ do
 
     local function scanFruitsAndCreate()
         for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("Model") and obj.Name:lower():find("fruit") and not obj:IsA("Folder") then
+            if isValidFruitModel(obj) then
                 createFruitESP(obj)
             end
         end
@@ -515,7 +529,7 @@ do
         -- small delay to allow object to settle
         task.wait(0.2)
         if not fruitESPEnabled then return end
-        if child:IsA("Model") and child.Name:lower():find("fruit") and not child:IsA("Folder") then
+        if isValidFruitModel(child) then
             createFruitESP(child)
         end
     end)
