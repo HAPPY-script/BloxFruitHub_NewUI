@@ -4549,11 +4549,17 @@ do
     local player = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
 
-    do
-        local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
-        local DoneTween = playerGui:WaitForChild("DoneTweenTo")
-        local CancelTween = playerGui:WaitForChild("CancelTweenTo")
+    local function getChild(parent, name, timeout)
+        local obj = parent:WaitForChild(name, timeout or 5)
+        if not obj then
+            warn(("Không tìm thấy %s trong %s"):format(name, parent:GetFullName()))
+        end
+        return obj
     end
+
+    local SupportTween = getChild(playerGui, "SupportTweenToCustom", 5)
+    local DoneTween    = getChild(playerGui, "DoneTweenTo", 5)
+    local CancelTween  = getChild(playerGui, "CancelTweenTo", 5)
 
     -- ========= helper =========
     local function sentHelp(name)
@@ -4913,12 +4919,14 @@ do
         setRespawnPause()
     end)
 
-    DoneTween.Event:Connect(function(success, tag)
-        if activeSupportTag == tag then
-            supportDone = true
-            supportSuccess = success and true or false
-        end
-    end)
+    if DoneTween and DoneTween.Event then
+        DoneTween.Event:Connect(function(success, tag)
+            if activeSupportTag == tag then
+                supportDone = true
+                supportSuccess = success and true or false
+            end
+        end)
+    end
 
     local function tickCooldowns()
         for i, cd in ipairs(positionCooldown) do
@@ -5234,9 +5242,11 @@ do
         supportDone = false
         supportSuccess = false
 
-        pcall(function()
-            SupportTween:Fire(placeName, tag)
-        end)
+        if SupportTween and SupportTween.Fire then
+            pcall(function()
+                SupportTween:Fire(placeName, tag)
+            end)
+        end
 
         while enabled and loopId == myLoopId and not respawning and activeSupportTag == tag and not supportDone do
             if #getTopLevelEggs() > 0 then
@@ -5247,9 +5257,11 @@ do
         end
 
         if activeSupportTag == tag and not supportDone then
-            pcall(function()
-                CancelTween:Fire()
-            end)
+            if CancelTween and CancelTween.Fire then
+                pcall(function()
+                    CancelTween:Fire()
+                end)
+            end
         end
 
         if activeSupportTag == tag and supportDone and supportSuccess and enabled and loopId == myLoopId and not respawning then
