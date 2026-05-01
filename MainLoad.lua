@@ -4,6 +4,101 @@ if _G.BloxFruit_Hub then
 end
 _G.BloxFruit_Hub = true
 
+--=== FUNCTION SAFE ERROR ==========================================================================================--
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local CLEANED = false
+local RUNNING = true
+
+local function notify(title, text, color, time)
+	_G.HAPPYnotification = {
+		title = title or "title",
+		text = text or "text",
+		color = color or {255, 255, 255},
+		time = time or 5
+	}
+end
+
+local function cleanup(reason)
+	if CLEANED then return end
+	CLEANED = true
+	RUNNING = false
+
+	warn("[BloxFruitHub]", reason or "unknown error")
+	notify("Lỗi loading", tostring(reason or "Không xác định"), {255, 80, 80}, 5)
+
+	_G.BloxFruit_Hub = false
+	shared.load = nil
+
+	local pg = player and player:FindFirstChild("PlayerGui")
+	if pg then
+		local gui = pg:FindFirstChild("LoadAnimationGui")
+		if gui then
+			pcall(function() gui:Destroy() end)
+		end
+	end
+end
+
+local function guarded(label, timeout, fn)
+	local done = false
+	local ok, result
+
+	task.spawn(function()
+		ok, result = xpcall(fn, debug.traceback)
+		done = true
+	end)
+
+	local start = os.clock()
+	while not done do
+		if os.clock() - start > (timeout or 10) then
+			return false, label .. " timeout"
+		end
+		task.wait(0.05)
+	end
+
+	if not ok then
+		return false, label .. " failed: " .. tostring(result)
+	end
+
+	return true, result
+end
+
+local function safeRemoteLoad(label, url, timeout)
+	return guarded(label, timeout or 20, function()
+		local src = game:HttpGet(url)
+		local fn, err = loadstring(src)
+		if not fn then
+			error(err or "loadstring failed")
+		end
+		return fn()
+	end)
+end
+
+local function safeTweenWait(tween, timeout, label)
+	local done = false
+	local conn = tween.Completed:Connect(function()
+		done = true
+	end)
+
+	local start = os.clock()
+	while not done do
+		if os.clock() - start > (timeout or 3) then
+			conn:Disconnect()
+			return false, (label or "tween") .. " timeout"
+		end
+		task.wait()
+	end
+
+	conn:Disconnect()
+	return true
+end
+
 --==================================================================================================================--
 
 --load UI
@@ -150,6 +245,7 @@ end
 
 -- initial entry: entry -> mid -> strong arc -> delete + tween size
 local function initialEntry()
+	if not RUNNING then return end
 	if LoadWhiteFrame.Visible then return end
 	LoadWhiteFrame.Visible = true
 
@@ -160,23 +256,22 @@ local function initialEntry()
 	star.Position = STAR_ENTRY_POS
 	star.ImageColor3 = START_STAR_COLOR
 
-	-- entry -> mid (not too fast)
 	local t1 = tweenObject(star, {Position = STAR_MID_POS}, entryToMidTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	t1.Completed:Wait()
+	local ok, err = safeTweenWait(t1, 3, "entry tween")
+	if not ok then
+		return cleanup(err)
+	end
 
-	-- arc mid -> target (strong curvature)
 	activeStars = activeStars + 1
 	driveArc(star, STAR_MID_POS, STAR_TARGET_POS, arcTime, function()
-		-- arrived: delete star immediately
+		if not RUNNING then return end
 		pcall(function() star:Destroy() end)
-		-- simultaneously tween LoadWhiteFrame size from zero -> 50x50
 		pcall(function()
 			tweenObject(LoadWhiteFrame, {Size = UDim2.new(0,50,0,50)}, sizeTweenTime)
 		end)
 		activeStars = math.max(0, activeStars - 1)
 	end)
 
-	-- ensure inner gradient starts at 0%
 	if innerGradient then innerGradient.Offset = percentToOffset(0) end
 end
 
@@ -397,33 +492,47 @@ end
 
 -- NEW spawnStarFly: spawn 3D effect instead of GUI star, keep onArrive callback intact
 local function spawnStarFly(onArrive)
+	if not RUNNING then return end
 	activeStars = activeStars + 1
 
-	-- spawn the 3D effect asynchronously
 	task.spawn(function()
-		pcall(runSingleEffect_v)
+		local ok, err = xpcall(runSingleEffect_v, debug.traceback)
+		if not ok then
+			activeStars = math.max(0, activeStars - 1)
+			return cleanup("runSingleEffect_v: " .. tostring(err))
+		end
 
-		-- effect finished -> call onArrive to update percent + UI
-		pcall(function()
+		local ok2, err2 = xpcall(function()
 			if type(onArrive) == "function" then
 				onArrive()
 			end
-		end)
+		end, debug.traceback)
+
+		if not ok2 then
+			activeStars = math.max(0, activeStars - 1)
+			return cleanup("onArrive: " .. tostring(err2))
+		end
 
 		activeStars = math.max(0, activeStars - 1)
 	end)
 end
 
 local function runFinalSequence()
-	-- 1. Đảm bảo không còn star bay
-	while activeStars > 0 do
-		task.wait()
+	local ok, err = guarded("wait activeStars", 12, function()
+		local start = os.clock()
+		while activeStars > 0 do
+			if os.clock() - start > 12 then
+				error("activeStars wait timeout")
+			end
+			task.wait(0.05)
+		end
+	end)
+	if not ok then
+		return cleanup(err)
 	end
 
-	-- 2. Đợi đúng 1s
 	task.wait(1)
-	
-	-- 2.1 Bật visible Button trong BloxFruitHubGui
+
 	local bf = playerGui:FindFirstChild("BloxFruitHubGui")
 	if bf then
 		local btn = bf:FindFirstChild("Button", true)
@@ -432,13 +541,9 @@ local function runFinalSequence()
 		end
 	end
 
-	-- 3. Set màu nền sang xanh
 	LoadWhiteFrame.BackgroundColor3 = GREEN
-
-	-- 4. Tắt LoadFrame (phần bên trong)
 	LoadFrame.Visible = false
 
-	-- 5. Tween transparency LoadWhiteFrame từ 0 -> 1
 	LoadWhiteFrame.BackgroundTransparency = 0
 	local tween = TweenService:Create(
 		LoadWhiteFrame,
@@ -446,14 +551,21 @@ local function runFinalSequence()
 		{BackgroundTransparency = 1}
 	)
 	tween:Play()
-	tween.Completed:Wait()
 
-	-- 6. Xóa toàn bộ GUI
-	loadGui:Destroy()
+	local ok2, err2 = safeTweenWait(tween, 4, "fade out")
+	if not ok2 then
+		return cleanup(err2)
+	end
+
+	pcall(function()
+		loadGui:Destroy()
+	end)
 end
 
 -- main API: shared.load(amount)
-shared.load = shared.load or function(amount)
+shared.load = function(amount)
+	if not RUNNING then return end
+
 	if type(amount) ~= "number" then return end
 	if lock then return end
 	amount = clamp01(amount)
@@ -504,57 +616,90 @@ task.spawn(function()
 	if innerGradient then innerGradient.Offset = percentToOffset(0) end
 end)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/MainUI.lua"))()
+local ok, err = safeRemoteLoad("Main UI", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/MainUI.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Main UI 1/11✅")
 shared.load(0.025)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Status.lua"))()
+local ok, err = safeRemoteLoad("Status", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Status.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Status 2/11✅")
 shared.load(0.04)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Main.lua"))()
+local ok, err = safeRemoteLoad("Main", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Main.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Main 3/11✅")
 shared.load(0.06)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Raid.lua"))()
+local ok, err = safeRemoteLoad("Raid", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Raid.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Raid 4/11✅")
 shared.load(0.075)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Fruit.lua"))()
+local ok, err = safeRemoteLoad("Fruit", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Fruit.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Fruit 5/11✅")
 shared.load(0.085)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Visual.lua"))()
+local ok, err = safeRemoteLoad("Visual", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Visual.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Visual 6/11✅")
 shared.load(0.095)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Player%20Setting.lua"))()
+local ok, err = safeRemoteLoad("Player Setting", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Player%20Setting.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Player Setting 7/11✅")
 shared.load(0.125)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Combat.lua"))()
+local ok, err = safeRemoteLoad("Combat", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Combat.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Combat 8/11✅")
 shared.load(0.175)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Island.lua"))()
+local ok, err = safeRemoteLoad("Island", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Island.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Island 9/11✅")
 shared.load(0.25)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Sea%20Even.lua"))()
+local ok, err = safeRemoteLoad("Sea even", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Sea%20Even.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Sea even 10/11✅")
 shared.load(0.275)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Order.lua"))()
+local ok, err = safeRemoteLoad("Order", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/Order.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Order 11/11✅")
 shared.load(0.3)
@@ -562,12 +707,18 @@ shared.load(0.3)
 print(">================================================================================================<")
 --=== UI SYSTEM ============================================================================================================================--
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/SystemUI.lua"))()
+local ok, err = safeRemoteLoad("UI System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/SystemUI.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("UI System 1/2✅")
 shared.load(0.35)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/ToggleUIEffect.lua"))()
+local ok, err = safeRemoteLoad("Toggle UI Effect", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/ToggleUIEffect.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Toggle UI Effect 2/2✅")
 shared.load(0.4)
@@ -575,85 +726,82 @@ shared.load(0.4)
 print(">================================================================================================<")
 --=== TAB SYSTEM ============================================================================================================================--
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua"))()
+local ok, err = safeRemoteLoad("Status tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Status_System.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Status tab System 1/10✅")
 shared.load(0.475)
 
-local ok, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua"))()
-end)
-
+local ok, err = safeRemoteLoad("Island tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Island_System.lua", 30)
 if not ok then
-    warn("[Island_System]:", err)
+	return cleanup(err)
 end
 
 print("Island tab System 2/10✅")
 shared.load(0.5)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua"))()
+
+local ok, err = safeRemoteLoad("Main tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Main_System.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Main tab System 3/10✅")
 shared.load(0.55)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua"))()
+local ok, err = safeRemoteLoad("Raid tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Raid_System.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Raid tab System 4/10✅")
 shared.load(0.625)
 
-local ok, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua"))()
-end)
-
+local ok, err = safeRemoteLoad("Combat tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Combat_System.lua", 30)
 if not ok then
-    warn("[Combat_System]:", err)
+	return cleanup(err)
 end
 
 print("Combat tab System 5/10✅")
 shared.load(0.7)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua"))()
+local ok, err = safeRemoteLoad("Player Setting tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Player%20Setting_System.lua", 30)
+if not ok then
+	return cleanup(err)
+end
 
 print("Player Setting tab System 6/10✅")
 shared.load(0.775)
 
-local ok, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Order_System.lua"))()
-end)
-
+local ok, err = safeRemoteLoad("Order tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Order_System.lua", 30)
 if not ok then
-    warn("[Order_System]:", err)
+	return cleanup(err)
 end
 
 print("Order tab System 7/10✅")
 shared.load(0.85)
 
-local ok, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Fruit_System.lua"))()
-end)
-
+local ok, err = safeRemoteLoad("Fruit tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Fruit_System.lua", 30)
 if not ok then
-    warn("[Fruit_System]:", err)
+	return cleanup(err)
 end
 
 print("Fruit tab System 8/10✅")
 shared.load(0.875)
 
-local ok, err = pcall(function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Visual_System.lua"))()
-end)
+local ok, err = safeRemoteLoad("Visual tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Visual_System.lua", 30)
 if not ok then
-	warn("[Visual_System]: ", err)
+	return cleanup(err)
 end
 
 print("Visual tab System 9/10✅")
 shared.load(0.9)
 
-local ok, err = pcall(function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Sea%20Even_System.lua"))()
-end)
+local ok, err = safeRemoteLoad("Sea even tab System", "https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM/Sea%20Even_System.lua", 30)
 if not ok then
-	warn("[Sea_Even]: ", err)
+	return cleanup(err)
 end
 
 print("Sea even tab System 10/10✅")
