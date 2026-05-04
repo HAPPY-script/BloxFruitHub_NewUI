@@ -7,6 +7,7 @@ Sea_Even.BackgroundColor3 = Color3.new(0, 0.54902, 1)
 Sea_Even.BackgroundTransparency = 1
 Sea_Even.BorderSizePixel = 0
 Sea_Even.BorderColor3 = Color3.new(0, 0, 0)
+Sea_Even.Visible = false
 Sea_Even.Transparency = 1
 Sea_Even.Parent = ScrollingTab
 
@@ -240,6 +241,82 @@ UIStroke4.Color = Color3.new(0.784314, 0.784314, 0.784314)
 UIStroke4.Thickness = 2
 UIStroke4.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke4.Parent = ElevationBox
+
+local AutoBoatDriveModeTitle = Instance.new("TextLabel")
+AutoBoatDriveModeTitle.Name = "AutoBoatDriveModeTitle"
+AutoBoatDriveModeTitle.Position = UDim2.new(0.265, 0, 0.13, 0)
+AutoBoatDriveModeTitle.Size = UDim2.new(0.465, 0, 0.03, 0)
+AutoBoatDriveModeTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+AutoBoatDriveModeTitle.BorderSizePixel = 0
+AutoBoatDriveModeTitle.BorderColor3 = Color3.new(0, 0, 0)
+AutoBoatDriveModeTitle.ZIndex = 2
+AutoBoatDriveModeTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoBoatDriveModeTitle.Text = "Auto boat drive mode"
+AutoBoatDriveModeTitle.TextColor3 = Color3.new(1, 1, 1)
+AutoBoatDriveModeTitle.TextSize = 14
+AutoBoatDriveModeTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoBoatDriveModeTitle.TextScaled = true
+AutoBoatDriveModeTitle.TextWrapped = true
+AutoBoatDriveModeTitle.Parent = Sea_Even
+
+local UIStroke5 = Instance.new("UIStroke")
+UIStroke5.Name = "UIStroke"
+UIStroke5.Color = Color3.new(1, 1, 1)
+UIStroke5.Thickness = 2
+UIStroke5.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke5.Parent = AutoBoatDriveModeTitle
+
+local AutoDriveBoatModeButton = Instance.new("TextButton")
+AutoDriveBoatModeButton.Name = "AutoDriveBoatModeButton"
+AutoDriveBoatModeButton.Position = UDim2.new(0.85, 0, 0.13, 0)
+AutoDriveBoatModeButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+AutoDriveBoatModeButton.BackgroundColor3 = Color3.new(0, 1, 0.784314)
+AutoDriveBoatModeButton.BackgroundTransparency = 0.75
+AutoDriveBoatModeButton.BorderSizePixel = 0
+AutoDriveBoatModeButton.BorderColor3 = Color3.new(0, 0, 0)
+AutoDriveBoatModeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoDriveBoatModeButton.Transparency = 0.75
+AutoDriveBoatModeButton.Text = "Straight"
+AutoDriveBoatModeButton.TextColor3 = Color3.new(1, 1, 1)
+AutoDriveBoatModeButton.TextSize = 14
+AutoDriveBoatModeButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoDriveBoatModeButton.TextScaled = true
+AutoDriveBoatModeButton.TextWrapped = true
+AutoDriveBoatModeButton.Parent = Sea_Even
+
+local UIStroke6 = Instance.new("UIStroke")
+UIStroke6.Name = "UIStroke"
+UIStroke6.Color = Color3.new(0, 1, 0.784314)
+UIStroke6.Thickness = 2
+UIStroke6.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke6.Parent = AutoDriveBoatModeButton
+
+local IntensityBox = Instance.new("TextBox")
+IntensityBox.Name = "IntensityBox"
+IntensityBox.Position = UDim2.new(0.625, 0, 0.13, 0)
+IntensityBox.Size = UDim2.new(0.2, 0, 0.03, 0)
+IntensityBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
+IntensityBox.BackgroundTransparency = 0.75
+IntensityBox.BorderSizePixel = 0
+IntensityBox.BorderColor3 = Color3.new(0, 0, 0)
+IntensityBox.AnchorPoint = Vector2.new(0.5, 0.5)
+IntensityBox.Transparency = 0.75
+IntensityBox.Text = ""
+IntensityBox.TextColor3 = Color3.new(1, 1, 1)
+IntensityBox.TextSize = 14
+IntensityBox.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+IntensityBox.TextScaled = true
+IntensityBox.TextWrapped = true
+IntensityBox.PlaceholderText = "Intensity value"
+IntensityBox.PlaceholderColor3 = Color3.new(1, 1, 1)
+IntensityBox.Parent = Sea_Even
+
+local UIStroke7 = Instance.new("UIStroke")
+UIStroke7.Name = "UIStroke"
+UIStroke7.Color = Color3.new(0.784314, 0.784314, 0.784314)
+UIStroke7.Thickness = 2
+UIStroke7.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke7.Parent = IntensityBox
 
 local Frame = Sea_Even
 if not Frame then return end
