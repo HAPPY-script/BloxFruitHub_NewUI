@@ -91,7 +91,7 @@ do
     local TAU = math.pi * 2
 
     local function getWaveLength()
-        return clamp(DRIVE_OSC_AMPLITUDE * 3, 100, 500)
+        return clamp(DRIVE_OSC_AMPLITUDE * 3, 100, 1500)
     end
 
     local function getDriveMode()
@@ -572,7 +572,7 @@ do
                 local phase = (travel / W) * TAU
                 local cosv = math.cos(phase)
 
-                -- bù tốc độ theo độ dài quỹ đạo để không bị chậm khi lượn sóng
+                -- bù theo độ dài quỹ đạo để tốc độ thực tế theo đường đi giữ gần bằng SPEED
                 local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / W) * cosv
                 local compensation = math.sqrt(1 + dzdx * dzdx)
 
