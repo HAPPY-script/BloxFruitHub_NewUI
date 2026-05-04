@@ -35,7 +35,7 @@ do
 
     _G.DriveMode = _G.DriveMode or "Straight" -- "Straight" / "Oscillate"
 
-    local DRIVE_OSC_AMPLITUDE = 20   -- biên độ sóng
+    local DRIVE_OSC_AMPLITUDE = 50   -- biên độ sóng
     local DRIVE_OSC_WAVELENGTH = 120  -- độ dài 1 nhịp sóng
     local TAU = math.pi * 2
     
