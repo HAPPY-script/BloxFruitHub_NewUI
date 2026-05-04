@@ -36,7 +36,16 @@ do
     _G.DriveMode = _G.DriveMode or "Straight" -- "Straight" / "Oscillate"
 
     local DRIVE_OSC_AMPLITUDE = 50   -- biên độ sóng
-    local DRIVE_OSC_WAVELENGTH = 120  -- độ dài 1 nhịp sóng
+    
+    local function getWaveLength()
+    	return clamp(DRIVE_OSC_AMPLITUDE * 3, 100, 500)
+    end
+    
+    _G.SetDriveAmplitude = function(v)
+    	v = tonumber(v) or DRIVE_OSC_AMPLITUDE
+    	DRIVE_OSC_AMPLITUDE = math.max(1, v)
+    end
+    
     local TAU = math.pi * 2
     
     local function getDriveMode()
@@ -355,23 +364,23 @@ do
     		local mode = getDriveMode()
     
     		if mode == "Oscillate" then
-    			local phase = (travel / DRIVE_OSC_WAVELENGTH) * TAU
-    			local sinv = math.sin(phase)
+    			local W = getWaveLength()
+    			local phase = (travel / W) * TAU
     			local cosv = math.cos(phase)
     
     			-- bù tốc độ theo độ dài quỹ đạo để không bị chậm khi lượn sóng
-    			local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / DRIVE_OSC_WAVELENGTH) * cosv
+    			local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / W) * cosv
     			local compensation = math.sqrt(1 + dzdx * dzdx)
     
     			local step = (SPEED / compensation) * dt
     			travel = travel + step
     
-    			local zOffset = math.sin((travel / DRIVE_OSC_WAVELENGTH) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local zOffset = math.sin((travel / W) * TAU) * DRIVE_OSC_AMPLITUDE
     			local pos = Vector3.new(startX - travel, STREAM_Y, STREAM_Z + zOffset)
     
     			-- hướng nhìn theo tiếp tuyến của quỹ đạo
     			local nextTravel = travel + 1
-    			local nextZ = math.sin((nextTravel / DRIVE_OSC_WAVELENGTH) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local nextZ = math.sin((nextTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
     			local nextPos = Vector3.new(startX - nextTravel, STREAM_Y, STREAM_Z + nextZ)
     
     			hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
