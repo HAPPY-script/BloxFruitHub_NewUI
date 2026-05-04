@@ -533,69 +533,84 @@ do
 
     local runSystem -- forward declare
 
+    local streamAnchorX = nil
+    local streamTravel = 0
+    local lastStreamMode = nil
+    
     local function flyAlongStream(myToken)
-        local hrp = getHRP()
-        local hum
-        pcall(function()
-            hum = getHumanoid()
-        end)
-
-        local startX = hrp.Position.X
-        local travel = 0
-
-        local conn
-        conn = RunService.Heartbeat:Connect(function(dt)
-            if myToken ~= movementToken or not running or terminated then
-                conn:Disconnect()
-                return
-            end
-
-            if not hum or not hum.Parent then
-                local ok, h = pcall(function()
-                    return getHumanoid()
-                end)
-                if ok then hum = h end
-            end
-
-            if not (hum and hum.Sit) then
-                movementToken = movementToken + 1
-                conn:Disconnect()
-                if type(runSystem) == "function" then
-                    task.spawn(runSystem)
-                end
-                return
-            end
-
-            local mode = getDriveMode()
-            if mode == "Oscillate" then
-                local W = getWaveLength()
-                local phase = (travel / W) * TAU
-                local cosv = math.cos(phase)
-
-                -- bù theo độ dài quỹ đạo để tốc độ thực tế theo đường đi giữ gần bằng SPEED
-                local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / W) * cosv
-                local compensation = math.sqrt(1 + dzdx * dzdx)
-
-                local step = (SPEED / compensation) * dt
-                travel = travel + step
-
-                local zOffset = math.sin((travel / W) * TAU) * DRIVE_OSC_AMPLITUDE
-                local pos = Vector3.new(startX - travel, STREAM_Y, STREAM_Z + zOffset)
-
-                -- hướng nhìn theo tiếp tuyến của quỹ đạo
-                local nextTravel = travel + 1
-                local nextZ = math.sin((nextTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
-                local nextPos = Vector3.new(startX - nextTravel, STREAM_Y, STREAM_Z + nextZ)
-
-                hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
-            else
-                local p = hrp.Position
-                local newX = p.X - SPEED * dt
-                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-                local lookTarget = pos + Vector3.new(-1, 0, 0)
-                hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
-            end
-        end)
+    	local hrp = getHRP()
+    	local hum
+    	pcall(function()
+    		hum = getHumanoid()
+    	end)
+    
+    	local conn
+    	conn = RunService.Heartbeat:Connect(function(dt)
+    		if myToken ~= movementToken or not running or terminated then
+    			conn:Disconnect()
+    			return
+    		end
+    
+    		if not hrp or not hrp.Parent then
+    			local ok, hrp2 = pcall(function()
+    				return getHRP()
+    			end)
+    			if ok then hrp = hrp2 end
+    		end
+    
+    		if not hum or not hum.Parent then
+    			local ok, h = pcall(function()
+    				return getHumanoid()
+    			end)
+    			if ok then hum = h end
+    		end
+    
+    		if not (hum and hum.Sit) then
+    			return
+    		end
+    
+    		local mode = getDriveMode()
+    
+    		if mode ~= lastStreamMode then
+    			lastStreamMode = mode
+    			if mode == "Oscillate" then
+    				streamAnchorX = hrp.Position.X
+    				streamTravel = 0
+    			end
+    		end
+    
+    		if mode == "Oscillate" then
+    			if not streamAnchorX then
+    				streamAnchorX = hrp.Position.X
+    				streamTravel = 0
+    			end
+    
+    			local W = getWaveLength()
+    			local phase = (streamTravel / W) * TAU
+    			local cosv = math.cos(phase)
+    
+    			local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / W) * cosv
+    			local compensation = math.sqrt(1 + dzdx * dzdx)
+    
+    			local step = (SPEED / compensation) * dt
+    			streamTravel = streamTravel + step
+    
+    			local zOffset = math.sin((streamTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local pos = Vector3.new(streamAnchorX - streamTravel, STREAM_Y, STREAM_Z + zOffset)
+    
+    			local nextTravel = streamTravel + 1
+    			local nextZ = math.sin((nextTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local nextPos = Vector3.new(streamAnchorX - nextTravel, STREAM_Y, STREAM_Z + nextZ)
+    
+    			hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
+    		else
+    			local p = hrp.Position
+    			local newX = p.X - SPEED * dt
+    			local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+    			local lookTarget = pos + Vector3.new(-1, 0, 0)
+    			hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+    		end
+    	end)
     end
 
     -- ============== Auto-boat helpers ==============
