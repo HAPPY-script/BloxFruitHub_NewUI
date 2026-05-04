@@ -32,6 +32,29 @@ do
     local STREAM_Z = 635
     local STREAM_ORIGIN_X = -17500
     local ARRIVE_EPS = 1
+
+    _G.DriveMode = _G.DriveMode or "Straight" -- "Straight" / "Oscillate"
+
+    local DRIVE_OSC_AMPLITUDE = 20   -- biên độ sóng
+    local DRIVE_OSC_WAVELENGTH = 120  -- độ dài 1 nhịp sóng
+    local TAU = math.pi * 2
+    
+    local function getDriveMode()
+    	local mode = tostring(_G.DriveMode or "Straight")
+    	if mode ~= "Oscillate" then
+    		return "Straight"
+    	end
+    	return "Oscillate"
+    end
+    
+    _G.SetDriveMode = function(mode)
+    	mode = tostring(mode or "Straight")
+    	if mode == "Oscillate" then
+    		_G.DriveMode = "Oscillate"
+    	else
+    		_G.DriveMode = "Straight"
+    	end
+    end
     
     -- ===== Core state for movement =====
     local movementToken = 0
@@ -305,28 +328,60 @@ do
     	local hum
     	pcall(function() hum = getHumanoid() end)
     
+    	local startX = hrp.Position.X
+    	local travel = 0
+    
     	local conn
     	conn = RunService.Heartbeat:Connect(function(dt)
-    		if myToken ~= movementToken or not running or terminated then conn:Disconnect(); return end
+    		if myToken ~= movementToken or not running or terminated then
+    			conn:Disconnect()
+    			return
+    		end
     
     		if not hum or not hum.Parent then
     			local ok, h = pcall(function() return getHumanoid() end)
     			if ok then hum = h end
     		end
     
-    		-- if not sitting -> stop and restart runSystem
     		if not (hum and hum.Sit) then
     			movementToken = movementToken + 1
     			conn:Disconnect()
-    			if type(runSystem) == "function" then task.spawn(runSystem) end
+    			if type(runSystem) == "function" then
+    				task.spawn(runSystem)
+    			end
     			return
     		end
     
-    		local p = hrp.Position
-    		local newX = p.X - SPEED * dt
-    		local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-    		local lookTarget = pos + Vector3.new(-1, 0, 0)
-    		hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0,1,0))
+    		local mode = getDriveMode()
+    
+    		if mode == "Oscillate" then
+    			local phase = (travel / DRIVE_OSC_WAVELENGTH) * TAU
+    			local sinv = math.sin(phase)
+    			local cosv = math.cos(phase)
+    
+    			-- bù tốc độ theo độ dài quỹ đạo để không bị chậm khi lượn sóng
+    			local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / DRIVE_OSC_WAVELENGTH) * cosv
+    			local compensation = math.sqrt(1 + dzdx * dzdx)
+    
+    			local step = (SPEED / compensation) * dt
+    			travel = travel + step
+    
+    			local zOffset = math.sin((travel / DRIVE_OSC_WAVELENGTH) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local pos = Vector3.new(startX - travel, STREAM_Y, STREAM_Z + zOffset)
+    
+    			-- hướng nhìn theo tiếp tuyến của quỹ đạo
+    			local nextTravel = travel + 1
+    			local nextZ = math.sin((nextTravel / DRIVE_OSC_WAVELENGTH) * TAU) * DRIVE_OSC_AMPLITUDE
+    			local nextPos = Vector3.new(startX - nextTravel, STREAM_Y, STREAM_Z + nextZ)
+    
+    			hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
+    		else
+    			local p = hrp.Position
+    			local newX = p.X - SPEED * dt
+    			local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+    			local lookTarget = pos + Vector3.new(-1, 0, 0)
+    			hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+    		end
     	end)
     end
     
@@ -581,3 +636,9 @@ do
     	apply(valueToAlpha(num), true)
     end
 end
+
+--[[ API wave mode
+_G.DriveMode = "Straight"
+-- hoặc
+_G.DriveMode = "Oscillate"
+]]
