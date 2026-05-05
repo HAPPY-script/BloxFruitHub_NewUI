@@ -585,15 +585,10 @@ do
     				streamTravel = 0
     			end
     
-    			local W = getWaveLength()
-    			local phase = (streamTravel / W) * TAU
-    			local cosv = math.cos(phase)
-    
-    			local dzdx = (DRIVE_OSC_AMPLITUDE * TAU / W) * cosv
-    			local compensation = math.sqrt(1 + dzdx * dzdx)
-    
-    			local step = (SPEED / compensation) * dt
-    			streamTravel = streamTravel + step
+                local W = getWaveLength()
+                
+                local step = SPEED * dt
+                travel = travel + step
     
     			local zOffset = math.sin((streamTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
     			local pos = Vector3.new(streamAnchorX - streamTravel, STREAM_Y, STREAM_Z + zOffset)
