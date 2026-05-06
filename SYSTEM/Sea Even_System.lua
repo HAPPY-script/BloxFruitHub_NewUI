@@ -579,32 +579,27 @@ do
     			end
     		end
     
-    		if mode == "Oscillate" then
-    			if not streamAnchorX then
-    				streamAnchorX = hrp.Position.X
-    				streamTravel = 0
-    			end
-    
-                local W = getWaveLength()
-                
-                local step = SPEED * dt
-                travel = travel + step
-    
-    			local zOffset = math.sin((streamTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
-    			local pos = Vector3.new(streamAnchorX - streamTravel, STREAM_Y, STREAM_Z + zOffset)
-    
-    			local nextTravel = streamTravel + 1
-    			local nextZ = math.sin((nextTravel / W) * TAU) * DRIVE_OSC_AMPLITUDE
-    			local nextPos = Vector3.new(streamAnchorX - nextTravel, STREAM_Y, STREAM_Z + nextZ)
-    
-    			hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
-    		else
-    			local p = hrp.Position
-    			local newX = p.X - SPEED * dt
-    			local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-    			local lookTarget = pos + Vector3.new(-1, 0, 0)
-    			hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
-    		end
+            if mode == "Oscillate" then
+                if not streamAnchorX then
+                    streamAnchorX = hrp.Position.X
+                    streamTravel = 0
+                end
+            
+                local dtStep = SPEED * dt
+                streamTravel = streamTravel + dtStep
+            
+                local x = streamAnchorX - streamTravel
+                local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+            
+                local nextTravel = streamTravel + dtStep
+                local nextX = streamAnchorX - nextTravel
+                local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+            
+                local pos = Vector3.new(x, STREAM_Y, z)
+                local nextPos = Vector3.new(nextX, STREAM_Y, nextZ)
+            
+                hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
+            end
     	end)
     end
 
