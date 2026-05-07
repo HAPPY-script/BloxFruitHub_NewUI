@@ -690,9 +690,9 @@ do
 
                 local s = DRIVE_360_SPEED
 
-                local n1 = math.noise(spinTime * 0.75, spinSeed, 0)
-                local n2 = math.noise(spinTime * 0.75, spinSeed, 25)
-                local n3 = math.noise(spinTime * 0.75, spinSeed, 50)
+                local n1 = math.noise(spinTime * 0.65, spinSeed, 0)
+                local n2 = math.noise(spinTime * 0.73, spinSeed, 25)
+                local n3 = math.noise(spinTime * 0.81, spinSeed, 50)
 
                 local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
                 local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
