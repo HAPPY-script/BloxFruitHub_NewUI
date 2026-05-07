@@ -96,16 +96,41 @@ do
 
     local function getDriveMode()
         local mode = tostring(_G.DriveMode or "Straight")
-        if mode ~= "Oscillate" then
+        if mode ~= "Oscillate" and mode ~= "360" then
             return "Straight"
         end
-        return "Oscillate"
+        return mode
+    end
+
+    local function getModeDisplayName(mode)
+        if mode == "360" then
+            return "360°"
+        end
+        return mode
+    end
+
+    local function setIntensityText()
+        if not IntensityTextObject then return end
+
+        local mode = getDriveMode()
+        local value
+        if mode == "Oscillate" then
+            value = DRIVE_OSC_AMPLITUDE
+        elseif mode == "360" then
+            value = DRIVE_360_SPEED
+        end
+
+        if value ~= nil then
+            pcall(function()
+                IntensityTextObject.Text = tostring(value)
+            end)
+        end
     end
 
     local applyDriveModeUI
     _G.SetDriveMode = function(mode)
         mode = tostring(mode or "Straight")
-        if mode ~= "Oscillate" then
+        if mode ~= "Oscillate" and mode ~= "360" then
             mode = "Straight"
         end
         if applyDriveModeUI then
@@ -117,7 +142,12 @@ do
 
     _G.SetDriveAmplitude = function(v)
         v = tonumber(v) or DRIVE_OSC_AMPLITUDE
-        DRIVE_OSC_AMPLITUDE = clamp(math.floor(v + 0.5), 50, 500)
+        DRIVE_OSC_AMPLITUDE = clamp(math.floor(v + 0.5), OSC_MIN, OSC_MAX)
+    end
+
+    _G.SetDrive360Speed = function(v)
+        v = tonumber(v) or DRIVE_360_SPEED
+        DRIVE_360_SPEED = clamp(math.floor(v + 0.5), SPIN_MIN, SPIN_MAX)
     end
 
     -- ===== Core state for movement =====
@@ -242,11 +272,18 @@ do
 
     local MODE_STRAIGHT_COLOR = Color3.fromRGB(0, 255, 200)
     local MODE_OSC_COLOR = Color3.fromRGB(200, 255, 0)
+    local MODE_360_COLOR = Color3.fromRGB(100, 0, 255)
 
     local TITLE_STRAIGHT_SIZE = UDim2.new(0.7, 0, 0.03, 0)
     local TITLE_STRAIGHT_POS = UDim2.new(0.375, 0, 0.13, 0)
     local TITLE_OSC_SIZE = UDim2.new(0.465, 0, 0.03, 0)
     local TITLE_OSC_POS = UDim2.new(0.265, 0, 0.13, 0)
+
+    local OSC_MIN, OSC_MAX = 50, 500
+    local SPIN_MIN, SPIN_MAX = 5, 720
+
+    local DRIVE_OSC_AMPLITUDE = OSC_MIN
+    local DRIVE_360_SPEED = SPIN_MIN
 
     local function setIntensityText()
         if IntensityTextObject then
@@ -279,14 +316,16 @@ do
 
     applyDriveModeUI = function(mode, animate)
         mode = tostring(mode or "Straight")
-        if mode ~= "Oscillate" then
+        if mode ~= "Oscillate" and mode ~= "360" then
             mode = "Straight"
         end
 
         _G.DriveMode = mode
+
         local isOsc = (mode == "Oscillate")
-        local targetColor = isOsc and MODE_OSC_COLOR or MODE_STRAIGHT_COLOR
-        local targetText = mode
+        local is360 = (mode == "360")
+        local targetColor = isOsc and MODE_OSC_COLOR or (is360 and MODE_360_COLOR or MODE_STRAIGHT_COLOR)
+        local targetText = getModeDisplayName(mode)
 
         local titleInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local colorInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -302,7 +341,13 @@ do
         end
 
         if IntensityBox then
-            IntensityBox.Visible = isOsc
+            IntensityBox.Visible = (mode ~= "Straight")
+        end
+
+        if mode == "Oscillate" then
+            DRIVE_OSC_AMPLITUDE = OSC_MIN
+        elseif mode == "360" then
+            DRIVE_360_SPEED = SPIN_MIN
         end
 
         if animate and ModeButtonText then
@@ -421,17 +466,23 @@ do
 
     -- ===== IntensityBox handling =====
     if IntensityTextObject and IntensityTextObject:IsA("TextBox") then
-        IntensityTextObject.Focused:Connect(function()
-        end)
-
         IntensityTextObject.FocusLost:Connect(function()
             local raw
             pcall(function() raw = IntensityTextObject.Text end)
             local n = parseIntegerFromString(raw)
-            if n then
-                DRIVE_OSC_AMPLITUDE = clamp(n, 50, 500)
+            local mode = getDriveMode()
+
+            if mode == "Oscillate" then
+                if n then
+                    DRIVE_OSC_AMPLITUDE = clamp(n, OSC_MIN, OSC_MAX)
+                end
+                setIntensityText()
+            elseif mode == "360" then
+                if n then
+                    DRIVE_360_SPEED = clamp(n, SPIN_MIN, SPIN_MAX)
+                end
+                setIntensityText()
             end
-            setIntensityText()
         end)
     end
 
@@ -537,6 +588,11 @@ do
     local streamTravel = 0
     local lastStreamMode = nil
     
+    local spinAngle = 0
+    local spinDir = 1
+    local spinTimer = 0
+    local spinDirTimer = 0
+    
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
     	local hum
@@ -567,34 +623,60 @@ do
     
     		local mode = getDriveMode()
     
-    		if mode ~= lastStreamMode then
-    			lastStreamMode = mode
-    			streamAnchorX = hrp.Position.X
-    			streamTravel = 0
-    		end
+            if mode ~= lastStreamMode then
+                lastStreamMode = mode
+                streamAnchorX = hrp.Position.X
+                streamTravel = 0
+                spinAngle = math.random(0, 359)
+                spinDir = (math.random(0, 1) == 0) and -1 or 1
+                spinTimer = 0
+                spinDirTimer = 0
+            end
     
-    		if mode == "Oscillate" then
-    			local dtStep = SPEED * dt
-    			streamTravel = streamTravel + dtStep
-    
-    			local x = streamAnchorX - streamTravel
-    			local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-    
-    			local nextTravel = streamTravel + dtStep
-    			local nextX = streamAnchorX - nextTravel
-    			local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-    
-    			hrp.CFrame = CFrame.lookAt(
-    				Vector3.new(x, STREAM_Y, z),
-    				Vector3.new(nextX, STREAM_Y, nextZ),
-    				Vector3.new(0, 1, 0)
-    			)
-    		else
-    			local newX = hrp.Position.X - SPEED * dt
-    			local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-    			local lookTarget = pos + Vector3.new(-1, 0, 0)
-    			hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
-    		end
+            if mode == "Oscillate" then
+                local dtStep = SPEED * dt
+                streamTravel = streamTravel + dtStep
+
+                local x = streamAnchorX - streamTravel
+                local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+
+                local nextTravel = streamTravel + dtStep
+                local nextX = streamAnchorX - nextTravel
+                local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+
+                hrp.CFrame = CFrame.lookAt(
+                    Vector3.new(x, STREAM_Y, z),
+                    Vector3.new(nextX, STREAM_Y, nextZ),
+                    Vector3.new(0, 1, 0)
+                )
+
+            elseif mode == "360" then
+                local dtStep = SPEED * dt
+                streamTravel = streamTravel + dtStep
+
+                local x = streamAnchorX - streamTravel
+                local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
+                local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
+
+                spinTimer = spinTimer + dt
+                spinDirTimer = spinDirTimer + dt
+
+                if spinDirTimer >= 1.5 then
+                    spinDirTimer = 0
+                    spinDir = (math.random(0, 1) == 0) and -1 or 1
+                end
+
+                spinAngle = (spinAngle + (DRIVE_360_SPEED * dt * spinDir)) % 360
+
+                local baseCF = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+                hrp.CFrame = baseCF * CFrame.Angles(0, 0, math.rad(spinAngle))
+
+            else
+                local newX = hrp.Position.X - SPEED * dt
+                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+                local lookTarget = pos + Vector3.new(-1, 0, 0)
+                hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+            end
     	end)
     end
 
@@ -831,9 +913,11 @@ do
         modeClickLock = true
         task.delay(0.15, function() modeClickLock = false end)
 
-        if getDriveMode() == "Straight" then
+        local mode = getDriveMode()
+        if mode == "Straight" then
             applyDriveModeUI("Oscillate", true)
-            setIntensityText()
+        elseif mode == "Oscillate" then
+            applyDriveModeUI("360", true)
         else
             applyDriveModeUI("Straight", true)
         end
