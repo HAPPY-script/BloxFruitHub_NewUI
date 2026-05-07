@@ -286,9 +286,15 @@ do
     local DRIVE_360_SPEED = SPIN_MIN
 
     local function setIntensityText()
-        if IntensityTextObject then
+        if not IntensityTextObject then return end
+
+        local mode = getDriveMode()
+        local value = (mode == "Oscillate" and DRIVE_OSC_AMPLITUDE)
+            or (mode == "360" and DRIVE_360_SPEED)
+
+        if value ~= nil then
             pcall(function()
-                IntensityTextObject.Text = tostring(DRIVE_OSC_AMPLITUDE)
+                IntensityTextObject.Text = tostring(value)
             end)
         end
     end
@@ -477,13 +483,13 @@ do
                 if n then
                     DRIVE_OSC_AMPLITUDE = clamp(n, OSC_MIN, OSC_MAX)
                 end
-                setIntensityText()
             elseif mode == "360" then
                 if n then
                     DRIVE_360_SPEED = clamp(n, SPIN_MIN, SPIN_MAX)
                 end
-                setIntensityText()
             end
+
+            task.defer(setIntensityText)
         end)
     end
 
@@ -589,10 +595,11 @@ do
     local streamTravel = 0
     local lastStreamMode = nil
     
-    local spinAngle = 0
-    local spinDir = 1
-    local spinTimer = 0
-    local spinDirTimer = 0
+    local spinPitch = 0
+    local spinYaw = 0
+    local spinRoll = 0
+    local spinSeed = math.random(1, 9999)
+    local spinTime = 0
     
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
@@ -628,10 +635,11 @@ do
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
                 streamTravel = 0
-                spinAngle = math.random(0, 359)
-                spinDir = (math.random(0, 1) == 0) and -1 or 1
-                spinTimer = 0
-                spinDirTimer = 0
+
+                spinPitch = math.random(0, 359)
+                spinYaw = math.random(0, 359)
+                spinRoll = math.random(0, 359)
+                spinTime = 0
             end
     
             if mode == "Oscillate" then
@@ -659,25 +667,27 @@ do
                 local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
                 local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
 
-                spinTimer = spinTimer + dt
-                spinDirTimer = spinDirTimer + dt
+                spinTime = spinTime + dt
 
-                if spinDirTimer >= 1.5 then
-                    spinDirTimer = 0
-                    spinDir = (math.random(0, 1) == 0) and -1 or 1
-                end
+                local s = DRIVE_360_SPEED
+                local n1 = math.noise(spinTime * 0.75, spinSeed, 0)
+                local n2 = math.noise(spinTime * 0.75, spinSeed, 25)
+                local n3 = math.noise(spinTime * 0.75, spinSeed, 50)
 
-                spinAngle = (spinAngle + (DRIVE_360_SPEED * dt * spinDir)) % 360
+                local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
+                local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
+                local vz = s * (0.45 + 0.55 * ((n3 + 1) * 0.5))
+
+                spinPitch = (spinPitch + vx * dt) % 360
+                spinYaw = (spinYaw + vy * dt) % 360
+                spinRoll = (spinRoll + vz * dt) % 360
 
                 local baseCF = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
-                hrp.CFrame = baseCF * CFrame.Angles(0, 0, math.rad(spinAngle))
-
-            else
-                local newX = hrp.Position.X - SPEED * dt
-                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-                local lookTarget = pos + Vector3.new(-1, 0, 0)
-                hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
-            end
+                hrp.CFrame = baseCF * CFrame.Angles(
+                    math.rad(spinPitch),
+                    math.rad(spinYaw),
+                    math.rad(spinRoll)
+                )
     	end)
     end
 
