@@ -552,16 +552,12 @@ do
     		end
     
     		if not hrp or not hrp.Parent then
-    			local ok, hrp2 = pcall(function()
-    				return getHRP()
-    			end)
+    			local ok, hrp2 = pcall(getHRP)
     			if ok then hrp = hrp2 end
     		end
     
     		if not hum or not hum.Parent then
-    			local ok, h = pcall(function()
-    				return getHumanoid()
-    			end)
+    			local ok, h = pcall(getHumanoid)
     			if ok then hum = h end
     		end
     
@@ -573,33 +569,32 @@ do
     
     		if mode ~= lastStreamMode then
     			lastStreamMode = mode
-    			if mode == "Oscillate" then
-    				streamAnchorX = hrp.Position.X
-    				streamTravel = 0
-    			end
+    			streamAnchorX = hrp.Position.X
+    			streamTravel = 0
     		end
     
-            if mode == "Oscillate" then
-                if not streamAnchorX then
-                    streamAnchorX = hrp.Position.X
-                    streamTravel = 0
-                end
-            
-                local dtStep = SPEED * dt
-                streamTravel = streamTravel + dtStep
-            
-                local x = streamAnchorX - streamTravel
-                local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-            
-                local nextTravel = streamTravel + dtStep
-                local nextX = streamAnchorX - nextTravel
-                local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-            
-                local pos = Vector3.new(x, STREAM_Y, z)
-                local nextPos = Vector3.new(nextX, STREAM_Y, nextZ)
-            
-                hrp.CFrame = CFrame.lookAt(pos, nextPos, Vector3.new(0, 1, 0))
-            end
+    		if mode == "Oscillate" then
+    			local dtStep = SPEED * dt
+    			streamTravel = streamTravel + dtStep
+    
+    			local x = streamAnchorX - streamTravel
+    			local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+    
+    			local nextTravel = streamTravel + dtStep
+    			local nextX = streamAnchorX - nextTravel
+    			local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+    
+    			hrp.CFrame = CFrame.lookAt(
+    				Vector3.new(x, STREAM_Y, z),
+    				Vector3.new(nextX, STREAM_Y, nextZ),
+    				Vector3.new(0, 1, 0)
+    			)
+    		else
+    			local newX = hrp.Position.X - SPEED * dt
+    			local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+    			local lookTarget = pos + Vector3.new(-1, 0, 0)
+    			hrp.CFrame = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+    		end
     	end)
     end
 
