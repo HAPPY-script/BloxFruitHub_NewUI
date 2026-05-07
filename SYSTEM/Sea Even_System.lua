@@ -279,8 +279,8 @@ do
     local TITLE_OSC_SIZE = UDim2.new(0.465, 0, 0.03, 0)
     local TITLE_OSC_POS = UDim2.new(0.265, 0, 0.13, 0)
 
-    local OSC_MIN, OSC_MAX = 50, 500
-    local SPIN_MIN, SPIN_MAX = 5, 720
+    local OSC_MIN, OSC_MAX = 50, 300
+    local SPIN_MIN, SPIN_MAX = 30, 720
 
     local DRIVE_OSC_AMPLITUDE = OSC_MIN
     local DRIVE_360_SPEED = SPIN_MIN
@@ -601,6 +601,11 @@ do
     local spinRoll = 0
     local spinSeed = math.random(1, 9999)
     local spinTime = 0
+
+    local spinHoldTimer = 0
+    local spinHoldDuration = 0
+    local spinFreq1, spinFreq2, spinFreq3 = 0.65, 0.73, 0.81
+    local spinVelX, spinVelY, spinVelZ = 0, 0, 0
     
     local waveLengthSmooth = getWaveLength()
     
@@ -650,6 +655,11 @@ do
                 spinYaw = math.random(0, 359)
                 spinRoll = math.random(0, 359)
                 spinTime = 0
+                    
+                spinHoldTimer = 0
+                spinHoldDuration = 0
+                spinFreq1, spinFreq2, spinFreq3 = 0.65, 0.73, 0.81
+                spinVelX, spinVelY, spinVelZ = 0, 0, 0
             end
 
             if mode == "Oscillate" then
@@ -681,60 +691,50 @@ do
                 hrp.CFrame = hrp.CFrame:Lerp(desiredCF, math.clamp(dt * 10, 0, 1))
 
             elseif mode == "360" then
-
                 local dtStep = SPEED * dt
                 streamTravel = streamTravel + dtStep
-
+            
                 local x = streamAnchorX - streamTravel
                 local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
                 local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
-
+            
                 spinTime = spinTime + dt
-
-                local s = DRIVE_360_SPEED
-
-                local drift1 = math.noise(spinTime * 0.05, spinSeed, 100)
-                local drift2 = math.noise(spinTime * 0.05, spinSeed, 200)
-                local drift3 = math.noise(spinTime * 0.05, spinSeed, 300)
-                
-                local freq1 = 0.65 + drift1 * 0.12
-                local freq2 = 0.73 + drift2 * 0.12
-                local freq3 = 0.81 + drift3 * 0.12
-                
-                local n1 = math.noise(spinTime * freq1, spinSeed, 0)
-                local n2 = math.noise(spinTime * freq2, spinSeed, 25)
-                local n3 = math.noise(spinTime * freq3, spinSeed, 50)
-
-                local vx = s * n1
-                local vy = s * n2
-                local vz = s * n3
-
-                spinPitch += vx * dt
-                spinYaw += vy * dt
-                spinRoll += vz * dt
-
-                local baseCF = CFrame.lookAt(
-                    pos,
-                    lookTarget,
-                    Vector3.new(0, 1, 0)
-                )
-
+                spinHoldTimer = spinHoldTimer + dt
+            
+                if spinHoldTimer >= spinHoldDuration then
+                    spinHoldTimer = 0
+                    spinHoldDuration = 1.2 + math.noise(spinTime * 0.12, spinSeed, 900) * 0.9
+                    if spinHoldDuration < 0.6 then
+                        spinHoldDuration = 0.6
+                    end
+            
+                    local d1 = math.noise(spinTime * 0.05, spinSeed, 100)
+                    local d2 = math.noise(spinTime * 0.05, spinSeed, 200)
+                    local d3 = math.noise(spinTime * 0.05, spinSeed, 300)
+            
+                    spinFreq1 = 0.65 + d1 * 0.12
+                    spinFreq2 = 0.73 + d2 * 0.12
+                    spinFreq3 = 0.81 + d3 * 0.12
+            
+                    spinVelX = DRIVE_360_SPEED * math.noise(spinTime * spinFreq1, spinSeed, 0)
+                    spinVelY = DRIVE_360_SPEED * math.noise(spinTime * spinFreq2, spinSeed, 25)
+                    spinVelZ = DRIVE_360_SPEED * math.noise(spinTime * spinFreq3, spinSeed, 50)
+                end
+            
+                local blend = math.clamp(dt * 3, 0, 1)
+                local targetPitch = spinPitch + spinVelX * dt
+                local targetYaw = spinYaw + spinVelY * dt
+                local targetRoll = spinRoll + spinVelZ * dt
+            
+                spinPitch = spinPitch + (targetPitch - spinPitch) * blend
+                spinYaw = spinYaw + (targetYaw - spinYaw) * blend
+                spinRoll = spinRoll + (targetRoll - spinRoll) * blend
+            
+                local baseCF = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
                 hrp.CFrame = baseCF * CFrame.Angles(
                     math.rad(spinPitch),
                     math.rad(spinYaw),
                     math.rad(spinRoll)
-                )
-
-            else
-
-                local newX = hrp.Position.X - SPEED * dt
-                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-                local lookTarget = pos + Vector3.new(-1, 0, 0)
-
-                hrp.CFrame = CFrame.lookAt(
-                    pos,
-                    lookTarget,
-                    Vector3.new(0, 1, 0)
                 )
 
             end
