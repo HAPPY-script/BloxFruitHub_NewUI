@@ -326,6 +326,7 @@ do
         local is360 = (mode == "360")
         local targetColor = isOsc and MODE_OSC_COLOR or (is360 and MODE_360_COLOR or MODE_STRAIGHT_COLOR)
         local targetText = getModeDisplayName(mode)
+        local useCompactTitle = isOsc or is360
 
         local titleInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local colorInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -334,8 +335,8 @@ do
         if AutoBoatDriveModeTitle then
             pcall(function()
                 TweenService:Create(AutoBoatDriveModeTitle, titleInfo, {
-                    Size = isOsc and TITLE_OSC_SIZE or TITLE_STRAIGHT_SIZE,
-                    Position = isOsc and TITLE_OSC_POS or TITLE_STRAIGHT_POS,
+                    Size = useCompactTitle and TITLE_OSC_SIZE or TITLE_STRAIGHT_SIZE,
+                    Position = useCompactTitle and TITLE_OSC_POS or TITLE_STRAIGHT_POS,
                 }):Play()
             end)
         end
