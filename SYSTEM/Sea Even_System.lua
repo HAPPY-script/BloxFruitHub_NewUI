@@ -604,33 +604,39 @@ do
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
     	local hum
+
     	pcall(function()
     		hum = getHumanoid()
     	end)
-    
+
     	local conn
     	conn = RunService.Heartbeat:Connect(function(dt)
+
     		if myToken ~= movementToken or not running or terminated then
     			conn:Disconnect()
     			return
     		end
-    
+
     		if not hrp or not hrp.Parent then
     			local ok, hrp2 = pcall(getHRP)
-    			if ok then hrp = hrp2 end
+    			if ok then
+                    hrp = hrp2
+                end
     		end
-    
+
     		if not hum or not hum.Parent then
     			local ok, h = pcall(getHumanoid)
-    			if ok then hum = h end
+    			if ok then
+                    hum = h
+                end
     		end
-    
+
     		if not (hum and hum.Sit) then
     			return
     		end
-    
+
     		local mode = getDriveMode()
-    
+
             if mode ~= lastStreamMode then
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
@@ -641,8 +647,9 @@ do
                 spinRoll = math.random(0, 359)
                 spinTime = 0
             end
-    
+
             if mode == "Oscillate" then
+
                 local dtStep = SPEED * dt
                 streamTravel = streamTravel + dtStep
 
@@ -660,6 +667,7 @@ do
                 )
 
             elseif mode == "360" then
+
                 local dtStep = SPEED * dt
                 streamTravel = streamTravel + dtStep
 
@@ -670,6 +678,7 @@ do
                 spinTime = spinTime + dt
 
                 local s = DRIVE_360_SPEED
+
                 local n1 = math.noise(spinTime * 0.75, spinSeed, 0)
                 local n2 = math.noise(spinTime * 0.75, spinSeed, 25)
                 local n3 = math.noise(spinTime * 0.75, spinSeed, 50)
@@ -682,12 +691,31 @@ do
                 spinYaw = (spinYaw + vy * dt) % 360
                 spinRoll = (spinRoll + vz * dt) % 360
 
-                local baseCF = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+                local baseCF = CFrame.lookAt(
+                    pos,
+                    lookTarget,
+                    Vector3.new(0, 1, 0)
+                )
+
                 hrp.CFrame = baseCF * CFrame.Angles(
                     math.rad(spinPitch),
                     math.rad(spinYaw),
                     math.rad(spinRoll)
                 )
+
+            else
+
+                local newX = hrp.Position.X - SPEED * dt
+                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+                local lookTarget = pos + Vector3.new(-1, 0, 0)
+
+                hrp.CFrame = CFrame.lookAt(
+                    pos,
+                    lookTarget,
+                    Vector3.new(0, 1, 0)
+                )
+
+            end
     	end)
     end
 
