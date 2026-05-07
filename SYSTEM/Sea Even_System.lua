@@ -614,7 +614,6 @@ do
 
     	local conn
     	conn = RunService.Heartbeat:Connect(function(dt)
-            dt = math.min(dt, 1/30)
     		if myToken ~= movementToken or not running or terminated then
     			conn:Disconnect()
     			return
@@ -652,7 +651,6 @@ do
             end
 
             if mode == "Oscillate" then
-                dt = math.min(dt, 1/30)
             
                 local moveX = -SPEED * dt
                 streamTravel = streamTravel + math.abs(moveX)
@@ -693,9 +691,17 @@ do
 
                 local s = DRIVE_360_SPEED
 
-                local n1 = math.noise(spinTime * 0.65, spinSeed, 0)
-                local n2 = math.noise(spinTime * 0.73, spinSeed, 25)
-                local n3 = math.noise(spinTime * 0.81, spinSeed, 50)
+                local drift1 = math.noise(spinTime * 0.05, spinSeed, 100)
+                local drift2 = math.noise(spinTime * 0.05, spinSeed, 200)
+                local drift3 = math.noise(spinTime * 0.05, spinSeed, 300)
+                
+                local freq1 = 0.65 + drift1 * 0.12
+                local freq2 = 0.73 + drift2 * 0.12
+                local freq3 = 0.81 + drift3 * 0.12
+                
+                local n1 = math.noise(spinTime * freq1, spinSeed, 0)
+                local n2 = math.noise(spinTime * freq2, spinSeed, 25)
+                local n3 = math.noise(spinTime * freq3, spinSeed, 50)
 
                 local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
                 local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
