@@ -602,6 +602,8 @@ do
     local spinSeed = math.random(1, 9999)
     local spinTime = 0
     
+    local waveLengthSmooth = getWaveLength()
+    
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
     	local hum
@@ -650,32 +652,33 @@ do
             end
 
             if mode == "Oscillate" then
-
+                dt = math.min(dt, 1/30)
+            
                 local moveX = -SPEED * dt
-                
                 streamTravel = streamTravel + math.abs(moveX)
-                
-                local waveZ = math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-                
+            
+                local targetWaveLength = getWaveLength()
+                waveLengthSmooth = waveLengthSmooth + (targetWaveLength - waveLengthSmooth) * math.clamp(dt * 6, 0, 1)
+            
+                local wavePhase = (streamTravel / waveLengthSmooth) * TAU
+                local waveZ = STREAM_Z + math.sin(wavePhase) * DRIVE_OSC_AMPLITUDE
+            
                 local current = hrp.Position
-                
                 local targetPos = Vector3.new(
                     current.X + moveX,
                     STREAM_Y,
-                    STREAM_Z + waveZ
+                    waveZ
                 )
-                
+            
+                local lookAheadPhase = ((streamTravel + 8) / waveLengthSmooth) * TAU
                 local lookTarget = Vector3.new(
                     targetPos.X - 1,
                     STREAM_Y,
-                    STREAM_Z + math.sin(((streamTravel + 5) / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+                    STREAM_Z + math.sin(lookAheadPhase) * DRIVE_OSC_AMPLITUDE
                 )
-                
-                hrp.CFrame = CFrame.lookAt(
-                    targetPos,
-                    lookTarget,
-                    Vector3.new(0,1,0)
-                )
+            
+                local desiredCF = CFrame.lookAt(targetPos, lookTarget, Vector3.new(0, 1, 0))
+                hrp.CFrame = hrp.CFrame:Lerp(desiredCF, math.clamp(dt * 10, 0, 1))
 
             elseif mode == "360" then
 
