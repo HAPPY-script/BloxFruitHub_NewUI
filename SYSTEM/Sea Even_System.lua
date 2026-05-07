@@ -643,7 +643,9 @@ do
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
                 streamTravel = 0
-
+            
+                waveLengthSmooth = getWaveLength()
+            
                 spinPitch = math.random(0, 359)
                 spinYaw = math.random(0, 359)
                 spinRoll = math.random(0, 359)
@@ -703,13 +705,13 @@ do
                 local n2 = math.noise(spinTime * freq2, spinSeed, 25)
                 local n3 = math.noise(spinTime * freq3, spinSeed, 50)
 
-                local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
-                local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
-                local vz = s * (0.45 + 0.55 * ((n3 + 1) * 0.5))
+                local vx = s * n1
+                local vy = s * n2
+                local vz = s * n3
 
-                spinPitch = (spinPitch + vx * dt) % 360
-                spinYaw = (spinYaw + vy * dt) % 360
-                spinRoll = (spinRoll + vz * dt) % 360
+                spinPitch += vx * dt
+                spinYaw += vy * dt
+                spinRoll += vz * dt
 
                 local baseCF = CFrame.lookAt(
                     pos,
