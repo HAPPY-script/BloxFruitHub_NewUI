@@ -558,6 +558,7 @@ do
 
         local conn
         conn = RunService.Heartbeat:Connect(function(dt)
+            dt = math.min(dt, 1/30)
             if myToken ~= movementToken then
                 conn:Disconnect()
                 return
@@ -611,7 +612,7 @@ do
 
     	local conn
     	conn = RunService.Heartbeat:Connect(function(dt)
-
+            dt = math.min(dt, 1/30)
     		if myToken ~= movementToken or not running or terminated then
     			conn:Disconnect()
     			return
@@ -650,20 +651,30 @@ do
 
             if mode == "Oscillate" then
 
-                local dtStep = SPEED * dt
-                streamTravel = streamTravel + dtStep
-
-                local x = streamAnchorX - streamTravel
-                local z = STREAM_Z + math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-
-                local nextTravel = streamTravel + dtStep
-                local nextX = streamAnchorX - nextTravel
-                local nextZ = STREAM_Z + math.sin((nextTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-
+                local moveX = -SPEED * dt
+                
+                streamTravel = streamTravel + math.abs(moveX)
+                
+                local waveZ = math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+                
+                local current = hrp.Position
+                
+                local targetPos = Vector3.new(
+                    current.X + moveX,
+                    STREAM_Y,
+                    STREAM_Z + waveZ
+                )
+                
+                local lookTarget = Vector3.new(
+                    targetPos.X - 1,
+                    STREAM_Y,
+                    STREAM_Z + math.sin(((streamTravel + 5) / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+                )
+                
                 hrp.CFrame = CFrame.lookAt(
-                    Vector3.new(x, STREAM_Y, z),
-                    Vector3.new(nextX, STREAM_Y, nextZ),
-                    Vector3.new(0, 1, 0)
+                    targetPos,
+                    lookTarget,
+                    Vector3.new(0,1,0)
                 )
 
             elseif mode == "360" then
