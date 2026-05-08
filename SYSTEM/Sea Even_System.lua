@@ -87,11 +87,10 @@ do
 
     _G.DriveMode = _G.DriveMode or "Straight" -- "Straight" / "Oscillate"
 
-    local DRIVE_OSC_AMPLITUDE = 50 -- biên độ sóng
     local TAU = math.pi * 2
 
     local function getWaveLength()
-        return clamp(DRIVE_OSC_AMPLITUDE * 5, 100, 2500)
+        return clamp(DRIVE_OSC_AMPLITUDE * 10, 100, 5000)
     end
 
     local function getDriveMode()
@@ -282,6 +281,35 @@ do
     local OSC_MIN, OSC_MAX = 50, 500
     local SPIN_MIN, SPIN_MAX = 5, 720
 
+    local spinAxis = Vector3.new(1, 0, 0)
+    local spinAngle = 0
+    local spinSpeed = SPIN_MIN
+    local spinDir = 1
+    
+    local function randomUnitVector()
+        local z = math.random() * 2 - 1
+        local t = math.random() * TAU
+        local r = math.sqrt(1 - z * z)
+        return Vector3.new(
+            r * math.cos(t),
+            z,
+            r * math.sin(t)
+        )
+    end
+    
+    local function reseedSpinCycle()
+        spinAxis = randomUnitVector()
+        local minSpeed = math.max(SPIN_MIN, DRIVE_360_SPEED * 0.55)
+        local maxSpeed = math.max(minSpeed, DRIVE_360_SPEED * 1.35)
+        
+        spinSpeed = math.random(
+            math.floor(minSpeed),
+            math.floor(maxSpeed)
+        )
+        spinDir = (math.random(0, 1) == 1) and 1 or -1
+        spinAngle = 0
+    end
+    
     local DRIVE_OSC_AMPLITUDE = OSC_MIN
     local DRIVE_360_SPEED = SPIN_MIN
 
@@ -596,12 +624,6 @@ do
     local streamTravel = 0
     local lastStreamMode = nil
     
-    local spinPitch = 0
-    local spinYaw = 0
-    local spinRoll = 0
-    local spinSeed = math.random(1, 9999)
-    local spinTime = 0
-    
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
     	local hum
@@ -642,11 +664,7 @@ do
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
                 streamTravel = 0
-
-                spinPitch = math.random(0, 359)
-                spinYaw = math.random(0, 359)
-                spinRoll = math.random(0, 359)
-                spinTime = 0
+                reseedSpinCycle()
             end
 
             if mode == "Oscillate" then
@@ -677,42 +695,32 @@ do
                     Vector3.new(0,1,0)
                 )
 
-            elseif mode == "360" then
-
-                local dtStep = SPEED * dt
-                streamTravel = streamTravel + dtStep
-
-                local x = streamAnchorX - streamTravel
-                local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
-                local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
-
-                spinTime = spinTime + dt
-
-                local s = DRIVE_360_SPEED
-
-                local n1 = math.noise(spinTime * 0.65, spinSeed, 0)
-                local n2 = math.noise(spinTime * 0.73, spinSeed, 25)
-                local n3 = math.noise(spinTime * 0.81, spinSeed, 50)
-
-                local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
-                local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
-                local vz = s * (0.45 + 0.55 * ((n3 + 1) * 0.5))
-
-                spinPitch = (spinPitch + vx * dt) % 360
-                spinYaw = (spinYaw + vy * dt) % 360
-                spinRoll = (spinRoll + vz * dt) % 360
-
-                local baseCF = CFrame.lookAt(
-                    pos,
-                    lookTarget,
-                    Vector3.new(0, 1, 0)
-                )
-
-                hrp.CFrame = baseCF * CFrame.Angles(
-                    math.rad(spinPitch),
-                    math.rad(spinYaw),
-                    math.rad(spinRoll)
-                )
+                elseif mode == "360" then
+                
+                    local dtStep = SPEED * dt
+                    streamTravel = streamTravel + dtStep
+                
+                    local x = streamAnchorX - streamTravel
+                    local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
+                    local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
+                
+                    spinAngle = spinAngle + (spinSpeed * dt * spinDir)
+                
+                    if spinAngle >= 360 or spinAngle <= -360 then
+                        spinAngle = spinAngle % 360
+                        reseedSpinCycle()
+                    end
+                
+                    local baseCF = CFrame.lookAt(
+                        pos,
+                        lookTarget,
+                        Vector3.new(0, 1, 0)
+                    )
+                
+                    hrp.CFrame = baseCF * CFrame.fromAxisAngle(
+                        spinAxis,
+                        math.rad(spinAngle)
+                    )
 
             else
 
