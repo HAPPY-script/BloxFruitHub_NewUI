@@ -609,8 +609,6 @@ do
 
     local runSystem
 
-    local streamAnchorX = nil
-    local streamTravel = 0
     local lastStreamMode = nil
 
     local function flyAlongStream(myToken)
@@ -651,8 +649,6 @@ do
 
             if mode ~= lastStreamMode then
                 lastStreamMode = mode
-                streamAnchorX = hrp.Position.X
-                streamTravel = 0
                 if mode == "360" then
                     reseedSpinCycle()
                 end
@@ -684,39 +680,36 @@ do
                 )
 
             elseif mode == "360" then
-                local dtStep = SPEED * dt
-                streamTravel = streamTravel + dtStep
-
-                local x = streamAnchorX - streamTravel
-                local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
-                local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
-
+                local moveX = -SPEED * dt
+                local current = hrp.Position
+            
+                local targetPos = Vector3.new(
+                    current.X + moveX,
+                    STREAM_Y,
+                    current.Z
+                )
+            
+                local lookTarget = Vector3.new(
+                    targetPos.X - 1,
+                    STREAM_Y,
+                    targetPos.Z
+                )
+            
                 spinAngle = spinAngle + (spinSpeed * dt * spinDir)
-
+            
                 if spinAngle >= 360 or spinAngle <= -360 then
                     reseedSpinCycle()
                 end
-
+            
                 local baseCF = CFrame.lookAt(
-                    pos,
+                    targetPos,
                     lookTarget,
                     Vector3.new(0, 1, 0)
                 )
-
+            
                 hrp.CFrame = baseCF * CFrame.fromAxisAngle(
                     spinAxis,
                     math.rad(spinAngle)
-                )
-
-            else
-                local newX = hrp.Position.X - SPEED * dt
-                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
-                local lookTarget = pos + Vector3.new(-1, 0, 0)
-
-                hrp.CFrame = CFrame.lookAt(
-                    pos,
-                    lookTarget,
-                    Vector3.new(0, 1, 0)
                 )
             end
         end)
