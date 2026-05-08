@@ -72,21 +72,22 @@ do
 
     -- ===== Slider range / defaults / colors =====
     local MIN_VAL = 30
-    local MAX_VAL = 200 -- slider visual max only
+    local MAX_VAL = 200
     local DEFAULT_INIT = 200
 
     local COLOR_MIN = Color3.fromRGB(255, 0, 255)
     local COLOR_MAX = Color3.fromRGB(255, 0, 100)
 
-    -- ===== Wind stream params (STREAM_Y driven by slider/text) =====
+    -- ===== Wind stream params =====
     local SPEED = 250
     local STREAM_Y = DEFAULT_INIT
     local STREAM_Z = 635
     local STREAM_ORIGIN_X = -17500
     local ARRIVE_EPS = 1
 
-    _G.DriveMode = _G.DriveMode or "Straight" -- "Straight" / "Oscillate"
+    _G.DriveMode = _G.DriveMode or "Straight"
 
+    local DRIVE_OSC_AMPLITUDE = 50
     local TAU = math.pi * 2
 
     local function getWaveLength()
@@ -108,24 +109,6 @@ do
         return mode
     end
 
-    local function setIntensityText()
-        if not IntensityTextObject then return end
-
-        local mode = getDriveMode()
-        local value
-        if mode == "Oscillate" then
-            value = DRIVE_OSC_AMPLITUDE
-        elseif mode == "360" then
-            value = DRIVE_360_SPEED
-        end
-
-        if value ~= nil then
-            pcall(function()
-                IntensityTextObject.Text = tostring(value)
-            end)
-        end
-    end
-
     local applyDriveModeUI
     _G.SetDriveMode = function(mode)
         mode = tostring(mode or "Straight")
@@ -139,16 +122,6 @@ do
         end
     end
 
-    _G.SetDriveAmplitude = function(v)
-        v = tonumber(v) or DRIVE_OSC_AMPLITUDE
-        DRIVE_OSC_AMPLITUDE = clamp(math.floor(v + 0.5), OSC_MIN, OSC_MAX)
-    end
-
-    _G.SetDrive360Speed = function(v)
-        v = tonumber(v) or DRIVE_360_SPEED
-        DRIVE_360_SPEED = clamp(math.floor(v + 0.5), SPIN_MIN, SPIN_MAX)
-    end
-
     -- ===== Core state for movement =====
     local movementToken = 0
     local running = false
@@ -157,11 +130,11 @@ do
     -- ===== Slider core state =====
     local dragging = false
     local draggingInput = nil
-    local valueAlpha = 0 -- 0..1
+    local valueAlpha = 0
     local tweenInfo = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local textboxEditing = false
 
-    -- ===== Find the real text object for elevation =====
+    -- ===== Find elevation text object =====
     local ElevationTextObject = nil
     do
         local container = ElevationContainer
@@ -209,7 +182,6 @@ do
         end
     end
 
-    -- Slider apply: size/knob/color/tween + call value changed
     local function apply(alpha, smooth, displayValue)
         alpha = clamp(alpha, 0, 1)
         valueAlpha = alpha
@@ -281,37 +253,59 @@ do
     local OSC_MIN, OSC_MAX = 50, 500
     local SPIN_MIN, SPIN_MAX = 5, 720
 
+    local DRIVE_OSC_AMPLITUDE = OSC_MIN
+    local DRIVE_360_SPEED = SPIN_MIN
+
+    _G.SetDriveAmplitude = function(v)
+        v = tonumber(v) or DRIVE_OSC_AMPLITUDE
+        DRIVE_OSC_AMPLITUDE = clamp(math.floor(v + 0.5), OSC_MIN, OSC_MAX)
+        if getDriveMode() == "Oscillate" then
+            task.defer(function()
+                if IntensityTextObject then
+                    pcall(function()
+                        IntensityTextObject.Text = tostring(DRIVE_OSC_AMPLITUDE)
+                    end)
+                end
+            end)
+        end
+    end
+
+    _G.SetDrive360Speed = function(v)
+        v = tonumber(v) or DRIVE_360_SPEED
+        DRIVE_360_SPEED = clamp(math.floor(v + 0.5), SPIN_MIN, SPIN_MAX)
+        if getDriveMode() == "360" then
+            task.defer(function()
+                if IntensityTextObject then
+                    pcall(function()
+                        IntensityTextObject.Text = tostring(DRIVE_360_SPEED)
+                    end)
+                end
+            end)
+        end
+    end
+
     local spinAxis = Vector3.new(1, 0, 0)
     local spinAngle = 0
     local spinSpeed = SPIN_MIN
     local spinDir = 1
-    
+
     local function randomUnitVector()
         local z = math.random() * 2 - 1
         local t = math.random() * TAU
-        local r = math.sqrt(1 - z * z)
+        local r = math.sqrt(math.max(0, 1 - z * z))
         return Vector3.new(
             r * math.cos(t),
             z,
             r * math.sin(t)
         )
     end
-    
+
     local function reseedSpinCycle()
         spinAxis = randomUnitVector()
-        local minSpeed = math.max(SPIN_MIN, DRIVE_360_SPEED * 0.55)
-        local maxSpeed = math.max(minSpeed, DRIVE_360_SPEED * 1.35)
-        
-        spinSpeed = math.random(
-            math.floor(minSpeed),
-            math.floor(maxSpeed)
-        )
+        spinSpeed = clamp(DRIVE_360_SPEED * (math.random(80, 120) / 100), SPIN_MIN, SPIN_MAX)
         spinDir = (math.random(0, 1) == 1) and 1 or -1
         spinAngle = 0
     end
-    
-    local DRIVE_OSC_AMPLITUDE = OSC_MIN
-    local DRIVE_360_SPEED = SPIN_MIN
 
     local function setIntensityText()
         if not IntensityTextObject then return end
@@ -377,12 +371,6 @@ do
 
         if IntensityBox then
             IntensityBox.Visible = (mode ~= "Straight")
-        end
-
-        if mode == "Oscillate" then
-            DRIVE_OSC_AMPLITUDE = OSC_MIN
-        elseif mode == "360" then
-            DRIVE_360_SPEED = SPIN_MIN
         end
 
         if animate and ModeButtonText then
@@ -514,6 +502,7 @@ do
             elseif mode == "360" then
                 if n then
                     DRIVE_360_SPEED = clamp(n, SPIN_MIN, SPIN_MAX)
+                    reseedSpinCycle()
                 end
             end
 
@@ -618,112 +607,108 @@ do
         return Vector3.new(x, STREAM_Y, STREAM_Z)
     end
 
-    local runSystem -- forward declare
+    local runSystem
 
     local streamAnchorX = nil
     local streamTravel = 0
     local lastStreamMode = nil
-    
+
     local function flyAlongStream(myToken)
-    	local hrp = getHRP()
-    	local hum
+        local hrp = getHRP()
+        local hum
 
-    	pcall(function()
-    		hum = getHumanoid()
-    	end)
+        pcall(function()
+            hum = getHumanoid()
+        end)
 
-    	local conn
-    	conn = RunService.Heartbeat:Connect(function(dt)
+        local conn
+        conn = RunService.Heartbeat:Connect(function(dt)
             dt = math.min(dt, 1/30)
-    		if myToken ~= movementToken or not running or terminated then
-    			conn:Disconnect()
-    			return
-    		end
+            if myToken ~= movementToken or not running or terminated then
+                conn:Disconnect()
+                return
+            end
 
-    		if not hrp or not hrp.Parent then
-    			local ok, hrp2 = pcall(getHRP)
-    			if ok then
+            if not hrp or not hrp.Parent then
+                local ok, hrp2 = pcall(getHRP)
+                if ok then
                     hrp = hrp2
                 end
-    		end
+            end
 
-    		if not hum or not hum.Parent then
-    			local ok, h = pcall(getHumanoid)
-    			if ok then
+            if not hum or not hum.Parent then
+                local ok, h = pcall(getHumanoid)
+                if ok then
                     hum = h
                 end
-    		end
+            end
 
-    		if not (hum and hum.Sit) then
-    			return
-    		end
+            if not (hum and hum.Sit) then
+                return
+            end
 
-    		local mode = getDriveMode()
+            local mode = getDriveMode()
 
             if mode ~= lastStreamMode then
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
                 streamTravel = 0
-                reseedSpinCycle()
+                if mode == "360" then
+                    reseedSpinCycle()
+                end
             end
 
             if mode == "Oscillate" then
-
                 local moveX = -SPEED * dt
-                
                 streamTravel = streamTravel + math.abs(moveX)
-                
+
                 local waveZ = math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
-                
                 local current = hrp.Position
-                
+
                 local targetPos = Vector3.new(
                     current.X + moveX,
                     STREAM_Y,
                     STREAM_Z + waveZ
                 )
-                
+
                 local lookTarget = Vector3.new(
                     targetPos.X - 1,
                     STREAM_Y,
                     STREAM_Z + math.sin(((streamTravel + 5) / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
                 )
-                
+
                 hrp.CFrame = CFrame.lookAt(
                     targetPos,
                     lookTarget,
-                    Vector3.new(0,1,0)
+                    Vector3.new(0, 1, 0)
                 )
 
-                elseif mode == "360" then
-                
-                    local dtStep = SPEED * dt
-                    streamTravel = streamTravel + dtStep
-                
-                    local x = streamAnchorX - streamTravel
-                    local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
-                    local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
-                
-                    spinAngle = spinAngle + (spinSpeed * dt * spinDir)
-                
-                    if spinAngle >= 360 or spinAngle <= -360 then
-                        spinAngle = spinAngle % 360
-                        reseedSpinCycle()
-                    end
-                
-                    local baseCF = CFrame.lookAt(
-                        pos,
-                        lookTarget,
-                        Vector3.new(0, 1, 0)
-                    )
-                
-                    hrp.CFrame = baseCF * CFrame.fromAxisAngle(
-                        spinAxis,
-                        math.rad(spinAngle)
-                    )
+            elseif mode == "360" then
+                local dtStep = SPEED * dt
+                streamTravel = streamTravel + dtStep
+
+                local x = streamAnchorX - streamTravel
+                local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
+                local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
+
+                spinAngle = spinAngle + (spinSpeed * dt * spinDir)
+
+                if spinAngle >= 360 or spinAngle <= -360 then
+                    reseedSpinCycle()
+                end
+
+                local baseCF = CFrame.lookAt(
+                    pos,
+                    lookTarget,
+                    Vector3.new(0, 1, 0)
+                )
+
+                hrp.CFrame = baseCF * CFrame.fromAxisAngle(
+                    spinAxis,
+                    math.rad(spinAngle)
+                )
 
             else
-
                 local newX = hrp.Position.X - SPEED * dt
                 local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
                 local lookTarget = pos + Vector3.new(-1, 0, 0)
@@ -733,9 +718,8 @@ do
                     lookTarget,
                     Vector3.new(0, 1, 0)
                 )
-
             end
-    	end)
+        end)
     end
 
     -- ============== Auto-boat helpers ==============
@@ -800,7 +784,9 @@ do
                     local boat = findNearestBoat()
                     if boat then
                         local seat = findVehicleSeat(boat)
-                        if seat then tryEnterSeat(seat) end
+                        if seat then
+                            tryEnterSeat(seat)
+                        end
                     end
                 end
                 task.wait(0.4)
@@ -814,7 +800,6 @@ do
 
         autoBoatLoop()
 
-        -- wait until sitting
         while running and not terminated do
             if isSitting() then break end
             task.wait(0.2)
@@ -831,14 +816,13 @@ do
         flyAlongStream(myToken)
     end
 
-    -- ================= ToggleUI integration (use existing AutoBoatDriveButton) =================
+    -- ================= ToggleUI integration =================
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     pcall(function()
         if ToggleUI.Refresh then ToggleUI.Refresh() end
     end)
 
-    -- find button inside Sea Even
     local toggleButton = SEA_FRAME:FindFirstChild(TOGGLE_BUTTON_NAME, true)
     if not toggleButton then
         warn("AutoBoatDriveButton not found in 'Sea Even' frame")
@@ -870,7 +854,6 @@ do
             end
         end
 
-        -- ====== allowed PlaceID check & warning tween setup ======
         local ALLOWED_PLACE_IDS = {
             [7449423635] = true,
             [100117331123089] = true,
@@ -899,7 +882,6 @@ do
             end
             task.wait(duration)
         end
-        -- ====== END NEW ======
 
         if toggleButton.Activated then
             toggleButton.Activated:Connect(function()
@@ -987,13 +969,11 @@ do
         AutoDriveBoatModeButton.MouseButton1Click:Connect(toggleDriveMode)
     end
 
-    -- expose stop function
     _G.WindStreamStop = function()
         running = false
         stopMovement()
     end
 
-    -- expose a helper to set STREAM_Y programmatically (actual value, no upper limit)
     _G.SetWindStreamY = function(num)
         num = tonumber(num) or DEFAULT_INIT
         num = math.floor(num + 0.5)
