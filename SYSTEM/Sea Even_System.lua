@@ -91,7 +91,7 @@ do
     local TAU = math.pi * 2
 
     local function getWaveLength()
-        return clamp(DRIVE_OSC_AMPLITUDE * 3, 100, 1500)
+        return clamp(DRIVE_OSC_AMPLITUDE * 5, 100, 2500)
     end
 
     local function getDriveMode()
@@ -279,8 +279,8 @@ do
     local TITLE_OSC_SIZE = UDim2.new(0.465, 0, 0.03, 0)
     local TITLE_OSC_POS = UDim2.new(0.265, 0, 0.13, 0)
 
-    local OSC_MIN, OSC_MAX = 50, 300
-    local SPIN_MIN, SPIN_MAX = 30, 720
+    local OSC_MIN, OSC_MAX = 50, 500
+    local SPIN_MIN, SPIN_MAX = 5, 720
 
     local DRIVE_OSC_AMPLITUDE = OSC_MIN
     local DRIVE_360_SPEED = SPIN_MIN
@@ -601,13 +601,6 @@ do
     local spinRoll = 0
     local spinSeed = math.random(1, 9999)
     local spinTime = 0
-
-    local spinHoldTimer = 0
-    local spinHoldDuration = 0
-    local spinFreq1, spinFreq2, spinFreq3 = 0.65, 0.73, 0.81
-    local spinVelX, spinVelY, spinVelZ = 0, 0, 0
-    
-    local waveLengthSmooth = getWaveLength()
     
     local function flyAlongStream(myToken)
     	local hrp = getHRP()
@@ -619,6 +612,7 @@ do
 
     	local conn
     	conn = RunService.Heartbeat:Connect(function(dt)
+            dt = math.min(dt, 1/30)
     		if myToken ~= movementToken or not running or terminated then
     			conn:Disconnect()
     			return
@@ -648,93 +642,88 @@ do
                 lastStreamMode = mode
                 streamAnchorX = hrp.Position.X
                 streamTravel = 0
-            
-                waveLengthSmooth = getWaveLength()
-            
+
                 spinPitch = math.random(0, 359)
                 spinYaw = math.random(0, 359)
                 spinRoll = math.random(0, 359)
                 spinTime = 0
-                    
-                spinHoldTimer = 0
-                spinHoldDuration = 0
-                spinFreq1, spinFreq2, spinFreq3 = 0.65, 0.73, 0.81
-                spinVelX, spinVelY, spinVelZ = 0, 0, 0
             end
 
             if mode == "Oscillate" then
-            
+
                 local moveX = -SPEED * dt
+                
                 streamTravel = streamTravel + math.abs(moveX)
-            
-                local targetWaveLength = getWaveLength()
-                waveLengthSmooth = waveLengthSmooth + (targetWaveLength - waveLengthSmooth) * math.clamp(dt * 6, 0, 1)
-            
-                local wavePhase = (streamTravel / waveLengthSmooth) * TAU
-                local waveZ = STREAM_Z + math.sin(wavePhase) * DRIVE_OSC_AMPLITUDE
-            
+                
+                local waveZ = math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
+                
                 local current = hrp.Position
+                
                 local targetPos = Vector3.new(
                     current.X + moveX,
                     STREAM_Y,
-                    waveZ
+                    STREAM_Z + waveZ
                 )
-            
-                local lookAheadPhase = ((streamTravel + 8) / waveLengthSmooth) * TAU
+                
                 local lookTarget = Vector3.new(
                     targetPos.X - 1,
                     STREAM_Y,
-                    STREAM_Z + math.sin(lookAheadPhase) * DRIVE_OSC_AMPLITUDE
+                    STREAM_Z + math.sin(((streamTravel + 5) / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
                 )
-            
-                local desiredCF = CFrame.lookAt(targetPos, lookTarget, Vector3.new(0, 1, 0))
-                hrp.CFrame = hrp.CFrame:Lerp(desiredCF, math.clamp(dt * 10, 0, 1))
+                
+                hrp.CFrame = CFrame.lookAt(
+                    targetPos,
+                    lookTarget,
+                    Vector3.new(0,1,0)
+                )
 
             elseif mode == "360" then
+
                 local dtStep = SPEED * dt
                 streamTravel = streamTravel + dtStep
-            
+
                 local x = streamAnchorX - streamTravel
                 local pos = Vector3.new(x, STREAM_Y, STREAM_Z)
                 local lookTarget = Vector3.new(x - 1, STREAM_Y, STREAM_Z)
-            
+
                 spinTime = spinTime + dt
-                spinHoldTimer = spinHoldTimer + dt
-            
-                if spinHoldTimer >= spinHoldDuration then
-                    spinHoldTimer = 0
-                    spinHoldDuration = 1.2 + math.noise(spinTime * 0.12, spinSeed, 900) * 0.9
-                    if spinHoldDuration < 0.6 then
-                        spinHoldDuration = 0.6
-                    end
-            
-                    local d1 = math.noise(spinTime * 0.05, spinSeed, 100)
-                    local d2 = math.noise(spinTime * 0.05, spinSeed, 200)
-                    local d3 = math.noise(spinTime * 0.05, spinSeed, 300)
-            
-                    spinFreq1 = 0.65 + d1 * 0.12
-                    spinFreq2 = 0.73 + d2 * 0.12
-                    spinFreq3 = 0.81 + d3 * 0.12
-            
-                    spinVelX = DRIVE_360_SPEED * math.noise(spinTime * spinFreq1, spinSeed, 0)
-                    spinVelY = DRIVE_360_SPEED * math.noise(spinTime * spinFreq2, spinSeed, 25)
-                    spinVelZ = DRIVE_360_SPEED * math.noise(spinTime * spinFreq3, spinSeed, 50)
-                end
-            
-                local blend = math.clamp(dt * 3, 0, 1)
-                local targetPitch = spinPitch + spinVelX * dt
-                local targetYaw = spinYaw + spinVelY * dt
-                local targetRoll = spinRoll + spinVelZ * dt
-            
-                spinPitch = spinPitch + (targetPitch - spinPitch) * blend
-                spinYaw = spinYaw + (targetYaw - spinYaw) * blend
-                spinRoll = spinRoll + (targetRoll - spinRoll) * blend
-            
-                local baseCF = CFrame.lookAt(pos, lookTarget, Vector3.new(0, 1, 0))
+
+                local s = DRIVE_360_SPEED
+
+                local n1 = math.noise(spinTime * 0.65, spinSeed, 0)
+                local n2 = math.noise(spinTime * 0.73, spinSeed, 25)
+                local n3 = math.noise(spinTime * 0.81, spinSeed, 50)
+
+                local vx = s * (0.45 + 0.55 * ((n1 + 1) * 0.5))
+                local vy = s * (0.45 + 0.55 * ((n2 + 1) * 0.5))
+                local vz = s * (0.45 + 0.55 * ((n3 + 1) * 0.5))
+
+                spinPitch = (spinPitch + vx * dt) % 360
+                spinYaw = (spinYaw + vy * dt) % 360
+                spinRoll = (spinRoll + vz * dt) % 360
+
+                local baseCF = CFrame.lookAt(
+                    pos,
+                    lookTarget,
+                    Vector3.new(0, 1, 0)
+                )
+
                 hrp.CFrame = baseCF * CFrame.Angles(
                     math.rad(spinPitch),
                     math.rad(spinYaw),
                     math.rad(spinRoll)
+                )
+
+            else
+
+                local newX = hrp.Position.X - SPEED * dt
+                local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
+                local lookTarget = pos + Vector3.new(-1, 0, 0)
+
+                hrp.CFrame = CFrame.lookAt(
+                    pos,
+                    lookTarget,
+                    Vector3.new(0, 1, 0)
                 )
 
             end
