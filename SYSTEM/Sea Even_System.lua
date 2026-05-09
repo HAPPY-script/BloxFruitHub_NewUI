@@ -1026,6 +1026,8 @@ end
 
 --[[ API wave mode
 _G.DriveMode = "Straight"
--- hoặc
 _G.DriveMode = "Oscillate"
+
+_G.StopSEven()
+_G.PauseSEven = true/false
 ]]
