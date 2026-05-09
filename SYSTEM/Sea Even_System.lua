@@ -22,6 +22,15 @@ do
     local AutoDriveBoatModeButton = SEA_FRAME:WaitForChild("AutoDriveBoatModeButton")
     -- ==================================================================
 
+    local movementToken = 0
+    local running = false
+    local terminated = false
+
+    _G.PauseSEven = _G.PauseSEven == true
+
+    local function isPaused()
+        return _G.PauseSEven == true
+    end
     -- ===== Utility =====
     local function clamp(v, a, b)
         if math.clamp then
@@ -624,7 +633,7 @@ do
         local conn
         conn = RunService.Heartbeat:Connect(function(dt)
             dt = math.min(dt, 1/30)
-            if myToken ~= movementToken or not running or terminated then
+            if myToken ~= movementToken or not running or terminated or isPaused() then
                 conn:Disconnect()
                 return
             end
@@ -767,7 +776,7 @@ do
             end
         end
 
-        while running and not terminated do
+        while running and not terminated and not isPaused() do
             hum = getHumanoid()
             if hum and hum.Sit then break end
             if not seat or not seat.Parent then break end
@@ -781,7 +790,7 @@ do
 
     local function autoBoatLoop()
         task.spawn(function()
-            while running and not terminated do
+            while running and not terminated and not isPaused() do
                 if not isSitting() then
                     local boat = findNearestBoat()
                     if boat then
@@ -802,12 +811,12 @@ do
 
         autoBoatLoop()
 
-        while running and not terminated do
+        while running and not terminated and not isPaused() do
             if isSitting() then break end
             task.wait(0.2)
         end
 
-        if not running or terminated or myToken ~= movementToken then return end
+        if not running or terminated or isPaused() or myToken ~= movementToken then return end
 
         local hrp = getHRP()
         local entry = nearestPoint(hrp.Position)
@@ -841,7 +850,7 @@ do
         pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, false) end)
 
         local function startRunning()
-            if terminated then return end
+            if terminated or isPaused() then return end
             if not running then
                 running = true
                 movementToken = movementToken + 1
@@ -856,6 +865,17 @@ do
             end
         end
 
+        _G.StopSEven = function()
+            _G.PauseSEven = false
+            if ToggleUI and ToggleUI.Set then
+                pcall(function()
+                    ToggleUI.Set(TOGGLE_BUTTON_NAME, false)
+                end)
+            end
+            running = false
+            stopMovement()
+        end
+        
         local ALLOWED_PLACE_IDS = {
             [7449423635] = true,
             [100117331123089] = true,
@@ -929,6 +949,22 @@ do
             end)
         end
 
+        task.spawn(function()
+            while not terminated do
+                if isPaused() then
+                    if running then
+                        running = false
+                        stopMovement()
+                    end
+                else
+                    if isButtonOn(toggleButton) and not running then
+                        startRunning()
+                    end
+                end
+                task.wait(0.15)
+            end
+        end)
+        
         toggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
             task.delay(0.05, function()
                 local on = isButtonOn(toggleButton)
