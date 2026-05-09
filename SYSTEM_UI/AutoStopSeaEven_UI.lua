@@ -1,10 +1,3 @@
-local AutoStopSEvenGui = Instance.new("ScreenGui")
-AutoStopSEvenGui.Name = "AutoStopSEvenGui"
-AutoStopSEvenGui.ResetOnSpawn = false
-AutoStopSEvenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-AutoStopSEvenGui.DisplayOrder = 10
-AutoStopSEvenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -15,7 +8,7 @@ Main.BorderColor3 = Color3.new(0, 0, 0)
 Main.Visible = false
 Main.ZIndex = 50
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.Parent = AutoStopSEvenGui
+Main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local TitleFrame = Instance.new("Frame")
 TitleFrame.Name = "TitleFrame"
@@ -291,13 +284,6 @@ SelectEvenFrame.ScrollBarThickness = 7
 SelectEvenFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 SelectEvenFrame.Parent = Main
 
-local UIStroke8 = Instance.new("UIStroke")
-UIStroke8.Name = "UIStroke"
-UIStroke8.Color = Color3.new(1, 1, 1)
-UIStroke8.Thickness = 2
-UIStroke8.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke8.Parent = SelectEvenFrame
-
 local Leviathan = Instance.new("ImageButton")
 Leviathan.Name = "Leviathan"
 Leviathan.Position = UDim2.new(0, 10, 0, 10)
@@ -313,12 +299,12 @@ UIAspectRatioConstraint5.Name = "UIAspectRatioConstraint"
 
 UIAspectRatioConstraint5.Parent = Leviathan
 
-local UIStroke9 = Instance.new("UIStroke")
-UIStroke9.Name = "UIStroke"
-UIStroke9.Color = Color3.new(0.176471, 0.419608, 0.898039)
-UIStroke9.Thickness = 2
-UIStroke9.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke9.Parent = Leviathan
+local UIStroke8 = Instance.new("UIStroke")
+UIStroke8.Name = "UIStroke"
+UIStroke8.Color = Color3.new(0.176471, 0.419608, 0.898039)
+UIStroke8.Thickness = 2
+UIStroke8.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke8.Parent = Leviathan
 
 local PickButton = Instance.new("ImageButton")
 PickButton.Name = "PickButton"
@@ -340,12 +326,12 @@ UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
 
 UIAspectRatioConstraint6.Parent = PickButton
 
-local UIStroke10 = Instance.new("UIStroke")
-UIStroke10.Name = "UIStroke"
-UIStroke10.Color = Color3.new(0.176471, 0.419608, 0.898039)
-UIStroke10.Thickness = 2
-UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke10.Parent = PickButton
+local UIStroke9 = Instance.new("UIStroke")
+UIStroke9.Name = "UIStroke"
+UIStroke9.Color = Color3.new(0.176471, 0.419608, 0.898039)
+UIStroke9.Thickness = 2
+UIStroke9.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke9.Parent = PickButton
 
 local Name = Instance.new("TextLabel")
 Name.Name = "Name"
@@ -394,12 +380,12 @@ UIAspectRatioConstraint7.Name = "UIAspectRatioConstraint"
 
 UIAspectRatioConstraint7.Parent = Prehistoric
 
-local UIStroke11 = Instance.new("UIStroke")
-UIStroke11.Name = "UIStroke"
-UIStroke11.Color = Color3.new(0.941176, 0.32549, 0.0862745)
-UIStroke11.Thickness = 2
-UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke11.Parent = Prehistoric
+local UIStroke10 = Instance.new("UIStroke")
+UIStroke10.Name = "UIStroke"
+UIStroke10.Color = Color3.new(0.941176, 0.32549, 0.0862745)
+UIStroke10.Thickness = 2
+UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke10.Parent = Prehistoric
 
 local PickButton2 = Instance.new("ImageButton")
 PickButton2.Name = "PickButton"
@@ -421,12 +407,12 @@ UIAspectRatioConstraint8.Name = "UIAspectRatioConstraint"
 
 UIAspectRatioConstraint8.Parent = PickButton2
 
-local UIStroke12 = Instance.new("UIStroke")
-UIStroke12.Name = "UIStroke"
-UIStroke12.Color = Color3.new(0.941176, 0.32549, 0.0862745)
-UIStroke12.Thickness = 2
-UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-UIStroke12.Parent = PickButton2
+local UIStroke11 = Instance.new("UIStroke")
+UIStroke11.Name = "UIStroke"
+UIStroke11.Color = Color3.new(0.941176, 0.32549, 0.0862745)
+UIStroke11.Thickness = 2
+UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke11.Parent = PickButton2
 
 local Name2 = Instance.new("TextLabel")
 Name2.Name = "Name"
