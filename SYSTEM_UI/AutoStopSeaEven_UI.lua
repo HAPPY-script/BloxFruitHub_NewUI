@@ -1,3 +1,10 @@
+local AutoStopSEvenGui = Instance.new("ScreenGui")
+AutoStopSEvenGui.Name = "AutoStopSEvenGui"
+AutoStopSEvenGui.ResetOnSpawn = false
+AutoStopSEvenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+AutoStopSEvenGui.DisplayOrder = 10
+AutoStopSEvenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -8,7 +15,7 @@ Main.BorderColor3 = Color3.new(0, 0, 0)
 Main.Visible = false
 Main.ZIndex = 50
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Main.Parent = AutoStopSEvenGui
 
 local TitleFrame = Instance.new("Frame")
 TitleFrame.Name = "TitleFrame"
