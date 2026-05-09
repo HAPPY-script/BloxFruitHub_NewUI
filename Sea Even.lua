@@ -318,6 +318,128 @@ UIStroke7.Thickness = 2
 UIStroke7.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke7.Parent = IntensityBox
 
+local AutoStopSEvenButton = Instance.new("TextButton")
+AutoStopSEvenButton.Name = "AutoStopSEvenButton"
+AutoStopSEvenButton.Position = UDim2.new(0.85, 0, 0.18, 0)
+AutoStopSEvenButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+AutoStopSEvenButton.BackgroundColor3 = Color3.new(1, 0, 0)
+AutoStopSEvenButton.BackgroundTransparency = 0.75
+AutoStopSEvenButton.BorderSizePixel = 0
+AutoStopSEvenButton.BorderColor3 = Color3.new(0, 0, 0)
+AutoStopSEvenButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoStopSEvenButton.Transparency = 0.75
+AutoStopSEvenButton.Text = ""
+AutoStopSEvenButton.TextColor3 = Color3.new(0, 0, 0)
+AutoStopSEvenButton.TextSize = 14
+AutoStopSEvenButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoStopSEvenButton.Parent = Sea_Even
+
+local UICorner5 = Instance.new("UICorner")
+UICorner5.Name = "UICorner"
+UICorner5.CornerRadius = UDim.new(1, 0)
+UICorner5.Parent = AutoStopSEvenButton
+
+local UIStroke8 = Instance.new("UIStroke")
+UIStroke8.Name = "UIStroke"
+UIStroke8.Color = Color3.new(1, 0, 0)
+UIStroke8.Thickness = 2
+UIStroke8.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke8.Parent = AutoStopSEvenButton
+
+local Dot2 = Instance.new("Frame")
+Dot2.Name = "Dot"
+Dot2.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot2.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot2.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot2.BackgroundTransparency = 1
+Dot2.BorderSizePixel = 0
+Dot2.BorderColor3 = Color3.new(0, 0, 0)
+Dot2.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot2.Transparency = 1
+Dot2.Parent = AutoStopSEvenButton
+
+local UIAspectRatioConstraint3 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint3.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint3.Parent = Dot2
+
+local UICorner6 = Instance.new("UICorner")
+UICorner6.Name = "UICorner"
+UICorner6.CornerRadius = UDim.new(1, 0)
+UICorner6.Parent = Dot2
+
+local OnIcon2 = Instance.new("ImageLabel")
+OnIcon2.Name = "OnIcon"
+OnIcon2.Size = UDim2.new(1, 0, 1, 0)
+OnIcon2.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon2.BackgroundTransparency = 1
+OnIcon2.BorderSizePixel = 0
+OnIcon2.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon2.Transparency = 1
+OnIcon2.Image = "rbxassetid://133446041443660"
+OnIcon2.ImageTransparency = 1
+OnIcon2.Parent = Dot2
+
+local OffIcon2 = Instance.new("ImageLabel")
+OffIcon2.Name = "OffIcon"
+OffIcon2.Size = UDim2.new(1, 0, 1, 0)
+OffIcon2.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon2.BackgroundTransparency = 1
+OffIcon2.BorderSizePixel = 0
+OffIcon2.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon2.Transparency = 1
+OffIcon2.Image = "rbxassetid://109833067427302"
+OffIcon2.Parent = Dot2
+
+local AutoStopSEvenSettingButton = Instance.new("TextButton")
+AutoStopSEvenSettingButton.Name = "AutoStopSEvenSettingButton"
+AutoStopSEvenSettingButton.Position = UDim2.new(0.625, 0, 0.18, 0)
+AutoStopSEvenSettingButton.Size = UDim2.new(0.2, 0, 0.03, 0)
+AutoStopSEvenSettingButton.BackgroundColor3 = Color3.new(1, 1, 0)
+AutoStopSEvenSettingButton.BackgroundTransparency = 0.75
+AutoStopSEvenSettingButton.BorderSizePixel = 0
+AutoStopSEvenSettingButton.BorderColor3 = Color3.new(0, 0, 0)
+AutoStopSEvenSettingButton.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoStopSEvenSettingButton.Transparency = 0.75
+AutoStopSEvenSettingButton.Text = "Setting"
+AutoStopSEvenSettingButton.TextColor3 = Color3.new(1, 1, 1)
+AutoStopSEvenSettingButton.TextSize = 14
+AutoStopSEvenSettingButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoStopSEvenSettingButton.TextScaled = true
+AutoStopSEvenSettingButton.TextWrapped = true
+AutoStopSEvenSettingButton.Parent = Sea_Even
+
+local UIStroke9 = Instance.new("UIStroke")
+UIStroke9.Name = "UIStroke"
+UIStroke9.Color = Color3.new(1, 1, 0)
+UIStroke9.Thickness = 2
+UIStroke9.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke9.Parent = AutoStopSEvenSettingButton
+
+local AutoStopSEvenTitle = Instance.new("TextLabel")
+AutoStopSEvenTitle.Name = "AutoStopSEvenTitle"
+AutoStopSEvenTitle.Position = UDim2.new(0.265, 0, 0.18, 0)
+AutoStopSEvenTitle.Size = UDim2.new(0.465, 0, 0.03, 0)
+AutoStopSEvenTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+AutoStopSEvenTitle.BorderSizePixel = 0
+AutoStopSEvenTitle.BorderColor3 = Color3.new(0, 0, 0)
+AutoStopSEvenTitle.ZIndex = 2
+AutoStopSEvenTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+AutoStopSEvenTitle.Text = "Auto stop sea even"
+AutoStopSEvenTitle.TextColor3 = Color3.new(1, 1, 1)
+AutoStopSEvenTitle.TextSize = 14
+AutoStopSEvenTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+AutoStopSEvenTitle.TextScaled = true
+AutoStopSEvenTitle.TextWrapped = true
+AutoStopSEvenTitle.Parent = Sea_Even
+
+local UIStroke10 = Instance.new("UIStroke")
+UIStroke10.Name = "UIStroke"
+UIStroke10.Color = Color3.new(1, 1, 1)
+UIStroke10.Thickness = 2
+UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke10.Parent = AutoStopSEvenTitle
+
 local Frame = Sea_Even
 if not Frame then return end
 task.spawn(function()
