@@ -16,6 +16,13 @@ local selectFrame = main:WaitForChild("SelectEvenFrame")
 local titleFrame = main:WaitForChild("TitleFrame")
 local closeBtn = titleFrame:WaitForChild("Close")
 
+local isMobile = game:GetService("UserInputService").TouchEnabled
+	and not game:GetService("UserInputService").KeyboardEnabled
+
+main.Size = isMobile
+	and UDim2.new(0.5, 0, 0.5, 0)
+	or UDim2.new(0, 500, 0, 500)
+
 local OPEN_POS = UDim2.new(0.5, 0, 0.5, 0)
 local CLOSE_POS = UDim2.new(0.5, 0, 1.5, 0)
 
