@@ -1,8 +1,6 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_UI.lua"))()
-print("Done UI")
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_Effect.lua"))()
-print("Done System")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
