@@ -21,7 +21,7 @@ local isMobile = game:GetService("UserInputService").TouchEnabled
 
 main.Size = isMobile
 	and UDim2.new(0.5, 0, 0.5, 0)
-	or UDim2.new(0, 400, 0, 400)
+	or UDim2.new(0, 450, 0, 450)
 
 local OPEN_POS = UDim2.new(0.5, 0, 0.5, 0)
 local CLOSE_POS = UDim2.new(0.5, 0, 1.5, 0)
