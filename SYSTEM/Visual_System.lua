@@ -552,204 +552,319 @@ do
     local TweenService = game:GetService("TweenService")
     local Lighting = game:GetService("Lighting")
     local Workspace = game:GetService("Workspace")
-    
+
     local player = Players.LocalPlayer
-    
+    local Terrain = Workspace:FindFirstChildOfClass("Terrain")
+
     -- === cấu hình tween màu ===
     local FROM_BG = Color3.fromRGB(175, 0, 30)
-    local TO_BG   = Color3.fromRGB(175, 100, 175)
-    
+    local TO_BG = Color3.fromRGB(175, 100, 175)
+
     local FROM_STROKE = Color3.fromRGB(255, 255, 255)
-    local TO_STROKE   = Color3.fromRGB(100, 255, 150)
-    
+    local TO_STROKE = Color3.fromRGB(100, 255, 150)
+
     local TWEEN_TIME = 0.28
-    
-    -- === cờ tránh chạy lại ===
+
+    -- === cờ / trạng thái ===
     local ranOnce = false
-    
+    local listenersBound = false
+
     -- === tìm Frame / Button ===
     local ok, VisualFrame = pcall(function()
-    	return player.PlayerGui
-    		:WaitForChild("BloxFruitHubGui")
-    		:WaitForChild("Main")
-    		:WaitForChild("ScrollingTab")
-    		:WaitForChild("Visual")
+        return player.PlayerGui
+            :WaitForChild("BloxFruitHubGui")
+            :WaitForChild("Main")
+            :WaitForChild("ScrollingTab")
+            :WaitForChild("Visual")
     end)
+
     if not ok or not VisualFrame then
-    	warn("AntiLag: không tìm thấy Visual frame trong PlayerGui")
-    	return
+        warn("AntiLag: không tìm thấy Visual frame trong PlayerGui")
+        return
     end
-    
+
     local button = VisualFrame:WaitForChild("AntiLagButton", 5)
     if not button then
-    	warn("AntiLag: không tìm thấy AntiLagButton")
-    	return
+        warn("AntiLag: không tìm thấy AntiLagButton")
+        return
     end
-    
-    -- helper: tìm UIStroke trong button (first descendant)
+
+    if not button:IsA("GuiButton") then
+        warn("AntiLag: AntiLagButton không phải GuiButton")
+        return
+    end
+
+    -- helper: tìm UIStroke trong button
     local function findStroke(inst)
-    	for _, c in ipairs(inst:GetDescendants()) do
-    		if c:IsA("UIStroke") then
-    			return c
-    		end
-    	end
-    	return nil
+        for _, c in ipairs(inst:GetDescendants()) do
+            if c:IsA("UIStroke") then
+                return c
+            end
+        end
+        return nil
     end
-    
+
     local stroke = findStroke(button)
-    
-    -- helper: tạo tween an toàn
+
+    -- helper: tween an toàn
     local function playTween(instance, props, time)
-    	local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    	local ok, tw = pcall(function() return TweenService:Create(instance, info, props) end)
-    	if ok and tw then
-    		tw:Play()
-    		return tw
-    	end
-    	return nil
+        local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local ok2, tw = pcall(function()
+            return TweenService:Create(instance, info, props)
+        end)
+        if ok2 and tw then
+            tw:Play()
+            return tw
+        end
+        return nil
     end
-    
-    -- === Anti-lag routine (ONE TIME) ===
+
+    local function applyLightingTweaks()
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+            Lighting.Brightness = 1
+            Lighting.EnvironmentDiffuseScale = 0
+            Lighting.EnvironmentSpecularScale = 0
+            Lighting.ClockTime = 14
+        end)
+
+        for _, v in ipairs(Lighting:GetDescendants()) do
+            pcall(function()
+                if v:IsA("PostEffect") then
+                    v.Enabled = false
+                elseif v:IsA("Atmosphere") then
+                    v.Density = 0
+                    v.Haze = 0
+                    v.Glare = 0
+                end
+            end)
+        end
+
+        Lighting.DescendantAdded:Connect(function(v)
+            task.defer(function()
+                pcall(function()
+                    if v:IsA("PostEffect") then
+                        v.Enabled = false
+                    elseif v:IsA("Atmosphere") then
+                        v.Density = 0
+                        v.Haze = 0
+                        v.Glare = 0
+                    end
+                end)
+            end)
+        end)
+    end
+
+    local function applyTerrainTweaks()
+        if not Terrain then
+            return
+        end
+
+        pcall(function()
+            Terrain.WaterWaveSize = 0
+            Terrain.WaterWaveSpeed = 0
+            Terrain.WaterReflectance = 0
+            Terrain.WaterTransparency = 1
+        end)
+    end
+
+    local function isVfxName(name)
+        name = string.lower(name or "")
+        return name:find("vfx", 1, true)
+            or name:find("effect", 1, true)
+            or name:find("effects", 1, true)
+            or name:find("particle", 1, true)
+            or name:find("particles", 1, true)
+            or name:find("trail", 1, true)
+            or name:find("beam", 1, true)
+            or name:find("smoke", 1, true)
+            or name:find("fire", 1, true)
+            or name:find("explosion", 1, true)
+            or name:find("combat", 1, true)
+            or name:find("hit", 1, true)
+            or name:find("slash", 1, true)
+            or name:find("damage", 1, true)
+            or name:find("debris", 1, true)
+    end
+
+    local function optimizeObject(obj)
+        if not obj then
+            return
+        end
+
+        -- VFX / particles
+        if obj:IsA("ParticleEmitter") then
+            pcall(function()
+                obj.Enabled = false
+                obj.Rate = 0
+            end)
+            return
+        end
+
+        if obj:IsA("Trail") or obj:IsA("Beam") then
+            pcall(function()
+                obj.Enabled = false
+            end)
+            return
+        end
+
+        if obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+            pcall(function()
+                obj.Enabled = false
+            end)
+            return
+        end
+
+        -- visual-only clutter
+        if obj:IsA("Decal") or obj:IsA("Texture") then
+            pcall(function()
+                obj.Transparency = 1
+            end)
+            return
+        end
+
+        if obj:IsA("SurfaceAppearance") then
+            pcall(function()
+                obj:Destroy()
+            end)
+            return
+        end
+
+        if obj:IsA("Highlight") then
+            pcall(function()
+                obj.Enabled = false
+            end)
+            return
+        end
+
+        if obj:IsA("Explosion") then
+            pcall(function()
+                obj:Destroy()
+            end)
+            return
+        end
+
+        -- world lights / effects
+        if obj:IsA("PostEffect") then
+            pcall(function()
+                obj.Enabled = false
+            end)
+            return
+        end
+
+        if obj:IsA("Atmosphere") then
+            pcall(function()
+                obj.Density = 0
+                obj.Haze = 0
+                obj.Glare = 0
+            end)
+            return
+        end
+
+        -- billboard spam (chỉ tắt nếu tên có dấu hiệu VFX / damage)
+        if obj:IsA("BillboardGui") and isVfxName(obj.Name) then
+            pcall(function()
+                obj.Enabled = false
+            end)
+            return
+        end
+
+        -- parts: giảm phản xạ / bóng / vật liệu
+        if obj:IsA("BasePart") then
+            pcall(function()
+                obj.Material = Enum.Material.Plastic
+                obj.Reflectance = 0
+                obj.CastShadow = false
+                obj.MaterialVariant = ""
+            end)
+            return
+        end
+
+        -- meshpart: giữ nguyên mesh nhưng đổi nhẹ material
+        if obj:IsA("MeshPart") then
+            pcall(function()
+                obj.Material = Enum.Material.Plastic
+                obj.Reflectance = 0
+                obj.CastShadow = false
+                obj.MaterialVariant = ""
+            end)
+            return
+        end
+    end
+
+    local function bindListeners()
+        if listenersBound then
+            return
+        end
+        listenersBound = true
+
+        Workspace.DescendantAdded:Connect(function(obj)
+            task.defer(function()
+                pcall(optimizeObject, obj)
+            end)
+        end)
+
+        Lighting.DescendantAdded:Connect(function(obj)
+            task.defer(function()
+                pcall(optimizeObject, obj)
+            end)
+        end)
+    end
+
     local function runOneTimeAntiLag()
-    	-- nếu đã chạy thì bỏ
-    	if ranOnce then return end
-    	ranOnce = true
-    
-    	-- SETTINGS (theo yêu cầu)
-    	local REMOVE_PARTICLES   = true
-    	local REMOVE_TRAILS      = true
-    	local REMOVE_BEAMS       = true
-    	local REMOVE_EXPLOSIONS  = true
-    	local REMOVE_DECALS      = true
-    	local REMOVE_MESHES      = true
-    
-    	local EFFECT_NAMES = {
-    		"Effects", "Effect", "Particles", "VFX", "Debris", "Explosion", "Smoke",
-    	}
-    
-    	-- LIGHTING OPTIMIZATION (1 lần)
-    	pcall(function()
-    		Lighting.GlobalShadows = false
-    		Lighting.FogEnd = 9e9
-    		Lighting.Brightness = 1
-    
-    		for _, v in ipairs(Lighting:GetChildren()) do
-    			if v:IsA("BloomEffect")
-    			or v:IsA("BlurEffect")
-    			or v:IsA("ColorCorrectionEffect")
-    			or v:IsA("SunRaysEffect")
-    			or v:IsA("DepthOfFieldEffect") then
-    				v.Enabled = false
-    			end
-    		end
-    	end)
-    
-    	-- object optimizer (1 lần)
-    	local function optimizeObject(obj)
-    		if not obj then return end
-    
-    		if REMOVE_PARTICLES and obj:IsA("ParticleEmitter") then
-    			pcall(function() obj:Destroy() end)
-    			return
-    		end
-    
-    		if REMOVE_TRAILS and obj:IsA("Trail") then
-    			pcall(function() obj:Destroy() end)
-    			return
-    		end
-    
-    		if REMOVE_BEAMS and obj:IsA("Beam") then
-    			pcall(function() obj:Destroy() end)
-    			return
-    		end
-    
-    		if REMOVE_EXPLOSIONS and obj:IsA("Explosion") then
-    			pcall(function() obj:Destroy() end)
-    			return
-    		end
-    
-    		if REMOVE_DECALS and (obj:IsA("Decal") or obj:IsA("Texture")) then
-    			pcall(function() obj:Destroy() end)
-    			return
-    		end
-    
-    		if REMOVE_MESHES and obj:IsA("MeshPart") then
-    			pcall(function() obj.Material = Enum.Material.Plastic end)
-    		end
-    
-    		if obj:IsA("BasePart") then
-    			pcall(function()
-    				obj.Material = Enum.Material.Plastic
-    				obj.Reflectance = 0
-    			end)
-    		end
-    
-    		-- remove floating damage GUIs once
-    		if obj:IsA("BillboardGui") then
-    			pcall(function() obj:Destroy() end)
-    		end
-    	end
-    
-    	-- ONE-TIME full cleanup (may spike briefly depending on map size)
-    	task.spawn(function()
-    		-- iterate descendants once
-    		for _, obj in ipairs(Workspace:GetDescendants()) do
-    			-- protect from long blocking by yielding occasionally
-    			if coroutine.running() and (os.clock() % 0.1) < 0.001 then
-    				task.wait()
-    			end
-    			pcall(function() optimizeObject(obj) end)
-    		end
-    
-    		-- clear common effect folders once (safe pcall)
-    		for _, folderName in ipairs(EFFECT_NAMES) do
-    			local f = Workspace:FindFirstChild(folderName, true)
-    			if f then
-    				pcall(function() f:ClearAllChildren() end)
-    			end
-    		end
-    
-    		-- done
-    		pcall(function() print("✅ ONE-TIME ULTRA ANTI LAG DONE!") end)
-    	end)
+        if ranOnce then
+            return
+        end
+        ranOnce = true
+
+        bindListeners()
+        applyLightingTweaks()
+        applyTerrainTweaks()
+
+        task.spawn(function()
+            local desc = Workspace:GetDescendants()
+            for i, obj in ipairs(desc) do
+                pcall(optimizeObject, obj)
+                if i % 150 == 0 then
+                    task.wait()
+                end
+            end
+
+            for _, obj in ipairs(Lighting:GetDescendants()) do
+                pcall(optimizeObject, obj)
+            end
+
+            pcall(function()
+                print("✅ ONE-TIME ULTRA ANTI LAG DONE!")
+            end)
+        end)
     end
-    
-    -- handler khi bấm button
+
     local function onActivated()
-    	-- disable để tránh double-run
-    	if ranOnce then
-    		-- nhỏ thông báo hoặc âm thanh nếu muốn
-    		return
-    	end
-    
-    	-- play color tweens
-    	pcall(function()
-    		-- đặt start màu về giá trị ban đầu (an toàn)
-    		button.BackgroundColor3 = FROM_BG
-    		if stroke then stroke.Color = FROM_STROKE end
-    
-    		local bgTween = playTween(button, { BackgroundColor3 = TO_BG }, TWEEN_TIME)
-    		if stroke then
-    			local stTween = playTween(stroke, { Color = TO_STROKE }, TWEEN_TIME)
-    		end
-    	end)
-    
-    	-- set button non-interactable
-    	pcall(function()
-    		if button:IsA("TextButton") then
-    			button.AutoButtonColor = false
-    		end
-    		button.Active = false
-    	end)
-    
-    	-- run anti-lag (one-time)
-    	runOneTimeAntiLag()
+        if ranOnce then
+            return
+        end
+
+        pcall(function()
+            button.BackgroundColor3 = FROM_BG
+            if stroke then
+                stroke.Color = FROM_STROKE
+            end
+
+            playTween(button, { BackgroundColor3 = TO_BG }, TWEEN_TIME)
+            if stroke then
+                playTween(stroke, { Color = TO_STROKE }, TWEEN_TIME)
+            end
+        end)
+
+        pcall(function()
+            button.AutoButtonColor = false
+            button.Active = false
+        end)
+
+        runOneTimeAntiLag()
     end
-    
-    -- bind event (supports both Activated and MouseButton1Click)
-    if button.Activated then
-    	button.Activated:Connect(onActivated)
-    else
-    	button.MouseButton1Click:Connect(onActivated)
-    end
+
+    button.Activated:Connect(onActivated)
 end
