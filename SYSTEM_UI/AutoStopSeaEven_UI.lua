@@ -8,7 +8,7 @@ AutoStopSEvenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-Main.Size = UDim2.new(0, 500, 0, 500)
+Main.Size = UDim2.new(0, 450, 0, 450)
 Main.BackgroundColor3 = Color3.new(1, 1, 1)
 Main.BorderSizePixel = 0
 Main.BorderColor3 = Color3.new(0, 0, 0)
@@ -19,8 +19,8 @@ Main.Parent = AutoStopSEvenGui
 
 local TitleFrame = Instance.new("Frame")
 TitleFrame.Name = "TitleFrame"
-TitleFrame.Position = UDim2.new(0.5, 0, 0.025, 0)
-TitleFrame.Size = UDim2.new(1.005, 0, 0.15, 0)
+TitleFrame.Position = UDim2.new(0.5, 0, 0.04, 0)
+TitleFrame.Size = UDim2.new(1.005, 0, 0.125, 0)
 TitleFrame.BackgroundColor3 = Color3.new(1, 1, 1)
 TitleFrame.BorderSizePixel = 0
 TitleFrame.BorderColor3 = Color3.new(0, 0, 0)
@@ -171,7 +171,7 @@ ModeTitle.BackgroundTransparency = 1
 ModeTitle.BorderSizePixel = 0
 ModeTitle.BorderColor3 = Color3.new(0, 0, 0)
 ModeTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-ModeTitle.TextStrokeTransparency = 0
+ModeTitle.Transparency = 1
 ModeTitle.Text = "Mode"
 ModeTitle.TextColor3 = Color3.new(1, 1, 1)
 ModeTitle.TextSize = 14
@@ -194,7 +194,7 @@ StopTitle.BackgroundTransparency = 1
 StopTitle.BorderSizePixel = 0
 StopTitle.BorderColor3 = Color3.new(0, 0, 0)
 StopTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-StopTitle.TextStrokeTransparency = 0
+StopTitle.Transparency = 1
 StopTitle.Text = "Stop:"
 StopTitle.TextColor3 = Color3.new(1, 1, 1)
 StopTitle.TextSize = 14
@@ -212,7 +212,7 @@ PauseTitle.BackgroundTransparency = 1
 PauseTitle.BorderSizePixel = 0
 PauseTitle.BorderColor3 = Color3.new(0, 0, 0)
 PauseTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-PauseTitle.TextStrokeTransparency = 0
+PauseTitle.Transparency = 1
 PauseTitle.Text = "Pause:"
 PauseTitle.TextColor3 = Color3.new(1, 1, 1)
 PauseTitle.TextSize = 14
@@ -285,7 +285,7 @@ SelectEvenFrame.BorderColor3 = Color3.new(0, 0, 0)
 SelectEvenFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 SelectEvenFrame.Transparency = 1
 SelectEvenFrame.Active = true
-SelectEvenFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+SelectEvenFrame.CanvasSize = UDim2.new(0, 0, 0, 100)
 SelectEvenFrame.ScrollBarImageColor3 = Color3.new(1, 0.784314, 0)
 SelectEvenFrame.ScrollBarThickness = 7
 SelectEvenFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -293,11 +293,12 @@ SelectEvenFrame.Parent = Main
 
 local Leviathan = Instance.new("ImageButton")
 Leviathan.Name = "Leviathan"
-Leviathan.Position = UDim2.new(0, 10, 0, 10)
+Leviathan.Position = UDim2.new(0, 50, 0, 100)
 Leviathan.Size = UDim2.new(0.5, 0, 0.5, 0)
 Leviathan.BackgroundColor3 = Color3.new(0.176471, 0.419608, 0.898039)
 Leviathan.BorderSizePixel = 0
 Leviathan.BorderColor3 = Color3.new(0, 0, 0)
+Leviathan.AnchorPoint = Vector2.new(0.5, 1)
 Leviathan.Image = "rbxassetid://110253972106922"
 Leviathan.Parent = SelectEvenFrame
 
@@ -349,7 +350,7 @@ Name.BackgroundTransparency = 1
 Name.BorderSizePixel = 0
 Name.BorderColor3 = Color3.new(0, 0, 0)
 Name.AnchorPoint = Vector2.new(0.5, 0)
-Name.TextStrokeTransparency = 0
+Name.Transparency = 1
 Name.Text = "Frozen Dimension"
 Name.TextColor3 = Color3.new(1, 1, 1)
 Name.TextSize = 14
@@ -374,11 +375,12 @@ Icon.Parent = Leviathan
 
 local Prehistoric = Instance.new("ImageButton")
 Prehistoric.Name = "Prehistoric"
-Prehistoric.Position = UDim2.new(0, 125, 0, 10)
+Prehistoric.Position = UDim2.new(0, 150, 0, 100)
 Prehistoric.Size = UDim2.new(0.5, 0, 0.5, 0)
 Prehistoric.BackgroundColor3 = Color3.new(0.941176, 0.32549, 0.0862745)
 Prehistoric.BorderSizePixel = 0
 Prehistoric.BorderColor3 = Color3.new(0, 0, 0)
+Prehistoric.AnchorPoint = Vector2.new(0.5, 1)
 Prehistoric.Image = "rbxassetid://103660699403504"
 Prehistoric.Parent = SelectEvenFrame
 
@@ -430,7 +432,7 @@ Name2.BackgroundTransparency = 1
 Name2.BorderSizePixel = 0
 Name2.BorderColor3 = Color3.new(0, 0, 0)
 Name2.AnchorPoint = Vector2.new(0.5, 0)
-Name2.TextStrokeTransparency = 0
+Name2.Transparency = 1
 Name2.Text = "Prehistoric Island"
 Name2.TextColor3 = Color3.new(1, 1, 1)
 Name2.TextSize = 14
@@ -452,6 +454,284 @@ Icon2.Transparency = 1
 Icon2.Image = "rbxassetid://85028300277419"
 Icon2.ImageTransparency = 0.25
 Icon2.Parent = Prehistoric
+
+local SeaBeast = Instance.new("ImageButton")
+SeaBeast.Name = "SeaBeast"
+SeaBeast.Position = UDim2.new(0, 250, 0, 100)
+SeaBeast.Size = UDim2.new(0.5, 0, 0.5, 0)
+SeaBeast.BackgroundColor3 = Color3.new(0.65098, 0.0117647, 0.0588235)
+SeaBeast.BorderSizePixel = 0
+SeaBeast.BorderColor3 = Color3.new(0, 0, 0)
+SeaBeast.AnchorPoint = Vector2.new(0.5, 1)
+SeaBeast.Image = "rbxassetid://107529841101254"
+SeaBeast.Parent = SelectEvenFrame
+
+local UIAspectRatioConstraint9 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint9.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint9.Parent = SeaBeast
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(0.65098, 0.0117647, 0.0588235)
+UIStroke12.Thickness = 2
+UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke12.Parent = SeaBeast
+
+local PickButton3 = Instance.new("ImageButton")
+PickButton3.Name = "PickButton"
+PickButton3.Position = UDim2.new(1, 0, 1, 0)
+PickButton3.Size = UDim2.new(0.25, 0, 0.25, 0)
+PickButton3.BackgroundColor3 = Color3.new(0, 0, 0)
+PickButton3.BackgroundTransparency = 0.25
+PickButton3.BorderSizePixel = 0
+PickButton3.BorderColor3 = Color3.new(0, 0, 0)
+PickButton3.AnchorPoint = Vector2.new(1, 1)
+PickButton3.Transparency = 0.25
+PickButton3.Image = "rbxassetid://4333896501"
+PickButton3.ImageColor3 = Color3.new(0, 1, 0)
+PickButton3.ImageTransparency = 1
+PickButton3.Parent = SeaBeast
+
+local UIAspectRatioConstraint10 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint10.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint10.Parent = PickButton3
+
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(0.65098, 0.0117647, 0.0588235)
+UIStroke13.Thickness = 2
+UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke13.Parent = PickButton3
+
+local Name3 = Instance.new("TextLabel")
+Name3.Name = "Name"
+Name3.Position = UDim2.new(0.5, 0, 1, 0)
+Name3.Size = UDim2.new(1, 0, 0.3, 0)
+Name3.BackgroundColor3 = Color3.new(1, 1, 1)
+Name3.BackgroundTransparency = 1
+Name3.BorderSizePixel = 0
+Name3.BorderColor3 = Color3.new(0, 0, 0)
+Name3.AnchorPoint = Vector2.new(0.5, 0)
+Name3.Transparency = 1
+Name3.Text = "Sea Beast"
+Name3.TextColor3 = Color3.new(1, 1, 1)
+Name3.TextSize = 14
+Name3.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Name3.TextScaled = true
+Name3.TextWrapped = true
+Name3.Parent = SeaBeast
+
+local Icon3 = Instance.new("ImageLabel")
+Icon3.Name = "Icon"
+Icon3.Position = UDim2.new(0, 0, 1, 0)
+Icon3.Size = UDim2.new(0.6, 0, 0.6, 0)
+Icon3.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon3.BackgroundTransparency = 1
+Icon3.BorderSizePixel = 0
+Icon3.BorderColor3 = Color3.new(0, 0, 0)
+Icon3.AnchorPoint = Vector2.new(0.2, 0.8)
+Icon3.Transparency = 1
+Icon3.Image = "rbxassetid://104212972400269"
+Icon3.ImageTransparency = 0.25
+Icon3.Parent = SeaBeast
+
+local HauntedShipRaid = Instance.new("ImageButton")
+HauntedShipRaid.Name = "HauntedShipRaid"
+HauntedShipRaid.Position = UDim2.new(0, 350, 0, 100)
+HauntedShipRaid.Size = UDim2.new(0.5, 0, 0.5, 0)
+HauntedShipRaid.BackgroundColor3 = Color3.new(0.603922, 0.647059, 0.733333)
+HauntedShipRaid.BorderSizePixel = 0
+HauntedShipRaid.BorderColor3 = Color3.new(0, 0, 0)
+HauntedShipRaid.AnchorPoint = Vector2.new(0.5, 1)
+HauntedShipRaid.Image = "rbxassetid://107261285667861"
+HauntedShipRaid.Parent = SelectEvenFrame
+
+local UIAspectRatioConstraint11 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint11.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint11.Parent = HauntedShipRaid
+
+local UIStroke14 = Instance.new("UIStroke")
+UIStroke14.Name = "UIStroke"
+UIStroke14.Color = Color3.new(0.603922, 0.647059, 0.733333)
+UIStroke14.Thickness = 2
+UIStroke14.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke14.Parent = HauntedShipRaid
+
+local PickButton4 = Instance.new("ImageButton")
+PickButton4.Name = "PickButton"
+PickButton4.Position = UDim2.new(1, 0, 1, 0)
+PickButton4.Size = UDim2.new(0.25, 0, 0.25, 0)
+PickButton4.BackgroundColor3 = Color3.new(0, 0, 0)
+PickButton4.BackgroundTransparency = 0.25
+PickButton4.BorderSizePixel = 0
+PickButton4.BorderColor3 = Color3.new(0, 0, 0)
+PickButton4.AnchorPoint = Vector2.new(1, 1)
+PickButton4.Transparency = 0.25
+PickButton4.Image = "rbxassetid://4333896501"
+PickButton4.ImageColor3 = Color3.new(0, 1, 0)
+PickButton4.ImageTransparency = 1
+PickButton4.Parent = HauntedShipRaid
+
+local UIAspectRatioConstraint12 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint12.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint12.Parent = PickButton4
+
+local UIStroke15 = Instance.new("UIStroke")
+UIStroke15.Name = "UIStroke"
+UIStroke15.Color = Color3.new(0.603922, 0.647059, 0.733333)
+UIStroke15.Thickness = 2
+UIStroke15.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke15.Parent = PickButton4
+
+local Name4 = Instance.new("TextLabel")
+Name4.Name = "Name"
+Name4.Position = UDim2.new(0.5, 0, 1, 0)
+Name4.Size = UDim2.new(1, 0, 0.3, 0)
+Name4.BackgroundColor3 = Color3.new(1, 1, 1)
+Name4.BackgroundTransparency = 1
+Name4.BorderSizePixel = 0
+Name4.BorderColor3 = Color3.new(0, 0, 0)
+Name4.AnchorPoint = Vector2.new(0.5, 0)
+Name4.Transparency = 1
+Name4.Text = "Haunted Ship Raid"
+Name4.TextColor3 = Color3.new(1, 1, 1)
+Name4.TextSize = 14
+Name4.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Name4.TextScaled = true
+Name4.TextWrapped = true
+Name4.Parent = HauntedShipRaid
+
+local Icon4 = Instance.new("ImageLabel")
+Icon4.Name = "Icon"
+Icon4.Position = UDim2.new(0, 0, 1, 0)
+Icon4.Size = UDim2.new(0.6, 0, 0.6, 0)
+Icon4.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon4.BackgroundTransparency = 1
+Icon4.BorderSizePixel = 0
+Icon4.BorderColor3 = Color3.new(0, 0, 0)
+Icon4.AnchorPoint = Vector2.new(0.2, 0.8)
+Icon4.Transparency = 1
+Icon4.Image = "rbxassetid://113010687158718"
+Icon4.ImageTransparency = 0.25
+Icon4.Parent = HauntedShipRaid
+
+local Piranha = Instance.new("ImageButton")
+Piranha.Name = "Piranha"
+Piranha.Position = UDim2.new(0, 50, 0, 220)
+Piranha.Size = UDim2.new(0.5, 0, 0.5, 0)
+Piranha.BackgroundColor3 = Color3.new(0.0745098, 0.317647, 0.611765)
+Piranha.BorderSizePixel = 0
+Piranha.BorderColor3 = Color3.new(0, 0, 0)
+Piranha.AnchorPoint = Vector2.new(0.5, 1)
+Piranha.Image = "rbxassetid://134341630427646"
+Piranha.Parent = SelectEvenFrame
+
+local UIAspectRatioConstraint13 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint13.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint13.Parent = Piranha
+
+local UIStroke16 = Instance.new("UIStroke")
+UIStroke16.Name = "UIStroke"
+UIStroke16.Color = Color3.new(0.0745098, 0.317647, 0.611765)
+UIStroke16.Thickness = 2
+UIStroke16.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke16.Parent = Piranha
+
+local PickButton5 = Instance.new("ImageButton")
+PickButton5.Name = "PickButton"
+PickButton5.Position = UDim2.new(1, 0, 1, 0)
+PickButton5.Size = UDim2.new(0.25, 0, 0.25, 0)
+PickButton5.BackgroundColor3 = Color3.new(0, 0, 0)
+PickButton5.BackgroundTransparency = 0.25
+PickButton5.BorderSizePixel = 0
+PickButton5.BorderColor3 = Color3.new(0, 0, 0)
+PickButton5.AnchorPoint = Vector2.new(1, 1)
+PickButton5.Transparency = 0.25
+PickButton5.Image = "rbxassetid://4333896501"
+PickButton5.ImageColor3 = Color3.new(0, 1, 0)
+PickButton5.ImageTransparency = 1
+PickButton5.Parent = Piranha
+
+local UIAspectRatioConstraint14 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint14.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint14.Parent = PickButton5
+
+local UIStroke17 = Instance.new("UIStroke")
+UIStroke17.Name = "UIStroke"
+UIStroke17.Color = Color3.new(0.0745098, 0.317647, 0.611765)
+UIStroke17.Thickness = 2
+UIStroke17.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke17.Parent = PickButton5
+
+local Name5 = Instance.new("TextLabel")
+Name5.Name = "Name"
+Name5.Position = UDim2.new(0.5, 0, 1, 0)
+Name5.Size = UDim2.new(1, 0, 0.3, 0)
+Name5.BackgroundColor3 = Color3.new(1, 1, 1)
+Name5.BackgroundTransparency = 1
+Name5.BorderSizePixel = 0
+Name5.BorderColor3 = Color3.new(0, 0, 0)
+Name5.AnchorPoint = Vector2.new(0.5, 0)
+Name5.Transparency = 1
+Name5.Text = "Piranha"
+Name5.TextColor3 = Color3.new(1, 1, 1)
+Name5.TextSize = 14
+Name5.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Name5.TextScaled = true
+Name5.TextWrapped = true
+Name5.Parent = Piranha
+
+local PiranhaImage = Instance.new("ImageLabel")
+PiranhaImage.Name = "PiranhaImage"
+PiranhaImage.Position = UDim2.new(0.6, 0, 0.4, 0)
+PiranhaImage.Size = UDim2.new(0.9, 0, 0.9, 0)
+PiranhaImage.BackgroundColor3 = Color3.new(1, 1, 1)
+PiranhaImage.BackgroundTransparency = 1
+PiranhaImage.BorderSizePixel = 0
+PiranhaImage.BorderColor3 = Color3.new(0, 0, 0)
+PiranhaImage.AnchorPoint = Vector2.new(0.5, 0.5)
+PiranhaImage.Transparency = 1
+PiranhaImage.Image = "rbxassetid://114478463067183"
+PiranhaImage.ImageTransparency = 0.10000000149011612
+PiranhaImage.Parent = Piranha
+
+local Icon5 = Instance.new("ImageLabel")
+Icon5.Name = "Icon"
+Icon5.Position = UDim2.new(0, 0, 1, 0)
+Icon5.Size = UDim2.new(0.45, 0, 0.45, 0)
+Icon5.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon5.BackgroundTransparency = 1
+Icon5.BorderSizePixel = 0
+Icon5.BorderColor3 = Color3.new(0, 0, 0)
+Icon5.AnchorPoint = Vector2.new(0.2, 0.8)
+Icon5.Transparency = 1
+Icon5.Image = "rbxassetid://85203151951907"
+Icon5.ImageTransparency = 0.25
+Icon5.Parent = Piranha
+
+local EndTitle = Instance.new("TextLabel")
+EndTitle.Name = "EndTitle"
+EndTitle.Position = UDim2.new(0, 0, 0, 290)
+EndTitle.Size = UDim2.new(1, 0, 0.15, 0)
+EndTitle.BackgroundColor3 = Color3.new(1, 1, 1)
+EndTitle.BackgroundTransparency = 1
+EndTitle.BorderSizePixel = 0
+EndTitle.BorderColor3 = Color3.new(0, 0, 0)
+EndTitle.AnchorPoint = Vector2.new(0, 1)
+EndTitle.Transparency = 1
+EndTitle.Text = "--- End ---"
+EndTitle.TextColor3 = Color3.new(1, 1, 1)
+EndTitle.TextSize = 14
+EndTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+EndTitle.TextScaled = true
+EndTitle.TextWrapped = true
+EndTitle.Parent = SelectEvenFrame
 
 local Frame = Main
 if not Frame then return end
