@@ -457,18 +457,19 @@ local Frame = Main
 if not Frame then return end
 task.spawn(function()
 	while true do
-		local allOk = true
-		for _, obj in ipairs(Frame:GetDescendants()) do
-			if obj:IsA("TextLabel")
-			or obj:IsA("TextBox")
-			or obj:IsA("TextButton") then
-				if obj.TextTransparency ~= 0 then
-					obj.TextTransparency = 0
-					allOk = false
+		local done = true
+		for _, v in ipairs(Frame:GetDescendants()) do
+			if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then
+				if v.TextTransparency ~= 0 or v.TextStrokeTransparency ~= 0 then
+					v.TextTransparency = 0
+					v.TextStrokeTransparency = 0
+					done = false
 				end
 			end
 		end
-		if allOk then break end
+		if done then
+			break
+		end
 		task.wait(0.1)
 	end
 end)
