@@ -38,8 +38,42 @@ local TWEEN_MAIN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirecti
 local TWEEN_FAST = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local TARGETS = {
-	Leviathan = { objectName = "LeviathanGate" },
-	Prehistoric = { objectName = "PrehistoricIsland" },
+	Leviathan = {
+		kind = "map",
+		objectName = "LeviathanGate",
+	},
+	Prehistoric = {
+		kind = "map",
+		objectName = "PrehistoricIsland",
+	},
+
+	SeaBeast = {
+		kind = "folder_match",
+		folderName = "SeaBeasts",
+		range = 2500,
+		match = function(name)
+			return name:find("SeaBeast", 1, true) ~= nil
+		end,
+	},
+
+	HauntedShipRaid = {
+		kind = "folder_match_any",
+		folderName = "Enemies",
+		range = 2500,
+		matches = {
+			"FishBoat",
+			"Fish Crew Member",
+		},
+	},
+
+	Piranha = {
+		kind = "folder_match",
+		folderName = "Enemies",
+		range = 2500,
+		match = function(name)
+			return name == "Piranha"
+		end,
+	},
 }
 
 local activeTweens = setmetatable({}, { __mode = "k" })
@@ -136,26 +170,54 @@ local function isTargetSeen(targetKey)
 		return false
 	end
 
-	local map = getMap()
-	if not map then
+	local function inRange(pos)
+		return pos and (rootPart.Position - pos).Magnitude <= (cfg.range or 2500)
+	end
+
+	if cfg.kind == "map" then
+		local map = workspace:FindFirstChild("Map")
+		if not map then
+			return false
+		end
+
+		local found = map:FindFirstChild(cfg.objectName, true)
+		if not found then
+			return false
+		end
+
+		return inRange(getTargetPart(found))
+	end
+
+	local folder = workspace:FindFirstChild(cfg.folderName)
+	if not folder then
 		return false
 	end
 
-	local found = map:FindFirstChild(cfg.objectName, true)
-	if not found then
-		return false
+	for _, obj in ipairs(folder:GetDescendants()) do
+		if obj:IsA("Model") then
+			local ok = false
+
+			if cfg.kind == "folder_match" then
+				ok = cfg.match and cfg.match(obj.Name) or false
+			elseif cfg.kind == "folder_match_any" then
+				for _, n in ipairs(cfg.matches or {}) do
+					if obj.Name == n then
+						ok = true
+						break
+					end
+				end
+			end
+
+			if ok then
+				local pos = getTargetPart(obj)
+				if inRange(pos) then
+					return true
+				end
+			end
+		end
 	end
 
-	local pos = getTargetPart(found)
-	if not pos then
-		return false
-	end
-
-	if (rootPart.Position - pos).Magnitude > 2500 then
-		return false
-	end
-
-	return true
+	return false
 end
 
 local function fireStop()
