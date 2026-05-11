@@ -42,6 +42,7 @@ local TARGETS = {
 		kind = "map",
 		objectName = "LeviathanGate",
 	},
+
 	Prehistoric = {
 		kind = "map",
 		objectName = "PrehistoricIsland",
@@ -56,13 +57,22 @@ local TARGETS = {
 		end,
 	},
 
-	HauntedShipRaid = {
+	ShipRaid = {
 		kind = "folder_match_any",
 		folderName = "Enemies",
 		range = 2500,
 		matches = {
-			"FishBoat",
-			"Fish Crew Member",
+			"PirateGrandBrigade",
+			"PirateBrigade",
+		},
+	},
+
+	TerrorShark = {
+		kind = "folder_match_any",
+		folderName = "Enemies",
+		range = 2500,
+		matches = {
+			"Terrorshark",
 		},
 	},
 
