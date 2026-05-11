@@ -341,10 +341,11 @@ do
     local TweenService = game:GetService("TweenService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
+    
     local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
     local camera = workspace.CurrentCamera
 
-    -- CHỈNH Ở ĐÂY: tên button UI (khớp với tên trong GUI của bạn)
     local BUTTON_NAME = "AutoFarmLvlButton"
 
     -- Đường dẫn tới ScrollingTab như bạn yêu cầu
@@ -373,6 +374,43 @@ do
     local ToggleUI = _G.ToggleUI
     if ToggleUI and ToggleUI.Refresh then
         pcall(ToggleUI.Refresh)
+    end
+
+    local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
+    local DoneTween = playerGui:WaitForChild("DoneTweenTo")
+
+    local tweenDone = false
+    local tweenSuccess = false
+    local tweenTag = nil
+
+    DoneTween.Event:Connect(function(success, tag)
+        tweenDone = true
+        tweenSuccess = success and true or false
+        tweenTag = tag
+    end)
+
+    local function goFarmPos(pos)
+        if typeof(pos) ~= "Vector3" then
+            return false
+        end
+
+        tweenDone = false
+        tweenSuccess = false
+        tweenTag = nil
+
+        pcall(function()
+            SupportTween:Fire(pos, "AutoFarmCall")
+        end)
+
+        local t = 0
+        while t < 10 do
+            if tweenDone and tweenTag == "AutoFarmCall" then
+                return tweenSuccess
+            end
+            t += RunService.Heartbeat:Wait()
+        end
+
+        return false
     end
 
     -- Helpers: so sánh màu với ngưỡng
@@ -1294,7 +1332,7 @@ do
             RewardBeli = 15700
         }
     }
-
+    
     local running = false
     local pausedByDeath = false -- NEW: đánh dấu tạm pause do chết
     local lastLevel = 0
@@ -1473,7 +1511,7 @@ do
 
             if distToEnemy > LOCK_DISTANCE then
                 -- too far: lunge to the desired overhead position
-                local ok = lungeTo(desiredPos)
+                local ok = goFarmPos(desiredPos)
                 if not ok then
                     -- lunge interrupted / cancelled — exit follow
                     return
@@ -1572,7 +1610,7 @@ do
             local ang = math.random() * math.pi * 2
             local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
 
-            local ok = lungeTo(startPt + Vector3.new(0, 5, 0))
+            local ok = goFarmPos(startPt + Vector3.new(0, 5, 0))
             if not ok then break end
 
             local completedOrbit = orbitOnce(center, radiusPercent, zoneMobName)
@@ -1669,10 +1707,10 @@ do
                             -- too far: cancel patrols and return to farm center immediately via lunge
                             stopMovement()
                             patrolActive = false
-                            lungeTo(farmCenter + Vector3.new(0, 5, 0))
+                            goFarmPos(farmCenter + Vector3.new(0, 5, 0))
                         elseif distToFarm > 50 then
                             -- minor reposition inside farm area
-                            lungeTo(farmCenter + Vector3.new(0, 5, 0))
+                            goFarmPos(farmCenter + Vector3.new(0, 5, 0))
                         end
                     end
 
