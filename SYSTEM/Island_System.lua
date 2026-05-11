@@ -7,6 +7,22 @@ local UserInputService = game:GetService("UserInputService")
 -- ===== GET UI ROOT SAFELY (StarterPlayerScripts safe) =====
 local playerGui = player:WaitForChild("PlayerGui")
 
+-- Place BindableEvents under PlayerGui so other LocalScripts can find them client-side.
+local function getOrCreateBindableEvent(parent, name)
+    local existing = parent:FindFirstChild(name)
+    if existing and existing:IsA("BindableEvent") then
+        return existing
+    end
+    local be = Instance.new("BindableEvent")
+    be.Name = name
+    be.Parent = parent
+    return be
+end
+
+local SupportBE = getOrCreateBindableEvent(playerGui, "SupportTweenToCustom")
+local CancelBE = getOrCreateBindableEvent(playerGui, "CancelTweenTo")
+local DoneBE = getOrCreateBindableEvent(playerGui, "DoneTweenTo")
+
 local ROOT = playerGui
     :WaitForChild("BloxFruitHubGui")
     :WaitForChild("Main")
@@ -731,21 +747,6 @@ end
 -- ==============================================================================
 
 -- ============== Public BindableEvent API (SupportTweenToCustom / CancelTweenTo / DoneTweenTo) ===============
--- Place BindableEvents under PlayerGui so other LocalScripts can find them client-side.
-local function getOrCreateBindableEvent(parent, name)
-    local existing = parent:FindFirstChild(name)
-    if existing and existing:IsA("BindableEvent") then
-        return existing
-    end
-    local be = Instance.new("BindableEvent")
-    be.Name = name
-    be.Parent = parent
-    return be
-end
-
-local SupportBE = getOrCreateBindableEvent(playerGui, "SupportTweenToCustom")
-local CancelBE = getOrCreateBindableEvent(playerGui, "CancelTweenTo")
-local DoneBE = getOrCreateBindableEvent(playerGui, "DoneTweenTo")
 
 -- expose helper constructors globally so other LocalScripts can write:
 -- _G.setY(), _G.teleportTo(pos,count,duration), _G.call(fn)
