@@ -1201,8 +1201,6 @@ end
 --=== SHIP SPEED =============================================================================================--
 
 do
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_System.lua"))()
-
 	local Players = game:GetService("Players")
 	local RunService = game:GetService("RunService")
 
@@ -1214,10 +1212,13 @@ do
 		:WaitForChild("Main")
 		:WaitForChild("ScrollingTab")
 
+	-- Frame chứa các nút và textbox
+	local SeaEvenFrame = ScrollingTab:WaitForChild("Sea Even")
+
 	local TOGGLE_BUTTON_NAME = "ShipSpeedButton"
 
-	local ToggleButton = ScrollingTab:WaitForChild(TOGGLE_BUTTON_NAME)
-	local SpeedBox = ScrollingTab:WaitForChild("ShipSpeedBox")
+	local ToggleButton = SeaEvenFrame:WaitForChild(TOGGLE_BUTTON_NAME)
+	local SpeedBox = SeaEvenFrame:WaitForChild("ShipSpeedBox")
 
 	local Boats = workspace:WaitForChild("Boats")
 
