@@ -1131,6 +1131,9 @@ end)
 -- 2. Gọi đơn giản bằng tên địa điểm
 SupportTween:Fire("Cafe", "simpleCall")
 
+-- 2'5. Gọi tọa độ hỗ trợ
+SupportTween:Fire(Vector3.new(0, 0, 0), "simpleCall")
+
 -- 3. Gọi nâng cao bằng danh sách lệnh
 SupportTween:Fire({
 	_G.setY(),
