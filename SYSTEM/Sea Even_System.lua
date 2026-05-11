@@ -1233,6 +1233,7 @@ do
 	end)
 
 	local ENABLED = false
+	local LAST_ENABLED = false
 	local CURRENT_SEAT = nil
 	local CURRENT_BOAT = nil
 	local EDITING = false
@@ -1262,80 +1263,10 @@ do
 		return r == 0 and g == 255 and b == 0
 	end
 
-	local function syncSystemState()
-		ENABLED = isButtonOn(ToggleButton)
-		_G.ShipSpeedSystem = ENABLED
-
-		if not ENABLED then
-			for boat in pairs(MODIFIED_BOATS) do
-				if boat and boat.Parent then
-					local seat = boat:FindFirstChildWhichIsA("VehicleSeat", true)
-
-					if seat then
-						local origin = boat:FindFirstChild("SpeedOrigin")
-						local present = boat:FindFirstChild("SpeedPresent")
-
-						if origin then
-							pcall(function()
-								local control = seat:FindFirstChild("Control")
-
-								if control and typeof(control.MaxSpeed) == "number" then
-									control.MaxSpeed = origin.Value
-								elseif typeof(seat.MaxSpeed) == "number" then
-									seat.MaxSpeed = origin.Value
-								end
-							end)
-
-							if present then
-								present.Value = origin.Value
-							end
-						end
-					end
-				end
-			end
-
-			table.clear(MODIFIED_BOATS)
-
-			CURRENT_SEAT = nil
-			CURRENT_BOAT = nil
-			EDITING = false
-
-			INTERNAL = true
-			SpeedBox.Text = "0"
-			INTERNAL = false
-		end
-	end
-
-	ToggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-		task.delay(0.05, syncSystemState)
-	end)
-
-	local clickLock = false
-
-	local function toggleSystem()
-		if clickLock then
-			return
-		end
-
-		clickLock = true
-
-		task.delay(0.15, function()
-			clickLock = false
-		end)
-
-		local requested = not isButtonOn(ToggleButton)
-
-		pcall(function()
-			ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
-		end)
-
-		task.delay(0.05, syncSystemState)
-	end
-
-	if ToggleButton.Activated then
-		ToggleButton.Activated:Connect(toggleSystem)
-	else
-		ToggleButton.MouseButton1Click:Connect(toggleSystem)
+	local function setBox(text)
+		INTERNAL = true
+		SpeedBox.Text = tostring(text)
+		INTERNAL = false
 	end
 
 	local function getRoot()
@@ -1347,7 +1278,6 @@ do
 		if not boat then
 			return nil
 		end
-
 		return boat:FindFirstChildWhichIsA("VehicleSeat", true)
 	end
 
@@ -1357,12 +1287,10 @@ do
 		end
 
 		local current = seat
-
 		while current and current.Parent do
 			if current.Parent == Boats and current:IsA("Model") then
 				return current
 			end
-
 			current = current.Parent
 		end
 
@@ -1375,10 +1303,8 @@ do
 		end
 
 		local control = seat:FindFirstChild("Control")
-
 		if control then
 			local maxObj = control:FindFirstChild("MaxSpeed")
-
 			if maxObj and maxObj:IsA("ValueBase") then
 				return maxObj, "Value"
 			end
@@ -1386,14 +1312,12 @@ do
 			local ok = pcall(function()
 				return control.MaxSpeed
 			end)
-
 			if ok then
 				return control, "Property"
 			end
 		end
 
 		local maxObj = seat:FindFirstChild("MaxSpeed")
-
 		if maxObj and maxObj:IsA("ValueBase") then
 			return maxObj, "Value"
 		end
@@ -1401,7 +1325,6 @@ do
 		local ok = pcall(function()
 			return seat.MaxSpeed
 		end)
-
 		if ok then
 			return seat, "Property"
 		end
@@ -1411,7 +1334,6 @@ do
 
 	local function readSpeed(seat)
 		local obj, mode = getSpeedObject(seat)
-
 		if not obj then
 			return nil
 		end
@@ -1429,7 +1351,6 @@ do
 
 	local function writeSpeed(seat, value)
 		local obj, mode = getSpeedObject(seat)
-
 		if not obj then
 			return false
 		end
@@ -1437,8 +1358,10 @@ do
 		value = math.clamp(math.floor(tonumber(value) or 0), 0, 1000)
 
 		if mode == "Value" then
-			obj.Value = value
-			return true
+			local ok = pcall(function()
+				obj.Value = value
+			end)
+			return ok
 		end
 
 		return pcall(function()
@@ -1447,8 +1370,11 @@ do
 	end
 
 	local function ensureBoatValues(boat, speed)
-		local origin = boat:FindFirstChild("SpeedOrigin")
+		if not boat then
+			return nil, nil
+		end
 
+		local origin = boat:FindFirstChild("SpeedOrigin")
 		if not origin then
 			origin = Instance.new("NumberValue")
 			origin.Name = "SpeedOrigin"
@@ -1457,7 +1383,6 @@ do
 		end
 
 		local present = boat:FindFirstChild("SpeedPresent")
-
 		if not present then
 			present = Instance.new("NumberValue")
 			present.Name = "SpeedPresent"
@@ -1474,31 +1399,59 @@ do
 		end
 
 		local speed = readSpeed(seat)
-
-		if not speed then
+		if speed == nil then
 			return
 		end
 
 		local origin, present = ensureBoatValues(boat, speed)
 
-		if origin.Value <= 0 then
+		if origin and origin.Value == 0 then
 			origin.Value = speed
 		end
 
-		present.Value = speed
+		if present then
+			present.Value = speed
+		end
 
 		MODIFIED_BOATS[boat] = true
 	end
 
-	local function setBox(text)
-		INTERNAL = true
-		SpeedBox.Text = tostring(text)
-		INTERNAL = false
+	local function restoreBoat(boat)
+		if not boat or not boat.Parent then
+			return
+		end
+
+		local seat = getSeatFromBoat(boat)
+		local origin = boat:FindFirstChild("SpeedOrigin")
+		local present = boat:FindFirstChild("SpeedPresent")
+
+		if seat and origin then
+			local ok = writeSpeed(seat, origin.Value)
+			if ok and present then
+				present.Value = origin.Value
+			end
+		end
+	end
+
+	local function restoreAllBoats()
+		for boat in pairs(MODIFIED_BOATS) do
+			restoreBoat(boat)
+		end
+		table.clear(MODIFIED_BOATS)
+	end
+
+	local function clampInput(text)
+		local n = tonumber(text)
+		if not n then
+			return nil
+		end
+
+		n = math.floor(n + 0.5)
+		return math.clamp(n, 0, 1000)
 	end
 
 	local function findNearestSeat()
 		local root = getRoot()
-
 		if not root then
 			return nil
 		end
@@ -1509,7 +1462,6 @@ do
 		for _, boat in ipairs(Boats:GetChildren()) do
 			if boat:IsA("Model") then
 				local seat = getSeatFromBoat(boat)
-
 				if seat then
 					local d = seat.Position - root.Position
 					local dist2 = d.X * d.X + d.Y * d.Y + d.Z * d.Z
@@ -1531,9 +1483,8 @@ do
 			CURRENT_BOAT = nil
 
 			if not EDITING then
-				setBox(0)
+				setBox("0")
 			end
-
 			return
 		end
 
@@ -1549,10 +1500,7 @@ do
 		end
 
 		local speed = readSpeed(seat)
-
-		if speed then
-			setBox(speed)
-		end
+		setBox(speed ~= nil and speed or 0)
 	end
 
 	local function refreshSeat()
@@ -1569,8 +1517,7 @@ do
 
 		if seat and not EDITING then
 			local speed = readSpeed(seat)
-
-			if speed and tostring(speed) ~= SpeedBox.Text then
+			if speed ~= nil and tostring(speed) ~= SpeedBox.Text then
 				setBox(speed)
 			end
 		end
@@ -1585,23 +1532,20 @@ do
 			return
 		end
 
-		local n = tonumber(SpeedBox.Text)
-
-		if not n then
+		local n = clampInput(SpeedBox.Text)
+		if n == nil then
 			local speed = readSpeed(CURRENT_SEAT)
-			setBox(speed or 0)
+			setBox(speed ~= nil and speed or 0)
 			return
 		end
 
-		n = math.clamp(math.floor(n + 0.5), 0, 1000)
-
-		cacheBoat(CURRENT_BOAT, CURRENT_SEAT)
+		if CURRENT_BOAT then
+			cacheBoat(CURRENT_BOAT, CURRENT_SEAT)
+		end
 
 		local ok = writeSpeed(CURRENT_SEAT, n)
-
 		if ok and CURRENT_BOAT then
 			local present = CURRENT_BOAT:FindFirstChild("SpeedPresent")
-
 			if present then
 				present.Value = n
 			end
@@ -1610,13 +1554,48 @@ do
 		setBox(n)
 	end
 
+	local function syncSystemState()
+		ENABLED = isButtonOn(ToggleButton)
+		_G.ShipSpeedSystem = ENABLED
+
+		if LAST_ENABLED and not ENABLED then
+			restoreAllBoats()
+			CURRENT_SEAT = nil
+			CURRENT_BOAT = nil
+			EDITING = false
+
+			setBox("0")
+		end
+
+		LAST_ENABLED = ENABLED
+	end
+
+	local function toggleSystem()
+		local requested = not isButtonOn(ToggleButton)
+
+		pcall(function()
+			ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
+		end)
+
+		task.delay(0.05, syncSystemState)
+	end
+
+	if ToggleButton.Activated then
+		ToggleButton.Activated:Connect(toggleSystem)
+	else
+		ToggleButton.MouseButton1Click:Connect(toggleSystem)
+	end
+
+	ToggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+		task.delay(0.05, syncSystemState)
+	end)
+
 	SpeedBox.Focused:Connect(function()
 		EDITING = true
 	end)
 
 	SpeedBox.FocusLost:Connect(function()
 		EDITING = false
-
 		if ENABLED then
 			applySpeed()
 		end
@@ -1628,13 +1607,11 @@ do
 		end
 
 		local text = SpeedBox.Text
-
 		if text == "" then
 			return
 		end
 
 		local filtered = text:gsub("%D", "")
-
 		if filtered ~= text then
 			INTERNAL = true
 			SpeedBox.Text = filtered
@@ -1643,10 +1620,8 @@ do
 		end
 
 		local n = tonumber(filtered)
-
-		if n then
+		if n ~= nil then
 			n = math.clamp(n, 0, 1000)
-
 			if tostring(n) ~= filtered then
 				INTERNAL = true
 				SpeedBox.Text = tostring(n)
