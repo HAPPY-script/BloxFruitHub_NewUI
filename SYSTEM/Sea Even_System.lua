@@ -1033,6 +1033,7 @@ _G.PauseSEven = true/false
 ]]
 
 --=== AUTO STOP SEA EVEN =============================================================================================--
+
 do
     -- Load System + UI + Effect
     loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_System.lua"))()
@@ -1195,4 +1196,281 @@ do
     end
     
     syncSystemState()
+end
+
+--=== AUTO STOP SEA EVEN =============================================================================================--
+
+do
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	local ScrollingTab = playerGui
+		:WaitForChild("BloxFruitHubGui")
+		:WaitForChild("Main")
+		:WaitForChild("ScrollingTab")
+
+	local ToggleButton = ScrollingTab:WaitForChild("ShipSpeedButton")
+	local SpeedBox = ScrollingTab:WaitForChild("ShipSpeedBox")
+
+	local Boats = workspace:WaitForChild("Boats")
+
+	local ENABLED = false
+	local CURRENT_SEAT = nil
+	local EDITING = false
+	local INTERNAL = false
+
+	local MAX_RANGE = 300
+	local MAX_RANGE2 = MAX_RANGE * MAX_RANGE
+
+	SpeedBox.Text = "0"
+	SpeedBox.ClearTextOnFocus = false
+
+	local function getRoot()
+		local char = player.Character
+		return char and char:FindFirstChild("HumanoidRootPart")
+	end
+
+	local function getSeatFromBoat(boat)
+		if not boat then
+			return nil
+		end
+		return boat:FindFirstChildWhichIsA("VehicleSeat", true)
+	end
+
+	local function getMaxRef(seat)
+		if not seat then
+			return nil, nil
+		end
+
+		local control = seat:FindFirstChild("Control")
+		if control then
+			local maxObj = control:FindFirstChild("MaxSpeed")
+			if maxObj and maxObj:IsA("ValueBase") then
+				return maxObj, "Value"
+			end
+
+			local ok, v = pcall(function()
+				return control.MaxSpeed
+			end)
+			if ok and type(v) == "number" then
+				return control, "Property"
+			end
+		end
+
+		local maxObj = seat:FindFirstChild("MaxSpeed")
+		if maxObj and maxObj:IsA("ValueBase") then
+			return maxObj, "Value"
+		end
+
+		local ok, v = pcall(function()
+			return seat.MaxSpeed
+		end)
+		if ok and type(v) == "number" then
+			return seat, "Property"
+		end
+
+		return nil, nil
+	end
+
+	local function readSpeed(seat)
+		local ref, mode = getMaxRef(seat)
+		if not ref then
+			return nil
+		end
+
+		if mode == "Value" then
+			return tonumber(ref.Value)
+		end
+
+		local ok, v = pcall(function()
+			return ref.MaxSpeed
+		end)
+		return ok and tonumber(v) or nil
+	end
+
+	local function writeSpeed(seat, value)
+		local n = math.clamp(math.floor(tonumber(value) or 0), 0, 1000)
+		local ref, mode = getMaxRef(seat)
+		if not ref then
+			return false
+		end
+
+		if mode == "Value" then
+			ref.Value = n
+			return true
+		end
+
+		local ok = pcall(function()
+			ref.MaxSpeed = n
+		end)
+		return ok
+	end
+
+	local function setBoxText(text)
+		INTERNAL = true
+		SpeedBox.Text = tostring(text)
+		INTERNAL = false
+	end
+
+	local function clampInput(text)
+		local n = tonumber(text)
+		if not n then
+			return nil
+		end
+		n = math.floor(n + 0.5)
+		return math.clamp(n, 0, 1000)
+	end
+
+	local function findNearestSeat()
+		local root = getRoot()
+		if not root then
+			return nil
+		end
+
+		local nearestSeat = nil
+		local nearestDist2 = MAX_RANGE2 + 1
+
+		for _, obj in ipairs(Boats:GetDescendants()) do
+			if obj:IsA("Model") then
+				local seat = getSeatFromBoat(obj)
+				if seat and seat:IsDescendantOf(Boats) then
+					local d = seat.Position - root.Position
+					local dist2 = d.X * d.X + d.Y * d.Y + d.Z * d.Z
+					if dist2 <= MAX_RANGE2 and dist2 < nearestDist2 then
+						nearestDist2 = dist2
+						nearestSeat = seat
+					end
+				end
+			end
+		end
+
+		return nearestSeat
+	end
+
+	local function loadSeatToBox(seat)
+		if not seat then
+			CURRENT_SEAT = nil
+			if not EDITING then
+				setBoxText("0")
+			end
+			return
+		end
+
+		CURRENT_SEAT = seat
+
+		if EDITING then
+			return
+		end
+
+		local speed = readSpeed(seat)
+		setBoxText(speed ~= nil and speed or 0)
+	end
+
+	local function refreshNearestSeat()
+		if not ENABLED then
+			return
+		end
+
+		local seat = findNearestSeat()
+		if seat ~= CURRENT_SEAT then
+			loadSeatToBox(seat)
+			return
+		end
+
+		if not seat and not EDITING then
+			setBoxText("0")
+		end
+	end
+
+	local function applyBoxToCurrentSeat()
+		if not ENABLED then
+			return
+		end
+
+		if not CURRENT_SEAT or not CURRENT_SEAT.Parent then
+			return
+		end
+
+		local n = clampInput(SpeedBox.Text)
+		if n == nil then
+			local speed = readSpeed(CURRENT_SEAT)
+			setBoxText(speed ~= nil and speed or 0)
+			return
+		end
+
+		writeSpeed(CURRENT_SEAT, n)
+		setBoxText(n)
+	end
+
+	local function setEnabled(state)
+		ENABLED = state and true or false
+
+		if not ENABLED then
+			CURRENT_SEAT = nil
+			EDITING = false
+			setBoxText("0")
+		else
+			refreshNearestSeat()
+		end
+	end
+
+	local function toggle()
+		setEnabled(not ENABLED)
+	end
+
+	if ToggleButton.Activated then
+		ToggleButton.Activated:Connect(toggle)
+	else
+		ToggleButton.MouseButton1Click:Connect(toggle)
+	end
+
+	SpeedBox.Focused:Connect(function()
+		EDITING = true
+	end)
+
+	SpeedBox.FocusLost:Connect(function(enterPressed)
+		EDITING = false
+		if ENABLED then
+			applyBoxToCurrentSeat()
+		end
+	end)
+
+	SpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if INTERNAL then
+			return
+		end
+
+		if not EDITING then
+			return
+		end
+
+		local text = SpeedBox.Text
+		if text == "" then
+			return
+		end
+
+		local n = tonumber(text)
+		if not n then
+			SpeedBox.Text = text:gsub("%D", "")
+			return
+		end
+
+		n = math.clamp(math.floor(n + 0.5), 0, 1000)
+		if tostring(n) ~= text then
+			INTERNAL = true
+			SpeedBox.Text = tostring(n)
+			INTERNAL = false
+		end
+	end)
+
+	RunService.Heartbeat:Connect(function()
+		if not ENABLED then
+			return
+		end
+
+		refreshNearestSeat()
+	end)
 end
