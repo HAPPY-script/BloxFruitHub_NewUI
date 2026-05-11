@@ -554,9 +554,10 @@ do
     local Workspace = game:GetService("Workspace")
 
     local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
     local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
-    -- === cấu hình tween màu ===
+    -- === tween config ===
     local FROM_BG = Color3.fromRGB(175, 0, 30)
     local TO_BG = Color3.fromRGB(175, 100, 175)
 
@@ -565,13 +566,18 @@ do
 
     local TWEEN_TIME = 0.28
 
-    -- === cờ / trạng thái ===
+    -- === anti-lag state ===
     local ranOnce = false
     local listenersBound = false
+    local scanRunning = false
 
-    -- === tìm Frame / Button ===
+    local pending = {}
+    local queued = setmetatable({}, { __mode = "k" })
+    local draining = false
+
+    -- === find UI ===
     local ok, VisualFrame = pcall(function()
-        return player.PlayerGui
+        return playerGui
             :WaitForChild("BloxFruitHubGui")
             :WaitForChild("Main")
             :WaitForChild("ScrollingTab")
@@ -594,7 +600,6 @@ do
         return
     end
 
-    -- helper: tìm UIStroke trong button
     local function findStroke(inst)
         for _, c in ipairs(inst:GetDescendants()) do
             if c:IsA("UIStroke") then
@@ -606,8 +611,8 @@ do
 
     local stroke = findStroke(button)
 
-    -- helper: tween an toàn
     local function playTween(instance, props, time)
+        if not instance then return nil end
         local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local ok2, tw = pcall(function()
             return TweenService:Create(instance, info, props)
@@ -640,20 +645,6 @@ do
                 end
             end)
         end
-
-        Lighting.DescendantAdded:Connect(function(v)
-            task.defer(function()
-                pcall(function()
-                    if v:IsA("PostEffect") then
-                        v.Enabled = false
-                    elseif v:IsA("Atmosphere") then
-                        v.Density = 0
-                        v.Haze = 0
-                        v.Glare = 0
-                    end
-                end)
-            end)
-        end)
     end
 
     local function applyTerrainTweaks()
@@ -686,6 +677,50 @@ do
             or name:find("slash", 1, true)
             or name:find("damage", 1, true)
             or name:find("debris", 1, true)
+            or name:find("fx", 1, true)
+    end
+
+    local function hasVfxAncestor(obj)
+        local current = obj and obj.Parent
+        local depth = 0
+        while current and depth < 4 do
+            if isVfxName(current.Name) then
+                return true
+            end
+            current = current.Parent
+            depth += 1
+        end
+        return false
+    end
+
+    local function shouldOptimizeLive(obj)
+        if not obj then
+            return false
+        end
+
+        if obj:IsA("ParticleEmitter")
+        or obj:IsA("Trail")
+        or obj:IsA("Beam")
+        or obj:IsA("Smoke")
+        or obj:IsA("Fire")
+        or obj:IsA("Sparkles")
+        or obj:IsA("PostEffect")
+        or obj:IsA("Atmosphere")
+        or obj:IsA("Highlight")
+        or obj:IsA("Explosion")
+        then
+            return true
+        end
+
+        if obj:IsA("BillboardGui") then
+            return isVfxName(obj.Name) or hasVfxAncestor(obj)
+        end
+
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+            return isVfxName(obj.Name) or hasVfxAncestor(obj)
+        end
+
+        return false
     end
 
     local function optimizeObject(obj)
@@ -693,7 +728,6 @@ do
             return
         end
 
-        -- VFX / particles
         if obj:IsA("ParticleEmitter") then
             pcall(function()
                 obj.Enabled = false
@@ -716,7 +750,6 @@ do
             return
         end
 
-        -- visual-only clutter
         if obj:IsA("Decal") or obj:IsA("Texture") then
             pcall(function()
                 obj.Transparency = 1
@@ -745,7 +778,6 @@ do
             return
         end
 
-        -- world lights / effects
         if obj:IsA("PostEffect") then
             pcall(function()
                 obj.Enabled = false
@@ -762,35 +794,59 @@ do
             return
         end
 
-        -- billboard spam (chỉ tắt nếu tên có dấu hiệu VFX / damage)
-        if obj:IsA("BillboardGui") and isVfxName(obj.Name) then
+        if obj:IsA("BillboardGui") and (isVfxName(obj.Name) or hasVfxAncestor(obj)) then
             pcall(function()
                 obj.Enabled = false
             end)
             return
         end
 
-        -- parts: giảm phản xạ / bóng / vật liệu
-        if obj:IsA("BasePart") then
-            pcall(function()
-                obj.Material = Enum.Material.Plastic
-                obj.Reflectance = 0
-                obj.CastShadow = false
-                obj.MaterialVariant = ""
-            end)
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+            if isVfxName(obj.Name) or hasVfxAncestor(obj) then
+                pcall(function()
+                    obj.Material = Enum.Material.Plastic
+                    obj.Reflectance = 0
+                    obj.CastShadow = false
+                    obj.MaterialVariant = ""
+                end)
+            end
+            return
+        end
+    end
+
+    local function enqueueOptimize(obj)
+        if not shouldOptimizeLive(obj) then
             return
         end
 
-        -- meshpart: giữ nguyên mesh nhưng đổi nhẹ material
-        if obj:IsA("MeshPart") then
-            pcall(function()
-                obj.Material = Enum.Material.Plastic
-                obj.Reflectance = 0
-                obj.CastShadow = false
-                obj.MaterialVariant = ""
-            end)
+        if queued[obj] then
             return
         end
+
+        queued[obj] = true
+        pending[#pending + 1] = obj
+
+        if draining then
+            return
+        end
+
+        draining = true
+        task.spawn(function()
+            while #pending > 0 do
+                local batch = math.min(25, #pending)
+                for _ = 1, batch do
+                    local current = table.remove(pending, 1)
+                    if current then
+                        queued[current] = nil
+                        if current.Parent then
+                            pcall(optimizeObject, current)
+                        end
+                    end
+                end
+                task.wait()
+            end
+            draining = false
+        end)
     end
 
     local function bindListeners()
@@ -800,15 +856,34 @@ do
         listenersBound = true
 
         Workspace.DescendantAdded:Connect(function(obj)
-            task.defer(function()
-                pcall(optimizeObject, obj)
-            end)
+            enqueueOptimize(obj)
         end)
 
         Lighting.DescendantAdded:Connect(function(obj)
-            task.defer(function()
+            enqueueOptimize(obj)
+        end)
+    end
+
+    local function runInitialSweep()
+        if scanRunning then
+            return
+        end
+        scanRunning = true
+
+        task.spawn(function()
+            local desc = Workspace:GetDescendants()
+            for i, obj in ipairs(desc) do
                 pcall(optimizeObject, obj)
-            end)
+                if i % 180 == 0 then
+                    task.wait()
+                end
+            end
+
+            for _, obj in ipairs(Lighting:GetDescendants()) do
+                pcall(optimizeObject, obj)
+            end
+
+            scanRunning = false
         end)
     end
 
@@ -821,20 +896,9 @@ do
         bindListeners()
         applyLightingTweaks()
         applyTerrainTweaks()
+        runInitialSweep()
 
-        task.spawn(function()
-            local desc = Workspace:GetDescendants()
-            for i, obj in ipairs(desc) do
-                pcall(optimizeObject, obj)
-                if i % 150 == 0 then
-                    task.wait()
-                end
-            end
-
-            for _, obj in ipairs(Lighting:GetDescendants()) do
-                pcall(optimizeObject, obj)
-            end
-
+        task.defer(function()
             pcall(function()
                 print("✅ ONE-TIME ULTRA ANTI LAG DONE!")
             end)
