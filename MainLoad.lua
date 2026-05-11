@@ -31,7 +31,7 @@ local function cleanup(reason)
 	RUNNING = false
 
 	warn("[BloxFruitHub]", reason or "unknown error")
-	notify("Lỗi loading", tostring(reason or "Không xác định"), {255, 80, 80}, 5)
+	notify("Loading error", tostring(reason or "Undetermined"), {255, 80, 80}, 5)
 
 	_G.BloxFruit_Hub = false
 	shared.load = nil
