@@ -1212,7 +1212,6 @@ do
 		:WaitForChild("Main")
 		:WaitForChild("ScrollingTab")
 
-	-- Frame chứa các nút và textbox
 	local SeaEvenFrame = ScrollingTab:WaitForChild("Sea Even")
 
 	local TOGGLE_BUTTON_NAME = "ShipSpeedButton"
@@ -1417,7 +1416,7 @@ do
 		MODIFIED_BOATS[boat] = true
 	end
 
-	local function restoreBoat(boat)
+	local function restoreBoatToOrigin(boat)
 		if not boat or not boat.Parent then
 			return
 		end
@@ -1434,11 +1433,29 @@ do
 		end
 	end
 
-	local function restoreAllBoats()
-		for boat in pairs(MODIFIED_BOATS) do
-			restoreBoat(boat)
+	local function applyBoatPresent(boat)
+		if not boat or not boat.Parent then
+			return
 		end
-		table.clear(MODIFIED_BOATS)
+
+		local seat = getSeatFromBoat(boat)
+		local present = boat:FindFirstChild("SpeedPresent")
+
+		if seat and present then
+			writeSpeed(seat, present.Value)
+		end
+	end
+
+	local function restoreAllBoatsToOrigin()
+		for boat in pairs(MODIFIED_BOATS) do
+			restoreBoatToOrigin(boat)
+		end
+	end
+
+	local function reapplyAllBoatsFromPresent()
+		for boat in pairs(MODIFIED_BOATS) do
+			applyBoatPresent(boat)
+		end
 	end
 
 	local function clampInput(text)
@@ -1560,12 +1577,14 @@ do
 		_G.ShipSpeedSystem = ENABLED
 
 		if LAST_ENABLED and not ENABLED then
-			restoreAllBoats()
+			restoreAllBoatsToOrigin()
 			CURRENT_SEAT = nil
 			CURRENT_BOAT = nil
 			EDITING = false
-
 			setBox("0")
+		elseif (not LAST_ENABLED) and ENABLED then
+			reapplyAllBoatsFromPresent()
+			refreshSeat()
 		end
 
 		LAST_ENABLED = ENABLED
