@@ -2,7 +2,7 @@ local AutoStopSEvenGui = Instance.new("ScreenGui")
 AutoStopSEvenGui.Name = "AutoStopSEvenGui"
 AutoStopSEvenGui.ResetOnSpawn = false
 AutoStopSEvenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-AutoStopSEvenGui.DisplayOrder = 10
+AutoStopSEvenGui.DisplayOrder = 101
 AutoStopSEvenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
@@ -608,14 +608,14 @@ Name4.Parent = HauntedShipRaid
 local Icon4 = Instance.new("ImageLabel")
 Icon4.Name = "Icon"
 Icon4.Position = UDim2.new(0, 0, 1, 0)
-Icon4.Size = UDim2.new(0.6, 0, 0.6, 0)
+Icon4.Size = UDim2.new(0.4, 0, 0.4, 0)
 Icon4.BackgroundColor3 = Color3.new(1, 1, 1)
 Icon4.BackgroundTransparency = 1
 Icon4.BorderSizePixel = 0
 Icon4.BorderColor3 = Color3.new(0, 0, 0)
-Icon4.AnchorPoint = Vector2.new(0.2, 0.8)
+Icon4.AnchorPoint = Vector2.new(0, 1)
 Icon4.Transparency = 1
-Icon4.Image = "rbxassetid://113010687158718"
+Icon4.Image = "rbxassetid://78907107514740"
 Icon4.ImageTransparency = 0.25
 Icon4.Parent = HauntedShipRaid
 
@@ -732,6 +732,170 @@ EndTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enu
 EndTitle.TextScaled = true
 EndTitle.TextWrapped = true
 EndTitle.Parent = SelectEvenFrame
+
+local ShipRaid = Instance.new("ImageButton")
+ShipRaid.Name = "ShipRaid"
+ShipRaid.Position = UDim2.new(0, 150, 0, 220)
+ShipRaid.Size = UDim2.new(0.5, 0, 0.5, 0)
+ShipRaid.BackgroundColor3 = Color3.new(0.490196, 0.368627, 0.219608)
+ShipRaid.BorderSizePixel = 0
+ShipRaid.BorderColor3 = Color3.new(0, 0, 0)
+ShipRaid.AnchorPoint = Vector2.new(0.5, 1)
+ShipRaid.Image = "rbxassetid://123442063401321"
+ShipRaid.Parent = SelectEvenFrame
+
+local UIAspectRatioConstraint15 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint15.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint15.Parent = ShipRaid
+
+local UIStroke18 = Instance.new("UIStroke")
+UIStroke18.Name = "UIStroke"
+UIStroke18.Color = Color3.new(0.490196, 0.368627, 0.219608)
+UIStroke18.Thickness = 2
+UIStroke18.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke18.Parent = ShipRaid
+
+local PickButton6 = Instance.new("ImageButton")
+PickButton6.Name = "PickButton"
+PickButton6.Position = UDim2.new(1, 0, 1, 0)
+PickButton6.Size = UDim2.new(0.25, 0, 0.25, 0)
+PickButton6.BackgroundColor3 = Color3.new(0, 0, 0)
+PickButton6.BackgroundTransparency = 0.25
+PickButton6.BorderSizePixel = 0
+PickButton6.BorderColor3 = Color3.new(0, 0, 0)
+PickButton6.AnchorPoint = Vector2.new(1, 1)
+PickButton6.Transparency = 0.25
+PickButton6.Image = "rbxassetid://4333896501"
+PickButton6.ImageColor3 = Color3.new(0, 1, 0)
+PickButton6.ImageTransparency = 1
+PickButton6.Parent = ShipRaid
+
+local UIAspectRatioConstraint16 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint16.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint16.Parent = PickButton6
+
+local UIStroke19 = Instance.new("UIStroke")
+UIStroke19.Name = "UIStroke"
+UIStroke19.Color = Color3.new(0.490196, 0.368627, 0.219608)
+UIStroke19.Thickness = 2
+UIStroke19.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke19.Parent = PickButton6
+
+local Name6 = Instance.new("TextLabel")
+Name6.Name = "Name"
+Name6.Position = UDim2.new(0.5, 0, 1, 0)
+Name6.Size = UDim2.new(1, 0, 0.3, 0)
+Name6.BackgroundColor3 = Color3.new(1, 1, 1)
+Name6.BackgroundTransparency = 1
+Name6.BorderSizePixel = 0
+Name6.BorderColor3 = Color3.new(0, 0, 0)
+Name6.AnchorPoint = Vector2.new(0.5, 0)
+Name6.Transparency = 1
+Name6.Text = "Ship Raid"
+Name6.TextColor3 = Color3.new(1, 1, 1)
+Name6.TextSize = 14
+Name6.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Name6.TextScaled = true
+Name6.TextWrapped = true
+Name6.Parent = ShipRaid
+
+local Icon6 = Instance.new("ImageLabel")
+Icon6.Name = "Icon"
+Icon6.Position = UDim2.new(0, 0, 1, 0)
+Icon6.Size = UDim2.new(0.4, 0, 0.4, 0)
+Icon6.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon6.BackgroundTransparency = 1
+Icon6.BorderSizePixel = 0
+Icon6.BorderColor3 = Color3.new(0, 0, 0)
+Icon6.AnchorPoint = Vector2.new(0, 1)
+Icon6.Transparency = 1
+Icon6.Image = "rbxassetid://78907107514740"
+Icon6.ImageTransparency = 0.25
+Icon6.Parent = ShipRaid
+
+local TerrorShark = Instance.new("ImageButton")
+TerrorShark.Name = "TerrorShark"
+TerrorShark.Position = UDim2.new(0, 250, 0, 220)
+TerrorShark.Size = UDim2.new(0.5, 0, 0.5, 0)
+TerrorShark.BackgroundColor3 = Color3.new(0.247059, 0.529412, 0.223529)
+TerrorShark.BorderSizePixel = 0
+TerrorShark.BorderColor3 = Color3.new(0, 0, 0)
+TerrorShark.AnchorPoint = Vector2.new(0.5, 1)
+TerrorShark.Image = "rbxassetid://73368317864879"
+TerrorShark.Parent = SelectEvenFrame
+
+local UIAspectRatioConstraint17 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint17.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint17.Parent = TerrorShark
+
+local UIStroke20 = Instance.new("UIStroke")
+UIStroke20.Name = "UIStroke"
+UIStroke20.Color = Color3.new(0.247059, 0.529412, 0.223529)
+UIStroke20.Thickness = 2
+UIStroke20.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke20.Parent = TerrorShark
+
+local PickButton7 = Instance.new("ImageButton")
+PickButton7.Name = "PickButton"
+PickButton7.Position = UDim2.new(1, 0, 1, 0)
+PickButton7.Size = UDim2.new(0.25, 0, 0.25, 0)
+PickButton7.BackgroundColor3 = Color3.new(0, 0, 0)
+PickButton7.BackgroundTransparency = 0.25
+PickButton7.BorderSizePixel = 0
+PickButton7.BorderColor3 = Color3.new(0, 0, 0)
+PickButton7.AnchorPoint = Vector2.new(1, 1)
+PickButton7.Transparency = 0.25
+PickButton7.Image = "rbxassetid://4333896501"
+PickButton7.ImageColor3 = Color3.new(0, 1, 0)
+PickButton7.ImageTransparency = 1
+PickButton7.Parent = TerrorShark
+
+local UIAspectRatioConstraint18 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint18.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint18.Parent = PickButton7
+
+local UIStroke21 = Instance.new("UIStroke")
+UIStroke21.Name = "UIStroke"
+UIStroke21.Color = Color3.new(0.247059, 0.529412, 0.223529)
+UIStroke21.Thickness = 2
+UIStroke21.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke21.Parent = PickButton7
+
+local Name7 = Instance.new("TextLabel")
+Name7.Name = "Name"
+Name7.Position = UDim2.new(0.5, 0, 1, 0)
+Name7.Size = UDim2.new(1, 0, 0.3, 0)
+Name7.BackgroundColor3 = Color3.new(1, 1, 1)
+Name7.BackgroundTransparency = 1
+Name7.BorderSizePixel = 0
+Name7.BorderColor3 = Color3.new(0, 0, 0)
+Name7.AnchorPoint = Vector2.new(0.5, 0)
+Name7.Transparency = 1
+Name7.Text = "Terror Shark"
+Name7.TextColor3 = Color3.new(1, 1, 1)
+Name7.TextSize = 14
+Name7.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Name7.TextScaled = true
+Name7.TextWrapped = true
+Name7.Parent = TerrorShark
+
+local Icon7 = Instance.new("ImageLabel")
+Icon7.Name = "Icon"
+Icon7.Position = UDim2.new(0, 0, 1, 0)
+Icon7.Size = UDim2.new(0.4, 0, 0.4, 0)
+Icon7.BackgroundColor3 = Color3.new(1, 1, 1)
+Icon7.BackgroundTransparency = 1
+Icon7.BorderSizePixel = 0
+Icon7.BorderColor3 = Color3.new(0, 0, 0)
+Icon7.AnchorPoint = Vector2.new(0.1, 0.9)
+Icon7.Transparency = 1
+Icon7.Image = "rbxassetid://129611402355942"
+Icon7.ImageTransparency = 0.25
+Icon7.Parent = TerrorShark
 
 local Frame = Main
 if not Frame then return end
