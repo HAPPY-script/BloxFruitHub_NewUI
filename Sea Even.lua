@@ -92,7 +92,7 @@ AutoBoatDriveTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoBoatDriveTitle.BorderSizePixel = 0
 AutoBoatDriveTitle.BorderColor3 = Color3.new(0, 0, 0)
 AutoBoatDriveTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-AutoBoatDriveTitle.Text = "Auto boat drive S3"
+AutoBoatDriveTitle.Text = "Auto ship drive S3"
 AutoBoatDriveTitle.TextColor3 = Color3.new(1, 1, 1)
 AutoBoatDriveTitle.TextSize = 14
 AutoBoatDriveTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -251,7 +251,7 @@ AutoBoatDriveModeTitle.BorderSizePixel = 0
 AutoBoatDriveModeTitle.BorderColor3 = Color3.new(0, 0, 0)
 AutoBoatDriveModeTitle.ZIndex = 2
 AutoBoatDriveModeTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-AutoBoatDriveModeTitle.Text = "Auto boat drive mode"
+AutoBoatDriveModeTitle.Text = "Auto ship drive mode"
 AutoBoatDriveModeTitle.TextColor3 = Color3.new(1, 1, 1)
 AutoBoatDriveModeTitle.TextSize = 14
 AutoBoatDriveModeTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -439,6 +439,130 @@ UIStroke10.Color = Color3.new(1, 1, 1)
 UIStroke10.Thickness = 2
 UIStroke10.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke10.Parent = AutoStopSEvenTitle
+
+local ShipSpeedBox = Instance.new("TextBox")
+ShipSpeedBox.Name = "ShipSpeedBox"
+ShipSpeedBox.Position = UDim2.new(0.625, 0, 0.23, 0)
+ShipSpeedBox.Size = UDim2.new(0.2, 0, 0.03, 0)
+ShipSpeedBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
+ShipSpeedBox.BackgroundTransparency = 0.75
+ShipSpeedBox.BorderSizePixel = 0
+ShipSpeedBox.BorderColor3 = Color3.new(0, 0, 0)
+ShipSpeedBox.AnchorPoint = Vector2.new(0.5, 0.5)
+ShipSpeedBox.Transparency = 0.75
+ShipSpeedBox.Text = ""
+ShipSpeedBox.TextColor3 = Color3.new(1, 1, 1)
+ShipSpeedBox.TextSize = 14
+ShipSpeedBox.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+ShipSpeedBox.TextScaled = true
+ShipSpeedBox.TextWrapped = true
+ShipSpeedBox.PlaceholderText = "Speed value"
+ShipSpeedBox.PlaceholderColor3 = Color3.new(1, 1, 1)
+ShipSpeedBox.Parent = Sea_Even
+
+local UIStroke11 = Instance.new("UIStroke")
+UIStroke11.Name = "UIStroke"
+UIStroke11.Color = Color3.new(0.784314, 0.784314, 0.784314)
+UIStroke11.Thickness = 2
+UIStroke11.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke11.Parent = ShipSpeedBox
+
+local ShipSpeedTitle = Instance.new("TextLabel")
+ShipSpeedTitle.Name = "ShipSpeedTitle"
+ShipSpeedTitle.Position = UDim2.new(0.265, 0, 0.23, 0)
+ShipSpeedTitle.Size = UDim2.new(0.465, 0, 0.03, 0)
+ShipSpeedTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
+ShipSpeedTitle.BorderSizePixel = 0
+ShipSpeedTitle.BorderColor3 = Color3.new(0, 0, 0)
+ShipSpeedTitle.ZIndex = 2
+ShipSpeedTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+ShipSpeedTitle.Text = "Ship speed"
+ShipSpeedTitle.TextColor3 = Color3.new(1, 1, 1)
+ShipSpeedTitle.TextSize = 14
+ShipSpeedTitle.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+ShipSpeedTitle.TextScaled = true
+ShipSpeedTitle.TextWrapped = true
+ShipSpeedTitle.Parent = Sea_Even
+
+local UIStroke12 = Instance.new("UIStroke")
+UIStroke12.Name = "UIStroke"
+UIStroke12.Color = Color3.new(1, 1, 1)
+UIStroke12.Thickness = 2
+UIStroke12.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke12.Parent = ShipSpeedTitle
+
+local ShipSpeedButton = Instance.new("TextButton")
+ShipSpeedButton.Name = "ShipSpeedButton"
+ShipSpeedButton.Position = UDim2.new(0.85, 0, 0.23, 0)
+ShipSpeedButton.Size = UDim2.new(0.175, 0, 0.03, 0)
+ShipSpeedButton.BackgroundColor3 = Color3.new(1, 0, 0)
+ShipSpeedButton.BackgroundTransparency = 0.75
+ShipSpeedButton.BorderSizePixel = 0
+ShipSpeedButton.BorderColor3 = Color3.new(0, 0, 0)
+ShipSpeedButton.AnchorPoint = Vector2.new(0.5, 0.5)
+ShipSpeedButton.Transparency = 0.75
+ShipSpeedButton.Text = ""
+ShipSpeedButton.TextColor3 = Color3.new(0, 0, 0)
+ShipSpeedButton.TextSize = 14
+ShipSpeedButton.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+ShipSpeedButton.Parent = Sea_Even
+
+local UICorner7 = Instance.new("UICorner")
+UICorner7.Name = "UICorner"
+UICorner7.CornerRadius = UDim.new(1, 0)
+UICorner7.Parent = ShipSpeedButton
+
+local UIStroke13 = Instance.new("UIStroke")
+UIStroke13.Name = "UIStroke"
+UIStroke13.Color = Color3.new(1, 0, 0)
+UIStroke13.Thickness = 2
+UIStroke13.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke13.Parent = ShipSpeedButton
+
+local Dot3 = Instance.new("Frame")
+Dot3.Name = "Dot"
+Dot3.Position = UDim2.new(0.25, 0, 0.5, 0)
+Dot3.Size = UDim2.new(0.85, 0, 0.85, 0)
+Dot3.BackgroundColor3 = Color3.new(1, 1, 1)
+Dot3.BackgroundTransparency = 1
+Dot3.BorderSizePixel = 0
+Dot3.BorderColor3 = Color3.new(0, 0, 0)
+Dot3.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot3.Transparency = 1
+Dot3.Parent = ShipSpeedButton
+
+local UIAspectRatioConstraint4 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint4.Name = "UIAspectRatioConstraint"
+
+UIAspectRatioConstraint4.Parent = Dot3
+
+local UICorner8 = Instance.new("UICorner")
+UICorner8.Name = "UICorner"
+UICorner8.CornerRadius = UDim.new(1, 0)
+UICorner8.Parent = Dot3
+
+local OnIcon3 = Instance.new("ImageLabel")
+OnIcon3.Name = "OnIcon"
+OnIcon3.Size = UDim2.new(1, 0, 1, 0)
+OnIcon3.BackgroundColor3 = Color3.new(0, 1, 0)
+OnIcon3.BackgroundTransparency = 1
+OnIcon3.BorderSizePixel = 0
+OnIcon3.BorderColor3 = Color3.new(0, 0, 0)
+OnIcon3.Transparency = 1
+OnIcon3.Image = "rbxassetid://133446041443660"
+OnIcon3.ImageTransparency = 1
+OnIcon3.Parent = Dot3
+
+local OffIcon3 = Instance.new("ImageLabel")
+OffIcon3.Name = "OffIcon"
+OffIcon3.Size = UDim2.new(1, 0, 1, 0)
+OffIcon3.BackgroundColor3 = Color3.new(1, 0, 0)
+OffIcon3.BackgroundTransparency = 1
+OffIcon3.BorderSizePixel = 0
+OffIcon3.BorderColor3 = Color3.new(0, 0, 0)
+OffIcon3.Transparency = 1
+OffIcon3.Image = "rbxassetid://109833067427302"
+OffIcon3.Parent = Dot3
 
 local Frame = Sea_Even
 if not Frame then return end
