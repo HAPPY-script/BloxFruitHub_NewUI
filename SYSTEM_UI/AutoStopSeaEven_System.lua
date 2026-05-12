@@ -67,6 +67,16 @@ local TARGETS = {
 		},
 	},
 
+	HauntedShipRaid = {
+		kind = "folder_match_any",
+		folderName = "Enemies",
+		range = 2500,
+		matches = {
+			"FishBoat",
+			"Fish Crew Member",
+		},
+	},
+	
 	TerrorShark = {
 		kind = "folder_match_any",
 		folderName = "Enemies",
