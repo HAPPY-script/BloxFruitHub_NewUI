@@ -1213,9 +1213,7 @@ do
 		:WaitForChild("ScrollingTab")
 
 	local SeaEvenFrame = ScrollingTab:WaitForChild("Sea Even")
-
-	local TOGGLE_BUTTON_NAME = "ShipSpeedButton"
-	local ToggleButton = SeaEvenFrame:WaitForChild(TOGGLE_BUTTON_NAME)
+	local ToggleButton = SeaEvenFrame:WaitForChild("ShipSpeedButton")
 	local SpeedBox = SeaEvenFrame:WaitForChild("ShipSpeedBox")
 	local Boats = workspace:WaitForChild("Boats")
 
@@ -1230,8 +1228,8 @@ do
 
 	local ENABLED = false
 	local LAST_ENABLED = false
-	local CURRENT_SEAT = nil
 	local CURRENT_BOAT = nil
+	local CURRENT_SEAT = nil
 	local EDITING = false
 	local INTERNAL = false
 	local CLICK_LOCK = false
@@ -1239,16 +1237,16 @@ do
 	local MAX_RANGE = 300
 	local MAX_RANGE2 = MAX_RANGE * MAX_RANGE
 
-	local MODIFIED_BOATS = {}
+	-- [boat] = data
+	local BOAT_DATA = setmetatable({}, { __mode = "k" })
 
-	SpeedBox.Text = "0"
+	SpeedBox.Text = "nil"
 	SpeedBox.ClearTextOnFocus = false
 
 	local function isButtonOn(btn)
 		local ok, color = pcall(function()
 			return btn.BackgroundColor3
 		end)
-
 		if not ok or not color then
 			return false
 		end
@@ -1256,13 +1254,16 @@ do
 		local r = math.floor(color.R * 255 + 0.5)
 		local g = math.floor(color.G * 255 + 0.5)
 		local b = math.floor(color.B * 255 + 0.5)
-
 		return r == 0 and g == 255 and b == 0
 	end
 
 	local function setBox(text)
+		text = tostring(text)
+		if SpeedBox.Text == text then
+			return
+		end
 		INTERNAL = true
-		SpeedBox.Text = tostring(text)
+		SpeedBox.Text = text
 		INTERNAL = false
 	end
 
@@ -1275,7 +1276,15 @@ do
 		if not boat then
 			return nil
 		end
-		return boat:FindFirstChildWhichIsA("VehicleSeat", true)
+		local data = BOAT_DATA[boat]
+		if data and data.seat and data.seat.Parent then
+			return data.seat
+		end
+		local seat = boat:FindFirstChildWhichIsA("VehicleSeat", true)
+		if data then
+			data.seat = seat
+		end
+		return seat
 	end
 
 	local function getBoatFromSeat(seat)
@@ -1294,7 +1303,7 @@ do
 		return nil
 	end
 
-	local function getSpeedObject(seat)
+	local function resolveSpeedSource(seat)
 		if not seat then
 			return nil, nil
 		end
@@ -1329,24 +1338,28 @@ do
 		return nil, nil
 	end
 
-	local function readSpeed(seat)
-		local obj, mode = getSpeedObject(seat)
+	local function readSpeed(obj, mode)
 		if not obj then
 			return nil
 		end
 
 		if mode == "Value" then
-			return tonumber(obj.Value)
+			local n = tonumber(obj.Value)
+			return n and math.clamp(math.floor(n + 0.5), 0, 1000) or nil
 		end
 
 		local ok, value = pcall(function()
 			return obj.MaxSpeed
 		end)
-		return ok and tonumber(value) or nil
+		if not ok then
+			return nil
+		end
+
+		local n = tonumber(value)
+		return n and math.clamp(math.floor(n + 0.5), 0, 1000) or nil
 	end
 
-	local function writeSpeed(seat, value)
-		local obj, mode = getSpeedObject(seat)
+	local function writeSpeed(obj, mode, value)
 		if not obj then
 			return false
 		end
@@ -1364,92 +1377,102 @@ do
 		end)
 	end
 
-	local function ensureBoatValues(boat, speed)
-		if not boat then
-			return nil, nil
+	local function ensureStringValue(boat, name)
+		local v = boat:FindFirstChild(name)
+		if v and v:IsA("StringValue") then
+			return v
 		end
 
-		local origin = boat:FindFirstChild("SpeedOrigin")
-		if not origin then
-			origin = Instance.new("NumberValue")
-			origin.Name = "SpeedOrigin"
-			origin.Value = speed
-			origin.Parent = boat
+		if v then
+			v:Destroy()
 		end
 
-		local present = boat:FindFirstChild("SpeedPresent")
-		if not present then
-			present = Instance.new("NumberValue")
-			present.Name = "SpeedPresent"
-			present.Value = speed
-			present.Parent = boat
-		end
-
-		return origin, present
+		v = Instance.new("StringValue")
+		v.Name = name
+		v.Parent = boat
+		return v
 	end
 
-	local function cacheBoat(boat, seat)
+	local function registerBoat(boat, seat)
 		if not boat or not seat then
-			return
+			return nil
 		end
 
-		local speed = readSpeed(seat)
-		if speed == nil then
-			return
+		local sourceObj, sourceMode
+		local data = BOAT_DATA[boat]
+
+		if data and data.sourceObj and data.sourceObj.Parent then
+			sourceObj = data.sourceObj
+			sourceMode = data.sourceMode
+		else
+			sourceObj, sourceMode = resolveSpeedSource(seat)
 		end
 
-		local origin, present = ensureBoatValues(boat, speed)
-
-		if origin and origin.Value == 0 then
-			origin.Value = speed
+		if not sourceObj then
+			return nil
 		end
 
-		if present then
-			present.Value = speed
+		data = data or {}
+		data.boat = boat
+		data.seat = seat
+		data.sourceObj = sourceObj
+		data.sourceMode = sourceMode
+		data.origin = ensureStringValue(boat, "SpeedOrigin")
+		data.present = ensureStringValue(boat, "SpeedPresent")
+
+		if data.origin.Value == "" then
+			local speed = readSpeed(sourceObj, sourceMode)
+			data.origin.Value = tostring(speed or 0)
 		end
 
-		MODIFIED_BOATS[boat] = true
+		BOAT_DATA[boat] = data
+		return data
 	end
 
-	local function restoreBoatToOrigin(boat)
-		if not boat or not boat.Parent then
+	local function getPresentNumber(data)
+		if not data or not data.present then
+			return nil
+		end
+		if data.present.Value == "" then
+			return nil
+		end
+		local n = tonumber(data.present.Value)
+		return n and math.clamp(math.floor(n + 0.5), 0, 1000) or nil
+	end
+
+	local function applyBoat(data, value)
+		if not data or not data.boat or not data.seat then
+			return false
+		end
+		if not data.sourceObj then
+			return false
+		end
+		return writeSpeed(data.sourceObj, data.sourceMode, value)
+	end
+
+	local function restoreBoat(data)
+		if not data or not data.boat or not data.boat.Parent then
 			return
 		end
 
-		local seat = getSeatFromBoat(boat)
-		local origin = boat:FindFirstChild("SpeedOrigin")
-		local present = boat:FindFirstChild("SpeedPresent")
+		local origin = data.origin and tonumber(data.origin.Value) or nil
+		if origin then
+			applyBoat(data, origin)
+		end
+	end
 
-		if seat and origin then
-			local ok = writeSpeed(seat, origin.Value)
-			if ok and present then
-				present.Value = origin.Value
+	local function restoreAllBoats()
+		for _, data in pairs(BOAT_DATA) do
+			restoreBoat(data)
+		end
+	end
+
+	local function applyAllPresentBoats()
+		for _, data in pairs(BOAT_DATA) do
+			local p = getPresentNumber(data)
+			if p then
+				applyBoat(data, p)
 			end
-		end
-	end
-
-	local function applyBoatPresent(boat)
-		if not boat or not boat.Parent then
-			return
-		end
-
-		local seat = getSeatFromBoat(boat)
-		local present = boat:FindFirstChild("SpeedPresent")
-
-		if seat and present then
-			writeSpeed(seat, present.Value)
-		end
-	end
-
-	local function restoreAllBoatsToOrigin()
-		for boat in pairs(MODIFIED_BOATS) do
-			restoreBoatToOrigin(boat)
-		end
-	end
-
-	local function reapplyAllBoatsFromPresent()
-		for boat in pairs(MODIFIED_BOATS) do
-			applyBoatPresent(boat)
 		end
 	end
 
@@ -1462,120 +1485,116 @@ do
 		return math.clamp(n, 0, 1000)
 	end
 
-	local function findNearestSeat()
+	local function findNearestBoat()
 		local root = getRoot()
 		if not root then
-			return nil
+			return nil, nil
 		end
 
-		local nearestSeat = nil
+		local rootPos = root.Position
+		local nearestBoat, nearestSeat = nil, nil
 		local nearestDist2 = MAX_RANGE2 + 1
 
 		for _, boat in ipairs(Boats:GetChildren()) do
 			if boat:IsA("Model") then
 				local seat = getSeatFromBoat(boat)
-				if seat then
-					local d = seat.Position - root.Position
+				if seat and seat:IsA("VehicleSeat") then
+					local d = seat.Position - rootPos
 					local dist2 = d.X * d.X + d.Y * d.Y + d.Z * d.Z
-
 					if dist2 <= MAX_RANGE2 and dist2 < nearestDist2 then
 						nearestDist2 = dist2
+						nearestBoat = boat
 						nearestSeat = seat
 					end
 				end
 			end
 		end
 
-		return nearestSeat
+		return nearestBoat, nearestSeat
 	end
 
-	local function loadSeat(seat)
-		if not seat then
-			CURRENT_SEAT = nil
-			CURRENT_BOAT = nil
-
-			if not EDITING then
-				setBox("0")
-			end
+	local function showBoatToBox(data)
+		if not data then
+			setBox("nil")
 			return
 		end
 
+		local present = getPresentNumber(data)
+		if present then
+			setBox(present)
+			return
+		end
+
+		local origin = data.origin and tonumber(data.origin.Value) or nil
+		setBox(origin ~= nil and origin or "0")
+	end
+
+	local function loadBoat(boat, seat)
+		CURRENT_BOAT = boat
 		CURRENT_SEAT = seat
-		CURRENT_BOAT = getBoatFromSeat(seat)
 
-		if CURRENT_BOAT then
-			cacheBoat(CURRENT_BOAT, seat)
-		end
-
-		if EDITING then
+		if not boat or not seat then
+			if not EDITING then
+				setBox("nil")
+			end
 			return
 		end
 
-		local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
-		if present and present:IsA("NumberValue") then
-			setBox(present.Value)
+		local data = registerBoat(boat, seat)
+		if not data then
+			if not EDITING then
+				setBox("nil")
+			end
 			return
 		end
 
-		local speed = readSpeed(seat)
-		setBox(speed ~= nil and speed or 0)
+		if not EDITING then
+			showBoatToBox(data)
+		end
 	end
 
-	local function refreshSeat()
+	local function refreshCurrentBoat()
 		if not ENABLED then
 			return
 		end
 
-		local seat = findNearestSeat()
+		local boat, seat = findNearestBoat()
 
-		if seat ~= CURRENT_SEAT then
-			loadSeat(seat)
+		if boat ~= CURRENT_BOAT then
+			loadBoat(boat, seat)
 			return
 		end
 
-		if seat and not EDITING then
-			local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
-			local shown = present and present:IsA("NumberValue") and present.Value or readSpeed(seat)
-
-			if shown ~= nil and tostring(shown) ~= SpeedBox.Text then
-				setBox(shown)
+		if boat and not EDITING then
+			local data = BOAT_DATA[boat]
+			if data then
+				showBoatToBox(data)
 			end
 		end
 	end
 
-	local function applySpeed()
+	local function applyFromBox()
 		if not ENABLED then
 			return
 		end
 
-		if not CURRENT_SEAT or not CURRENT_SEAT.Parent then
+		if not CURRENT_BOAT or not CURRENT_SEAT or not CURRENT_BOAT.Parent then
+			return
+		end
+
+		local data = registerBoat(CURRENT_BOAT, CURRENT_SEAT)
+		if not data then
 			return
 		end
 
 		local n = clampInput(SpeedBox.Text)
 		if n == nil then
-			local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
-			if present and present:IsA("NumberValue") then
-				setBox(present.Value)
-			else
-				local speed = readSpeed(CURRENT_SEAT)
-				setBox(speed ~= nil and speed or 0)
-			end
+			showBoatToBox(data)
 			return
 		end
 
-		if CURRENT_BOAT then
-			cacheBoat(CURRENT_BOAT, CURRENT_SEAT)
-		end
-
-		local ok = writeSpeed(CURRENT_SEAT, n)
-		if ok and CURRENT_BOAT then
-			local present = CURRENT_BOAT:FindFirstChild("SpeedPresent")
-			if present and present:IsA("NumberValue") then
-				present.Value = n
-			end
-		end
-
+		data.present.Value = tostring(n)
+		applyBoat(data, n)
 		setBox(n)
 	end
 
@@ -1583,14 +1602,14 @@ do
 		ENABLED = isButtonOn(ToggleButton)
 
 		if LAST_ENABLED and not ENABLED then
-			restoreAllBoatsToOrigin()
-			CURRENT_SEAT = nil
+			restoreAllBoats()
 			CURRENT_BOAT = nil
+			CURRENT_SEAT = nil
 			EDITING = false
-			setBox("0")
+			setBox("nil")
 		elseif (not LAST_ENABLED) and ENABLED then
-			reapplyAllBoatsFromPresent()
-			refreshSeat()
+			applyAllPresentBoats()
+			refreshCurrentBoat()
 		end
 
 		LAST_ENABLED = ENABLED
@@ -1632,7 +1651,7 @@ do
 	SpeedBox.FocusLost:Connect(function()
 		EDITING = false
 		if ENABLED then
-			applySpeed()
+			applyFromBox()
 		end
 	end)
 
@@ -1655,8 +1674,8 @@ do
 		end
 
 		local n = tonumber(filtered)
-		if n ~= nil then
-			n = math.clamp(n, 0, 1000)
+		if n then
+			n = math.clamp(math.floor(n + 0.5), 0, 1000)
 			if tostring(n) ~= filtered then
 				INTERNAL = true
 				SpeedBox.Text = tostring(n)
@@ -1665,9 +1684,11 @@ do
 		end
 	end)
 
-	RunService.Heartbeat:Connect(function()
-		if ENABLED then
-			refreshSeat()
+	task.spawn(function()
+		while task.wait(0.2) do
+			if ENABLED then
+				refreshCurrentBoat()
+			end
 		end
 	end)
 
