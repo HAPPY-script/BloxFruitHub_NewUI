@@ -340,18 +340,35 @@ local function matchModelName(cfg, name)
 	return false
 end
 
+local modelPartCache = setmetatable({}, { __mode = "k" }) -- fallback part cache
+local modelHasPrimaryCache = setmetatable({}, { __mode = "k" }) -- bool cache
+
 local function getModelPosition(model)
 	if not model or not model.Parent then
 		return nil
 	end
 
-	local part = modelPartCache[model]
-	if not part or not part.Parent then
-		part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-		modelPartCache[model] = part
+	local pp = model.PrimaryPart
+	if pp and pp.Parent then
+		modelHasPrimaryCache[model] = true
+		return pp.Position
 	end
 
-	return part and part.Position or nil
+	if modelHasPrimaryCache[model] == true then
+		return nil
+	end
+
+	local part = modelPartCache[model]
+	if part == nil then
+		part = model:FindFirstChildWhichIsA("BasePart", true)
+		modelPartCache[model] = part or false
+	end
+
+	if part and part ~= false and part.Parent then
+		return part.Position
+	end
+
+	return nil
 end
 
 local function withinRange(a, b, range)
