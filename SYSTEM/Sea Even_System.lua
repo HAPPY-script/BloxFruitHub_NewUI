@@ -1215,13 +1215,9 @@ do
 	local SeaEvenFrame = ScrollingTab:WaitForChild("Sea Even")
 
 	local TOGGLE_BUTTON_NAME = "ShipSpeedButton"
-
 	local ToggleButton = SeaEvenFrame:WaitForChild(TOGGLE_BUTTON_NAME)
 	local SpeedBox = SeaEvenFrame:WaitForChild("ShipSpeedBox")
-
 	local Boats = workspace:WaitForChild("Boats")
-
-	_G.ShipSpeedSystem = false
 
 	repeat task.wait() until _G.ToggleUI
 	local ToggleUI = _G.ToggleUI
@@ -1238,6 +1234,7 @@ do
 	local CURRENT_BOAT = nil
 	local EDITING = false
 	local INTERNAL = false
+	local CLICK_LOCK = false
 
 	local MAX_RANGE = 300
 	local MAX_RANGE2 = MAX_RANGE * MAX_RANGE
@@ -1345,7 +1342,6 @@ do
 		local ok, value = pcall(function()
 			return obj.MaxSpeed
 		end)
-
 		return ok and tonumber(value) or nil
 	end
 
@@ -1358,10 +1354,9 @@ do
 		value = math.clamp(math.floor(tonumber(value) or 0), 0, 1000)
 
 		if mode == "Value" then
-			local ok = pcall(function()
+			return pcall(function()
 				obj.Value = value
 			end)
-			return ok
 		end
 
 		return pcall(function()
@@ -1463,7 +1458,6 @@ do
 		if not n then
 			return nil
 		end
-
 		n = math.floor(n + 0.5)
 		return math.clamp(n, 0, 1000)
 	end
@@ -1517,6 +1511,12 @@ do
 			return
 		end
 
+		local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
+		if present and present:IsA("NumberValue") then
+			setBox(present.Value)
+			return
+		end
+
 		local speed = readSpeed(seat)
 		setBox(speed ~= nil and speed or 0)
 	end
@@ -1534,9 +1534,11 @@ do
 		end
 
 		if seat and not EDITING then
-			local speed = readSpeed(seat)
-			if speed ~= nil and tostring(speed) ~= SpeedBox.Text then
-				setBox(speed)
+			local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
+			local shown = present and present:IsA("NumberValue") and present.Value or readSpeed(seat)
+
+			if shown ~= nil and tostring(shown) ~= SpeedBox.Text then
+				setBox(shown)
 			end
 		end
 	end
@@ -1552,8 +1554,13 @@ do
 
 		local n = clampInput(SpeedBox.Text)
 		if n == nil then
-			local speed = readSpeed(CURRENT_SEAT)
-			setBox(speed ~= nil and speed or 0)
+			local present = CURRENT_BOAT and CURRENT_BOAT:FindFirstChild("SpeedPresent")
+			if present and present:IsA("NumberValue") then
+				setBox(present.Value)
+			else
+				local speed = readSpeed(CURRENT_SEAT)
+				setBox(speed ~= nil and speed or 0)
+			end
 			return
 		end
 
@@ -1564,7 +1571,7 @@ do
 		local ok = writeSpeed(CURRENT_SEAT, n)
 		if ok and CURRENT_BOAT then
 			local present = CURRENT_BOAT:FindFirstChild("SpeedPresent")
-			if present then
+			if present and present:IsA("NumberValue") then
 				present.Value = n
 			end
 		end
@@ -1574,7 +1581,6 @@ do
 
 	local function syncSystemState()
 		ENABLED = isButtonOn(ToggleButton)
-		_G.ShipSpeedSystem = ENABLED
 
 		if LAST_ENABLED and not ENABLED then
 			restoreAllBoatsToOrigin()
@@ -1591,6 +1597,15 @@ do
 	end
 
 	local function toggleSystem()
+		if CLICK_LOCK then
+			return
+		end
+
+		CLICK_LOCK = true
+		task.delay(0.15, function()
+			CLICK_LOCK = false
+		end)
+
 		local requested = not isButtonOn(ToggleButton)
 
 		pcall(function()
