@@ -76,7 +76,7 @@ local TARGETS = {
 			"Fish Crew Member",
 		},
 	},
-	
+
 	TerrorShark = {
 		kind = "folder_match_any",
 		folderName = "Enemies",
@@ -101,12 +101,13 @@ local pickCache = {}
 local modeCache = {}
 
 local selectedMode = "Stop"
-local selectedTargets = {}      -- [targetKey] = true
-local selectedPickButtons = {}  -- [targetKey] = pickButton
+local selectedTargets = {}
+local selectedPickButtons = {}
 
 local isOpen = false
 local isToggling = false
 local lastAppliedKey = nil
+local currentAnySeen = false
 
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = CLOSE_POS
@@ -146,7 +147,6 @@ end
 local function updateCharacter(char)
 	character = char
 	rootPart = nil
-
 	if char then
 		rootPart = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
 	end
@@ -154,91 +154,6 @@ end
 
 updateCharacter(player.Character)
 player.CharacterAdded:Connect(updateCharacter)
-
-local function getMap()
-	return workspace:FindFirstChild("Map")
-end
-
-local function getTargetPart(model)
-	if not model then
-		return nil
-	end
-
-	local ok, pivot = pcall(function()
-		return model:GetPivot()
-	end)
-
-	if ok then
-		return pivot.Position
-	end
-
-	local part = model:FindFirstChildWhichIsA("BasePart", true)
-	return part and part.Position or nil
-end
-
-local function isTargetSeen(targetKey)
-	if not _G.AutoStopSEvenSystem then
-		return false
-	end
-
-	if not rootPart or not rootPart.Parent then
-		return false
-	end
-
-	local cfg = TARGETS[targetKey]
-	if not cfg then
-		return false
-	end
-
-	local function inRange(pos)
-		return pos and (rootPart.Position - pos).Magnitude <= (cfg.range or 2500)
-	end
-
-	if cfg.kind == "map" then
-		local map = workspace:FindFirstChild("Map")
-		if not map then
-			return false
-		end
-
-		local found = map:FindFirstChild(cfg.objectName, true)
-		if not found then
-			return false
-		end
-
-		return inRange(getTargetPart(found))
-	end
-
-	local folder = workspace:FindFirstChild(cfg.folderName)
-	if not folder then
-		return false
-	end
-
-	for _, obj in ipairs(folder:GetDescendants()) do
-		if obj:IsA("Model") then
-			local ok = false
-
-			if cfg.kind == "folder_match" then
-				ok = cfg.match and cfg.match(obj.Name) or false
-			elseif cfg.kind == "folder_match_any" then
-				for _, n in ipairs(cfg.matches or {}) do
-					if obj.Name == n then
-						ok = true
-						break
-					end
-				end
-			end
-
-			if ok then
-				local pos = getTargetPart(obj)
-				if inRange(pos) then
-					return true
-				end
-			end
-		end
-	end
-
-	return false
-end
 
 local function fireStop()
 	if type(_G.StopSEven) == "function" then
@@ -252,10 +167,8 @@ local function setMode(mode)
 	end
 
 	selectedMode = mode
-
 	tween(stopButton, TWEEN_FAST, { ImageTransparency = mode == "Stop" and 0 or 1 })
 	tween(pauseButton, TWEEN_FAST, { ImageTransparency = mode == "Pause" and 0 or 1 })
-
 	lastAppliedKey = nil
 end
 
@@ -273,7 +186,7 @@ local function toggleTarget(targetKey, pickButton)
 	lastAppliedKey = nil
 end
 
-local function applySystem()
+local function applySystem(anySeen)
 	if not _G.AutoStopSEvenSystem then
 		if _G.PauseSEven then
 			_G.PauseSEven = false
@@ -282,17 +195,7 @@ local function applySystem()
 		return
 	end
 
-	local anySelected = false
-	local anySeen = false
-
-	for targetKey in pairs(selectedTargets) do
-		anySelected = true
-		if isTargetSeen(targetKey) then
-			anySeen = true
-			break
-		end
-	end
-
+	local anySelected = next(selectedTargets) ~= nil
 	local key = tostring(anySelected) .. ":" .. tostring(anySeen) .. ":" .. selectedMode
 	if key == lastAppliedKey then
 		return
@@ -353,7 +256,7 @@ local function setupModeButton(btn, modeName)
 
 	btn.Activated:Connect(function()
 		setMode(modeName)
-		applySystem()
+		applySystem(currentAnySeen)
 	end)
 end
 
@@ -372,11 +275,7 @@ local function findTargetOwner(pickButton)
 end
 
 local function setupPickButton(inst)
-	if not inst:IsA("ImageButton") then
-		return
-	end
-
-	if inst.Name ~= "PickButton" then
+	if not inst:IsA("ImageButton") or inst.Name ~= "PickButton" then
 		return
 	end
 
@@ -399,7 +298,7 @@ local function setupPickButton(inst)
 
 	inst.Activated:Connect(function()
 		toggleTarget(targetKey, inst)
-		applySystem()
+		applySystem(currentAnySeen)
 	end)
 end
 
@@ -409,6 +308,191 @@ end
 
 selectFrame.DescendantAdded:Connect(setupPickButton)
 
-RunService.Heartbeat:Connect(function()
-	applySystem()
+-- =========================
+-- OPTIMIZED TARGET CACHE
+-- =========================
+
+local modelPartCache = setmetatable({}, { __mode = "k" })
+local folderStates = {}
+local mapCache = {}
+local folderConnByKey = {}
+
+local function isFolderTarget(cfg)
+	return cfg.kind == "folder_match" or cfg.kind == "folder_match_any"
+end
+
+local function matchModelName(cfg, name)
+	if cfg.kind == "folder_match" then
+		return cfg.match and cfg.match(name) or false
+	end
+
+	if cfg.kind == "folder_match_any" then
+		cfg._matchSet = cfg._matchSet or (function()
+			local set = {}
+			for _, n in ipairs(cfg.matches or {}) do
+				set[n] = true
+			end
+			return set
+		end)()
+		return cfg._matchSet[name] == true
+	end
+
+	return false
+end
+
+local function getModelPosition(model)
+	if not model or not model.Parent then
+		return nil
+	end
+
+	local part = modelPartCache[model]
+	if not part or not part.Parent then
+		part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+		modelPartCache[model] = part
+	end
+
+	return part and part.Position or nil
+end
+
+local function withinRange(a, b, range)
+	local d = a - b
+	return (d.X * d.X + d.Y * d.Y + d.Z * d.Z) <= (range * range)
+end
+
+local function refreshMapCache(targetKey)
+	local cfg = TARGETS[targetKey]
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		mapCache[targetKey] = nil
+		return
+	end
+
+	mapCache[targetKey] = map:FindFirstChild(cfg.objectName, true)
+end
+
+local function bindFolderTarget(targetKey)
+	local cfg = TARGETS[targetKey]
+	if not isFolderTarget(cfg) then
+		return
+	end
+
+	local folder = workspace:FindFirstChild(cfg.folderName)
+	if not folder then
+		return
+	end
+
+	local state = folderStates[targetKey]
+	if not state then
+		state = {
+			models = setmetatable({}, { __mode = "k" }),
+			conns = {},
+		}
+		folderStates[targetKey] = state
+	else
+		for _, c in ipairs(state.conns) do
+			c:Disconnect()
+		end
+		table.clear(state.conns)
+		table.clear(state.models)
+	end
+
+	for _, obj in ipairs(folder:GetDescendants()) do
+		if obj:IsA("Model") and matchModelName(cfg, obj.Name) then
+			state.models[obj] = true
+		end
+	end
+
+	state.conns[#state.conns + 1] = folder.DescendantAdded:Connect(function(obj)
+		if obj:IsA("Model") and matchModelName(cfg, obj.Name) then
+			folderStates[targetKey].models[obj] = true
+		end
+	end)
+
+	state.conns[#state.conns + 1] = folder.DescendantRemoving:Connect(function(obj)
+		if obj:IsA("Model") then
+			local s = folderStates[targetKey]
+			if s then
+				s.models[obj] = nil
+			end
+		end
+	end)
+end
+
+for key, cfg in pairs(TARGETS) do
+	if cfg.kind == "map" then
+		refreshMapCache(key)
+	elseif isFolderTarget(cfg) then
+		bindFolderTarget(key)
+	end
+end
+
+workspace.ChildAdded:Connect(function(child)
+	if child.Name == "Map" then
+		for key, cfg in pairs(TARGETS) do
+			if cfg.kind == "map" then
+				refreshMapCache(key)
+			end
+		end
+	end
+
+	for key, cfg in pairs(TARGETS) do
+		if isFolderTarget(cfg) and child.Name == cfg.folderName then
+			bindFolderTarget(key)
+		end
+	end
+end)
+
+local function evaluateAnySeen()
+	if not _G.AutoStopSEvenSystem then
+		return false
+	end
+
+	if not rootPart or not rootPart.Parent then
+		return false
+	end
+
+	local rootPos = rootPart.Position
+
+	for targetKey in pairs(selectedTargets) do
+		local cfg = TARGETS[targetKey]
+		if cfg then
+			if cfg.kind == "map" then
+				local obj = mapCache[targetKey]
+				if not obj or not obj.Parent then
+					refreshMapCache(targetKey)
+					obj = mapCache[targetKey]
+				end
+
+				if obj then
+					local pos = getModelPosition(obj)
+					if pos and withinRange(rootPos, pos, cfg.range or 2500) then
+						return true
+					end
+				end
+			else
+				local state = folderStates[targetKey]
+				if state then
+					for model in pairs(state.models) do
+						if not model or not model.Parent then
+							state.models[model] = nil
+						else
+							local pos = getModelPosition(model)
+							if pos and withinRange(rootPos, pos, cfg.range or 2500) then
+								return true
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return false
+end
+
+task.spawn(function()
+	while task.wait(0.2) do
+		currentAnySeen = evaluateAnySeen()
+		applySystem(currentAnySeen)
+	end
 end)
