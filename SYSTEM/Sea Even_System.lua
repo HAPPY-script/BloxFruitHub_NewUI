@@ -1410,21 +1410,16 @@ do
 		if not boat or not boat.Parent then
 			return
 		end
-
+	
 		local data = REGISTRY[boat]
 		local seat = data and data.seat or getSeatFromBoat(boat)
 		local origin = boat:FindFirstChild("SpeedOrigin")
-		local present = boat:FindFirstChild("SpeedPresent")
-
+	
 		if seat and origin and origin:IsA("StringValue") then
 			local originSpeed = tonumber(origin.Value)
 			if originSpeed ~= nil then
 				writeSpeed(seat, originSpeed)
 			end
-		end
-
-		if present and present:IsA("StringValue") then
-			present.Value = "nil"
 		end
 	end
 
@@ -1438,11 +1433,11 @@ do
 		if not boat or not boat.Parent then
 			return
 		end
-
+	
 		local data = REGISTRY[boat]
 		local seat = data and data.seat or getSeatFromBoat(boat)
 		local present = boat:FindFirstChild("SpeedPresent")
-
+	
 		if seat and present and present:IsA("StringValue") then
 			local v = tonumber(present.Value)
 			if v ~= nil then
