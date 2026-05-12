@@ -548,387 +548,311 @@ end
 --=== ANTI LAG =====================================================================================================--
 
 do
-    local Players = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
-    local Lighting = game:GetService("Lighting")
-    local Workspace = game:GetService("Workspace")
+	local Players = game:GetService("Players")
+	local TweenService = game:GetService("TweenService")
+	local Lighting = game:GetService("Lighting")
+	local Workspace = game:GetService("Workspace")
 
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
-    local Terrain = Workspace:FindFirstChildOfClass("Terrain")
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+	local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
-    -- === tween config ===
-    local FROM_BG = Color3.fromRGB(175, 0, 30)
-    local TO_BG = Color3.fromRGB(175, 100, 175)
+	local FROM_BG = Color3.fromRGB(175, 0, 30)
+	local TO_BG = Color3.fromRGB(175, 100, 175)
 
-    local FROM_STROKE = Color3.fromRGB(255, 255, 255)
-    local TO_STROKE = Color3.fromRGB(100, 255, 150)
+	local FROM_STROKE = Color3.fromRGB(255, 255, 255)
+	local TO_STROKE = Color3.fromRGB(100, 255, 150)
 
-    local TWEEN_TIME = 0.28
+	local TWEEN_TIME = 0.28
+	local ranOnce = false
 
-    -- === anti-lag state ===
-    local ranOnce = false
-    local listenersBound = false
-    local scanRunning = false
+	local ok, VisualFrame = pcall(function()
+		return playerGui
+			:WaitForChild("BloxFruitHubGui")
+			:WaitForChild("Main")
+			:WaitForChild("ScrollingTab")
+			:WaitForChild("Visual")
+	end)
 
-    local pending = {}
-    local queued = setmetatable({}, { __mode = "k" })
-    local draining = false
+	if not ok or not VisualFrame then
+		warn("AntiLag: không tìm thấy Visual frame trong PlayerGui")
+		return
+	end
 
-    -- === find UI ===
-    local ok, VisualFrame = pcall(function()
-        return playerGui
-            :WaitForChild("BloxFruitHubGui")
-            :WaitForChild("Main")
-            :WaitForChild("ScrollingTab")
-            :WaitForChild("Visual")
-    end)
+	local button = VisualFrame:WaitForChild("AntiLagButton", 5)
+	if not button or not button:IsA("GuiButton") then
+		warn("AntiLag: không tìm thấy AntiLagButton hợp lệ")
+		return
+	end
 
-    if not ok or not VisualFrame then
-        warn("AntiLag: không tìm thấy Visual frame trong PlayerGui")
-        return
-    end
+	local function findStroke(inst)
+		for _, c in ipairs(inst:GetDescendants()) do
+			if c:IsA("UIStroke") then
+				return c
+			end
+		end
+		return nil
+	end
 
-    local button = VisualFrame:WaitForChild("AntiLagButton", 5)
-    if not button then
-        warn("AntiLag: không tìm thấy AntiLagButton")
-        return
-    end
+	local stroke = findStroke(button)
 
-    if not button:IsA("GuiButton") then
-        warn("AntiLag: AntiLagButton không phải GuiButton")
-        return
-    end
+	local function playTween(instance, props, time)
+		if not instance then
+			return
+		end
 
-    local function findStroke(inst)
-        for _, c in ipairs(inst:GetDescendants()) do
-            if c:IsA("UIStroke") then
-                return c
-            end
-        end
-        return nil
-    end
+		local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local ok2, tw = pcall(function()
+			return TweenService:Create(instance, info, props)
+		end)
 
-    local stroke = findStroke(button)
+		if ok2 and tw then
+			tw:Play()
+		end
+	end
 
-    local function playTween(instance, props, time)
-        if not instance then return nil end
-        local info = TweenInfo.new(time or TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local ok2, tw = pcall(function()
-            return TweenService:Create(instance, info, props)
-        end)
-        if ok2 and tw then
-            tw:Play()
-            return tw
-        end
-        return nil
-    end
+	local function applyLightingTweaks()
+		pcall(function()
+			Lighting.GlobalShadows = false
+			Lighting.FogEnd = 9e9
+			Lighting.Brightness = 1
+			Lighting.EnvironmentDiffuseScale = 0
+			Lighting.EnvironmentSpecularScale = 0
+			Lighting.ClockTime = 14
+		end)
 
-    local function applyLightingTweaks()
-        pcall(function()
-            Lighting.GlobalShadows = false
-            Lighting.FogEnd = 9e9
-            Lighting.Brightness = 1
-            Lighting.EnvironmentDiffuseScale = 0
-            Lighting.EnvironmentSpecularScale = 0
-            Lighting.ClockTime = 14
-        end)
+		for _, v in ipairs(Lighting:GetDescendants()) do
+			pcall(function()
+				if v:IsA("PostEffect") then
+					v.Enabled = false
+				elseif v:IsA("Atmosphere") then
+					v.Density = 0
+					v.Haze = 0
+					v.Glare = 0
+				end
+			end)
+		end
+	end
 
-        for _, v in ipairs(Lighting:GetDescendants()) do
-            pcall(function()
-                if v:IsA("PostEffect") then
-                    v.Enabled = false
-                elseif v:IsA("Atmosphere") then
-                    v.Density = 0
-                    v.Haze = 0
-                    v.Glare = 0
-                end
-            end)
-        end
-    end
+	local function applyTerrainTweaks()
+		if not Terrain then
+			return
+		end
 
-    local function applyTerrainTweaks()
-        if not Terrain then
-            return
-        end
+		pcall(function()
+			Terrain.WaterWaveSize = 0
+			Terrain.WaterWaveSpeed = 0
+			Terrain.WaterReflectance = 0
+			Terrain.WaterTransparency = 1
+		end)
+	end
 
-        pcall(function()
-            Terrain.WaterWaveSize = 0
-            Terrain.WaterWaveSpeed = 0
-            Terrain.WaterReflectance = 0
-            Terrain.WaterTransparency = 1
-        end)
-    end
+	local function isVfxName(name)
+		name = string.lower(name or "")
+		return name:find("vfx", 1, true)
+			or name:find("effect", 1, true)
+			or name:find("effects", 1, true)
+			or name:find("particle", 1, true)
+			or name:find("particles", 1, true)
+			or name:find("trail", 1, true)
+			or name:find("beam", 1, true)
+			or name:find("smoke", 1, true)
+			or name:find("fire", 1, true)
+			or name:find("explosion", 1, true)
+			or name:find("combat", 1, true)
+			or name:find("hit", 1, true)
+			or name:find("slash", 1, true)
+			or name:find("damage", 1, true)
+			or name:find("debris", 1, true)
+			or name:find("fx", 1, true)
+	end
 
-    local function isVfxName(name)
-        name = string.lower(name or "")
-        return name:find("vfx", 1, true)
-            or name:find("effect", 1, true)
-            or name:find("effects", 1, true)
-            or name:find("particle", 1, true)
-            or name:find("particles", 1, true)
-            or name:find("trail", 1, true)
-            or name:find("beam", 1, true)
-            or name:find("smoke", 1, true)
-            or name:find("fire", 1, true)
-            or name:find("explosion", 1, true)
-            or name:find("combat", 1, true)
-            or name:find("hit", 1, true)
-            or name:find("slash", 1, true)
-            or name:find("damage", 1, true)
-            or name:find("debris", 1, true)
-            or name:find("fx", 1, true)
-    end
+	local function hasVfxAncestor(obj)
+		local current = obj and obj.Parent
+		local depth = 0
+		while current and depth < 4 do
+			if isVfxName(current.Name) then
+				return true
+			end
+			current = current.Parent
+			depth += 1
+		end
+		return false
+	end
 
-    local function hasVfxAncestor(obj)
-        local current = obj and obj.Parent
-        local depth = 0
-        while current and depth < 4 do
-            if isVfxName(current.Name) then
-                return true
-            end
-            current = current.Parent
-            depth += 1
-        end
-        return false
-    end
+	local function shouldOptimize(obj)
+		if not obj then
+			return false
+		end
 
-    local function shouldOptimizeLive(obj)
-        if not obj then
-            return false
-        end
+		if obj:IsA("ParticleEmitter")
+			or obj:IsA("Trail")
+			or obj:IsA("Beam")
+			or obj:IsA("Smoke")
+			or obj:IsA("Fire")
+			or obj:IsA("Sparkles")
+			or obj:IsA("PostEffect")
+			or obj:IsA("Atmosphere")
+			or obj:IsA("Highlight")
+			or obj:IsA("Explosion")
+		then
+			return true
+		end
 
-        if obj:IsA("ParticleEmitter")
-        or obj:IsA("Trail")
-        or obj:IsA("Beam")
-        or obj:IsA("Smoke")
-        or obj:IsA("Fire")
-        or obj:IsA("Sparkles")
-        or obj:IsA("PostEffect")
-        or obj:IsA("Atmosphere")
-        or obj:IsA("Highlight")
-        or obj:IsA("Explosion")
-        then
-            return true
-        end
+		if obj:IsA("BillboardGui") then
+			return isVfxName(obj.Name) or hasVfxAncestor(obj)
+		end
 
-        if obj:IsA("BillboardGui") then
-            return isVfxName(obj.Name) or hasVfxAncestor(obj)
-        end
+		if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+			return isVfxName(obj.Name) or hasVfxAncestor(obj)
+		end
 
-        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
-            return isVfxName(obj.Name) or hasVfxAncestor(obj)
-        end
+		return false
+	end
 
-        return false
-    end
+	local function optimizeObject(obj)
+		if not shouldOptimize(obj) then
+			return
+		end
 
-    local function optimizeObject(obj)
-        if not obj then
-            return
-        end
+		if obj:IsA("ParticleEmitter") then
+			pcall(function()
+				obj.Enabled = false
+				obj.Rate = 0
+			end)
+			return
+		end
 
-        if obj:IsA("ParticleEmitter") then
-            pcall(function()
-                obj.Enabled = false
-                obj.Rate = 0
-            end)
-            return
-        end
+		if obj:IsA("Trail") or obj:IsA("Beam") then
+			pcall(function()
+				obj.Enabled = false
+			end)
+			return
+		end
 
-        if obj:IsA("Trail") or obj:IsA("Beam") then
-            pcall(function()
-                obj.Enabled = false
-            end)
-            return
-        end
+		if obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+			pcall(function()
+				obj.Enabled = false
+			end)
+			return
+		end
 
-        if obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
-            pcall(function()
-                obj.Enabled = false
-            end)
-            return
-        end
+		if obj:IsA("Decal") or obj:IsA("Texture") then
+			pcall(function()
+				obj.Transparency = 1
+			end)
+			return
+		end
 
-        if obj:IsA("Decal") or obj:IsA("Texture") then
-            pcall(function()
-                obj.Transparency = 1
-            end)
-            return
-        end
+		if obj:IsA("SurfaceAppearance") then
+			pcall(function()
+				obj:Destroy()
+			end)
+			return
+		end
 
-        if obj:IsA("SurfaceAppearance") then
-            pcall(function()
-                obj:Destroy()
-            end)
-            return
-        end
+		if obj:IsA("Highlight") then
+			pcall(function()
+				obj.Enabled = false
+			end)
+			return
+		end
 
-        if obj:IsA("Highlight") then
-            pcall(function()
-                obj.Enabled = false
-            end)
-            return
-        end
+		if obj:IsA("Explosion") then
+			pcall(function()
+				obj:Destroy()
+			end)
+			return
+		end
 
-        if obj:IsA("Explosion") then
-            pcall(function()
-                obj:Destroy()
-            end)
-            return
-        end
+		if obj:IsA("PostEffect") then
+			pcall(function()
+				obj.Enabled = false
+			end)
+			return
+		end
 
-        if obj:IsA("PostEffect") then
-            pcall(function()
-                obj.Enabled = false
-            end)
-            return
-        end
+		if obj:IsA("Atmosphere") then
+			pcall(function()
+				obj.Density = 0
+				obj.Haze = 0
+				obj.Glare = 0
+			end)
+			return
+		end
 
-        if obj:IsA("Atmosphere") then
-            pcall(function()
-                obj.Density = 0
-                obj.Haze = 0
-                obj.Glare = 0
-            end)
-            return
-        end
+		if obj:IsA("BillboardGui") then
+			pcall(function()
+				obj.Enabled = false
+			end)
+			return
+		end
 
-        if obj:IsA("BillboardGui") and (isVfxName(obj.Name) or hasVfxAncestor(obj)) then
-            pcall(function()
-                obj.Enabled = false
-            end)
-            return
-        end
+		if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+			pcall(function()
+				obj.Material = Enum.Material.Plastic
+				obj.Reflectance = 0
+				obj.CastShadow = false
+				obj.MaterialVariant = ""
+			end)
+		end
+	end
 
-        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
-            if isVfxName(obj.Name) or hasVfxAncestor(obj) then
-                pcall(function()
-                    obj.Material = Enum.Material.Plastic
-                    obj.Reflectance = 0
-                    obj.CastShadow = false
-                    obj.MaterialVariant = ""
-                end)
-            end
-            return
-        end
-    end
+	local function runOneTimeSweep()
+		local desc = Workspace:GetDescendants()
+		for i, obj in ipairs(desc) do
+			pcall(optimizeObject, obj)
+			if i % 200 == 0 then
+				task.wait()
+			end
+		end
 
-    local function enqueueOptimize(obj)
-        if not shouldOptimizeLive(obj) then
-            return
-        end
+		for i, obj in ipairs(Lighting:GetDescendants()) do
+			pcall(optimizeObject, obj)
+			if i % 120 == 0 then
+				task.wait()
+			end
+		end
+	end
 
-        if queued[obj] then
-            return
-        end
+	local function runOneTimeAntiLag()
+		if ranOnce then
+			return
+		end
+		ranOnce = true
 
-        queued[obj] = true
-        pending[#pending + 1] = obj
+		pcall(function()
+			button.AutoButtonColor = false
+			button.Active = false
+			button.BackgroundColor3 = FROM_BG
+			if stroke then
+				stroke.Color = FROM_STROKE
+			end
+		end)
 
-        if draining then
-            return
-        end
+		playTween(button, { BackgroundColor3 = TO_BG }, TWEEN_TIME)
+		if stroke then
+			playTween(stroke, { Color = TO_STROKE }, TWEEN_TIME)
+		end
 
-        draining = true
-        task.spawn(function()
-            while #pending > 0 do
-                local batch = math.min(25, #pending)
-                for _ = 1, batch do
-                    local current = table.remove(pending, 1)
-                    if current then
-                        queued[current] = nil
-                        if current.Parent then
-                            pcall(optimizeObject, current)
-                        end
-                    end
-                end
-                task.wait()
-            end
-            draining = false
-        end)
-    end
+		applyLightingTweaks()
+		applyTerrainTweaks()
+		runOneTimeSweep()
 
-    local function bindListeners()
-        if listenersBound then
-            return
-        end
-        listenersBound = true
+		task.defer(function()
+			pcall(function()
+				print("✅ ONE-TIME ULTRA ANTI LAG DONE!")
+			end)
+		end)
+	end
 
-        Workspace.DescendantAdded:Connect(function(obj)
-            enqueueOptimize(obj)
-        end)
+	local function onActivated()
+		if ranOnce then
+			return
+		end
 
-        Lighting.DescendantAdded:Connect(function(obj)
-            enqueueOptimize(obj)
-        end)
-    end
+		runOneTimeAntiLag()
+	end
 
-    local function runInitialSweep()
-        if scanRunning then
-            return
-        end
-        scanRunning = true
-
-        task.spawn(function()
-            local desc = Workspace:GetDescendants()
-            for i, obj in ipairs(desc) do
-                pcall(optimizeObject, obj)
-                if i % 180 == 0 then
-                    task.wait()
-                end
-            end
-
-            for _, obj in ipairs(Lighting:GetDescendants()) do
-                pcall(optimizeObject, obj)
-            end
-
-            scanRunning = false
-        end)
-    end
-
-    local function runOneTimeAntiLag()
-        if ranOnce then
-            return
-        end
-        ranOnce = true
-
-        bindListeners()
-        applyLightingTweaks()
-        applyTerrainTweaks()
-        runInitialSweep()
-
-        task.defer(function()
-            pcall(function()
-                print("✅ ONE-TIME ULTRA ANTI LAG DONE!")
-            end)
-        end)
-    end
-
-    local function onActivated()
-        if ranOnce then
-            return
-        end
-
-        pcall(function()
-            button.BackgroundColor3 = FROM_BG
-            if stroke then
-                stroke.Color = FROM_STROKE
-            end
-
-            playTween(button, { BackgroundColor3 = TO_BG }, TWEEN_TIME)
-            if stroke then
-                playTween(stroke, { Color = TO_STROKE }, TWEEN_TIME)
-            end
-        end)
-
-        pcall(function()
-            button.AutoButtonColor = false
-            button.Active = false
-        end)
-
-        runOneTimeAntiLag()
-    end
-
-    button.Activated:Connect(onActivated)
+	button.Activated:Connect(onActivated)
 end
