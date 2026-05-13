@@ -18,11 +18,55 @@ do
     local TOGGLE_BUTTON_NAME = "AutoBoatDriveButton"
 
     local IntensityBox = SEA_FRAME:WaitForChild("IntensityBox")
+	local DriveSpeedBox = SEA_FRAME:WaitForChild("DriveSpeedBox")
+
+	local DRIVE_SPEED_MIN = 1
+	local DRIVE_SPEED_MAX = 350
+	local DRIVE_SPEED_DEFAULT = 200
+	local DRIVE_SPEED = DRIVE_SPEED_DEFAULT
+	local LAST_VALID_DRIVE_SPEED = DRIVE_SPEED_DEFAULT
+	
     local AutoBoatDriveModeTitle = SEA_FRAME:WaitForChild("AutoBoatDriveModeTitle")
     local AutoDriveBoatModeButton = SEA_FRAME:WaitForChild("AutoDriveBoatModeButton")
     -- ==================================================================
 
-    local movementToken = 0
+	DriveSpeedBox.ClearTextOnFocus = false
+	setDriveSpeedBox(DRIVE_SPEED_DEFAULT, true)
+	
+	if DriveSpeedBox:IsA("TextBox") then
+		DriveSpeedBox.Focused:Connect(function()
+			INTERNAL = false
+		end)
+	
+		DriveSpeedBox.FocusLost:Connect(function()
+			applyDriveSpeedFromBox()
+		end)
+	
+		DriveSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+			if INTERNAL then
+				return
+			end
+	
+			local text = DriveSpeedBox.Text
+			if text == "" then
+				return
+			end
+	
+			if text == "nil" then
+				setDriveSpeedBox(LAST_VALID_DRIVE_SPEED, true)
+				return
+			end
+	
+			local filtered = text:gsub("%D", "")
+			if filtered ~= text then
+				INTERNAL = true
+				DriveSpeedBox.Text = filtered
+				INTERNAL = false
+			end
+		end)
+	end
+	
+	local movementToken = 0
     local running = false
     local terminated = false
 
@@ -32,6 +76,52 @@ do
         return _G.PauseSEven == true
     end
     -- ===== Utility =====
+
+	local function parseDriveSpeed(text)
+		if text == nil then
+			return nil
+		end
+	
+		local n = tonumber(tostring(text):match("%-?%d+"))
+		if not n then
+			return nil
+		end
+	
+		n = math.floor(n + 0.5)
+		n = clamp(n, DRIVE_SPEED_MIN, DRIVE_SPEED_MAX)
+		return n
+	end
+	
+	local function setDriveSpeedBox(value, internal)
+		if not DriveSpeedBox then
+			return
+		end
+	
+		if internal then
+			INTERNAL = true
+		end
+	
+		pcall(function()
+			DriveSpeedBox.Text = tostring(value)
+		end)
+	
+		if internal then
+			INTERNAL = false
+		end
+	end
+	
+	local function applyDriveSpeedFromBox()
+		local n = parseDriveSpeed(DriveSpeedBox.Text)
+	
+		if not n then
+			n = LAST_VALID_DRIVE_SPEED
+		end
+	
+		DRIVE_SPEED = n
+		LAST_VALID_DRIVE_SPEED = n
+		setDriveSpeedBox(n, true)
+	end
+	
     local function clamp(v, a, b)
         if math.clamp then
             return math.clamp(v, a, b)
@@ -88,7 +178,7 @@ do
     local COLOR_MAX = Color3.fromRGB(255, 0, 100)
 
     -- ===== Wind stream params =====
-    local SPEED = 250
+    local SPEED = DRIVE_SPEED_DEFAULT
     local STREAM_Y = DEFAULT_INIT
     local STREAM_Z = 635
     local STREAM_ORIGIN_X = -17500
@@ -578,7 +668,7 @@ do
         end
 
         local dir = delta.Unit
-        local duration = dist / SPEED
+        local duration = dist / DRIVE_SPEED
         local elapsed = 0
         local done = false
 
@@ -668,7 +758,7 @@ do
             end
 
             if mode == "Oscillate" then
-                local moveX = -SPEED * dt
+                local moveX = -DRIVE_SPEED * dt
                 streamTravel = streamTravel + math.abs(moveX)
 
                 local waveZ = math.sin((streamTravel / getWaveLength()) * TAU) * DRIVE_OSC_AMPLITUDE
@@ -693,7 +783,7 @@ do
                 )
 
             elseif mode == "360" then
-                local step = SPEED * dt
+                local step = DRIVE_SPEED * dt
             
                 local currentPos = hrp.Position
                 local pos = Vector3.new(
@@ -720,7 +810,7 @@ do
                 )
 
             else
-                local newX = hrp.Position.X - SPEED * dt
+                local newX = hrp.Position.X - DRIVE_SPEED * dt
                 local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
                 local lookTarget = pos + Vector3.new(-1, 0, 0)
 
