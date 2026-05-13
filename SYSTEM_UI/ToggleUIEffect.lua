@@ -442,3 +442,112 @@ _G.ToggleUI.Set("ButtonName", false)  -- tween + animation
 _G.ToggleUI.SetDefault("ButtonName", true)   -- bật ngay lập tức
 _G.ToggleUI.SetDefault("ButtonName", false)  -- tắt ngay lập tức
 ]]
+
+--[[ GUIDE SYSTEM
+
+--// TOGGLE SYSTEM ======================================================
+
+local CLICK_LOCK = false
+local ENABLED = false
+local LAST_ENABLED = false
+
+repeat task.wait() until _G.ToggleUI
+local ToggleUI = _G.ToggleUI
+
+pcall(function()
+	if ToggleUI.Refresh then
+		ToggleUI.Refresh()
+	end
+end)
+
+local TOGGLE_BUTTON_NAME = "YourButtonName"
+local ToggleButton = YourButtonReference
+
+--// CHECK BUTTON STATE
+local function isButtonOn(btn)
+	local ok, color = pcall(function()
+		return btn.BackgroundColor3
+	end)
+
+	if not ok or not color then
+		return false
+	end
+
+	local r = math.floor(color.R * 255 + 0.5)
+	local g = math.floor(color.G * 255 + 0.5)
+	local b = math.floor(color.B * 255 + 0.5)
+
+	return r == 0 and g == 255 and b == 0
+end
+
+--// WHEN ENABLE
+local function ON_ENABLE()
+
+	-- code bật ở đây
+
+	print("SYSTEM ENABLED")
+
+end
+
+--// WHEN DISABLE
+local function ON_DISABLE()
+
+	-- code tắt ở đây
+
+	print("SYSTEM DISABLED")
+
+end
+
+--// SYNC REAL STATE
+local function syncSystemState()
+	ENABLED = isButtonOn(ToggleButton)
+
+	if LAST_ENABLED and not ENABLED then
+
+		ON_DISABLE()
+
+	elseif (not LAST_ENABLED) and ENABLED then
+
+		ON_ENABLE()
+
+	end
+
+	LAST_ENABLED = ENABLED
+end
+
+--// TOGGLE BUTTON
+local function toggleSystem()
+	if CLICK_LOCK then
+		return
+	end
+
+	CLICK_LOCK = true
+
+	task.delay(0.15, function()
+		CLICK_LOCK = false
+	end)
+
+	local requested = not isButtonOn(ToggleButton)
+
+	pcall(function()
+		ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
+	end)
+
+	task.delay(0.05, syncSystemState)
+end
+
+--// CONNECT BUTTON
+if ToggleButton.Activated then
+	ToggleButton.Activated:Connect(toggleSystem)
+else
+	ToggleButton.MouseButton1Click:Connect(toggleSystem)
+end
+
+--// AUTO SYNC WHEN UI CHANGES
+ToggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+	task.delay(0.05, syncSystemState)
+end)
+
+--// FIRST LOAD
+syncSystemState()
+]]
