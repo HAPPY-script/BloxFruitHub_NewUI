@@ -86,8 +86,8 @@ OffIcon.Parent = Dot
 
 local AutoBoatDriveTitle = Instance.new("TextLabel")
 AutoBoatDriveTitle.Name = "AutoBoatDriveTitle"
-AutoBoatDriveTitle.Position = UDim2.new(0.375, 0, 0.03, 0)
-AutoBoatDriveTitle.Size = UDim2.new(0.7, 0, 0.03, 0)
+AutoBoatDriveTitle.Position = UDim2.new(0.265, 0, 0.03, 0)
+AutoBoatDriveTitle.Size = UDim2.new(0.465, 0, 0.03, 0)
 AutoBoatDriveTitle.BackgroundColor3 = Color3.new(0.490196, 0, 0.392157)
 AutoBoatDriveTitle.BorderSizePixel = 0
 AutoBoatDriveTitle.BorderColor3 = Color3.new(0, 0, 0)
@@ -563,6 +563,33 @@ OffIcon3.BorderColor3 = Color3.new(0, 0, 0)
 OffIcon3.Transparency = 1
 OffIcon3.Image = "rbxassetid://109833067427302"
 OffIcon3.Parent = Dot3
+
+local DriveSpeedBox = Instance.new("TextBox")
+DriveSpeedBox.Name = "DriveSpeedBox"
+DriveSpeedBox.Position = UDim2.new(0.625, 0, 0.03, 0)
+DriveSpeedBox.Size = UDim2.new(0.2, 0, 0.03, 0)
+DriveSpeedBox.BackgroundColor3 = Color3.new(0.439216, 0.654902, 1)
+DriveSpeedBox.BackgroundTransparency = 0.75
+DriveSpeedBox.BorderSizePixel = 0
+DriveSpeedBox.BorderColor3 = Color3.new(0, 0, 0)
+DriveSpeedBox.AnchorPoint = Vector2.new(0.5, 0.5)
+DriveSpeedBox.Transparency = 0.75
+DriveSpeedBox.Text = ""
+DriveSpeedBox.TextColor3 = Color3.new(1, 1, 1)
+DriveSpeedBox.TextSize = 14
+DriveSpeedBox.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+DriveSpeedBox.TextScaled = true
+DriveSpeedBox.TextWrapped = true
+DriveSpeedBox.PlaceholderText = "Speed value"
+DriveSpeedBox.PlaceholderColor3 = Color3.new(1, 1, 1)
+DriveSpeedBox.Parent = Sea_Even
+
+local UIStroke14 = Instance.new("UIStroke")
+UIStroke14.Name = "UIStroke"
+UIStroke14.Color = Color3.new(0.784314, 0.784314, 0.784314)
+UIStroke14.Thickness = 2
+UIStroke14.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke14.Parent = DriveSpeedBox
 
 local Frame = Sea_Even
 if not Frame then return end
