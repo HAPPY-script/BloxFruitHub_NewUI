@@ -18,55 +18,12 @@ do
     local TOGGLE_BUTTON_NAME = "AutoBoatDriveButton"
 
     local IntensityBox = SEA_FRAME:WaitForChild("IntensityBox")
-	local DriveSpeedBox = SEA_FRAME:WaitForChild("DriveSpeedBox")
-
-	local DRIVE_SPEED_MIN = 1
-	local DRIVE_SPEED_MAX = 350
-	local DRIVE_SPEED_DEFAULT = 200
-	local DRIVE_SPEED = DRIVE_SPEED_DEFAULT
-	local LAST_VALID_DRIVE_SPEED = DRIVE_SPEED_DEFAULT
-	
+    local DriveSpeedBox = SEA_FRAME:WaitForChild("DriveSpeedBox")
     local AutoBoatDriveModeTitle = SEA_FRAME:WaitForChild("AutoBoatDriveModeTitle")
     local AutoDriveBoatModeButton = SEA_FRAME:WaitForChild("AutoDriveBoatModeButton")
     -- ==================================================================
 
-	DriveSpeedBox.ClearTextOnFocus = false
-	setDriveSpeedBox(DRIVE_SPEED_DEFAULT, true)
-	
-	if DriveSpeedBox:IsA("TextBox") then
-		DriveSpeedBox.Focused:Connect(function()
-			INTERNAL = false
-		end)
-	
-		DriveSpeedBox.FocusLost:Connect(function()
-			applyDriveSpeedFromBox()
-		end)
-	
-		DriveSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
-			if INTERNAL then
-				return
-			end
-	
-			local text = DriveSpeedBox.Text
-			if text == "" then
-				return
-			end
-	
-			if text == "nil" then
-				setDriveSpeedBox(LAST_VALID_DRIVE_SPEED, true)
-				return
-			end
-	
-			local filtered = text:gsub("%D", "")
-			if filtered ~= text then
-				INTERNAL = true
-				DriveSpeedBox.Text = filtered
-				INTERNAL = false
-			end
-		end)
-	end
-	
-	local movementToken = 0
+    local movementToken = 0
     local running = false
     local terminated = false
 
@@ -75,53 +32,8 @@ do
     local function isPaused()
         return _G.PauseSEven == true
     end
-    -- ===== Utility =====
 
-	local function parseDriveSpeed(text)
-		if text == nil then
-			return nil
-		end
-	
-		local n = tonumber(tostring(text):match("%-?%d+"))
-		if not n then
-			return nil
-		end
-	
-		n = math.floor(n + 0.5)
-		n = clamp(n, DRIVE_SPEED_MIN, DRIVE_SPEED_MAX)
-		return n
-	end
-	
-	local function setDriveSpeedBox(value, internal)
-		if not DriveSpeedBox then
-			return
-		end
-	
-		if internal then
-			INTERNAL = true
-		end
-	
-		pcall(function()
-			DriveSpeedBox.Text = tostring(value)
-		end)
-	
-		if internal then
-			INTERNAL = false
-		end
-	end
-	
-	local function applyDriveSpeedFromBox()
-		local n = parseDriveSpeed(DriveSpeedBox.Text)
-	
-		if not n then
-			n = LAST_VALID_DRIVE_SPEED
-		end
-	
-		DRIVE_SPEED = n
-		LAST_VALID_DRIVE_SPEED = n
-		setDriveSpeedBox(n, true)
-	end
-	
+    -- ===== Utility =====
     local function clamp(v, a, b)
         if math.clamp then
             return math.clamp(v, a, b)
@@ -169,6 +81,93 @@ do
         return nil
     end
 
+    -- ===== Drive speed textbox state =====
+    local DRIVE_SPEED_MIN = 1
+    local DRIVE_SPEED_MAX = 350
+    local DRIVE_SPEED_DEFAULT = 200
+    local DRIVE_SPEED = DRIVE_SPEED_DEFAULT
+    local LAST_VALID_DRIVE_SPEED = DRIVE_SPEED_DEFAULT
+    local INTERNAL = false
+
+    local function parseDriveSpeed(text)
+        if text == nil then
+            return nil
+        end
+
+        local n = tonumber(tostring(text):match("%-?%d+"))
+        if not n then
+            return nil
+        end
+
+        n = math.floor(n + 0.5)
+        return clamp(n, DRIVE_SPEED_MIN, DRIVE_SPEED_MAX)
+    end
+
+    local function setDriveSpeedBox(value, internal)
+        if not DriveSpeedBox then
+            return
+        end
+
+        if internal then
+            INTERNAL = true
+        end
+
+        pcall(function()
+            DriveSpeedBox.Text = tostring(value)
+        end)
+
+        if internal then
+            INTERNAL = false
+        end
+    end
+
+    local function applyDriveSpeedFromBox()
+        local n = parseDriveSpeed(DriveSpeedBox.Text)
+        if not n then
+            n = LAST_VALID_DRIVE_SPEED
+        end
+
+        DRIVE_SPEED = n
+        LAST_VALID_DRIVE_SPEED = n
+        setDriveSpeedBox(n, true)
+    end
+
+    DriveSpeedBox.ClearTextOnFocus = false
+    setDriveSpeedBox(DRIVE_SPEED_DEFAULT, true)
+
+    if DriveSpeedBox:IsA("TextBox") then
+        DriveSpeedBox.Focused:Connect(function()
+            INTERNAL = false
+        end)
+
+        DriveSpeedBox.FocusLost:Connect(function()
+            applyDriveSpeedFromBox()
+        end)
+
+        DriveSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+            if INTERNAL then
+                return
+            end
+
+            local text = DriveSpeedBox.Text
+            if text == "" then
+                return
+            end
+
+            if text == "nil" then
+                setDriveSpeedBox(LAST_VALID_DRIVE_SPEED, true)
+                return
+            end
+
+            local filtered = text:gsub("%D", "")
+            if filtered ~= text then
+                INTERNAL = true
+                DriveSpeedBox.Text = filtered
+                INTERNAL = false
+            end
+        end)
+    end
+
     -- ===== Slider range / defaults / colors =====
     local MIN_VAL = 30
     local MAX_VAL = 200
@@ -178,7 +177,6 @@ do
     local COLOR_MAX = Color3.fromRGB(255, 0, 100)
 
     -- ===== Wind stream params =====
-    local SPEED = DRIVE_SPEED_DEFAULT
     local STREAM_Y = DEFAULT_INIT
     local STREAM_Z = 635
     local STREAM_ORIGIN_X = -17500
@@ -222,11 +220,6 @@ do
     end
 
     -- ===== Core state for movement =====
-    local movementToken = 0
-    local running = false
-    local terminated = false
-
-    -- ===== Slider core state =====
     local dragging = false
     local draggingInput = nil
     local valueAlpha = 0
@@ -629,7 +622,6 @@ do
         setTextSafe(initNum)
     end
 
-    -- init mode UI now that everything exists
     applyDriveModeUI(_G.DriveMode, false)
 
     -- ================= WindStream movement functions =================
@@ -707,7 +699,6 @@ do
     end
 
     local runSystem
-
     local streamAnchorX = nil
     local streamTravel = 0
     local lastStreamMode = nil
@@ -784,22 +775,22 @@ do
 
             elseif mode == "360" then
                 local step = DRIVE_SPEED * dt
-            
+
                 local currentPos = hrp.Position
                 local pos = Vector3.new(
                     currentPos.X - step,
                     STREAM_Y,
                     currentPos.Z
                 )
-            
+
                 local lookTarget = pos + Vector3.new(-1, 0, 0)
-            
+
                 spinAngle = spinAngle + (spinSpeed * dt * spinDir)
-            
+
                 if spinAngle >= 360 or spinAngle <= -360 then
                     reseedSpinCycle()
                 end
-            
+
                 hrp.CFrame = CFrame.lookAt(
                     pos,
                     lookTarget,
@@ -808,7 +799,6 @@ do
                     spinAxis,
                     math.rad(spinAngle)
                 )
-
             else
                 local newX = hrp.Position.X - DRIVE_SPEED * dt
                 local pos = Vector3.new(newX, STREAM_Y, STREAM_Z)
@@ -849,8 +839,11 @@ do
 
     local function findVehicleSeat(boat)
         for _, obj in ipairs(boat:GetChildren()) do
-            if obj:IsA("VehicleSeat") then return obj end
+            if obj:IsA("VehicleSeat") then
+                return obj
+            end
         end
+        return nil
     end
 
     local function tryEnterSeat(seat)
@@ -906,12 +899,16 @@ do
             task.wait(0.2)
         end
 
-        if not running or terminated or isPaused() or myToken ~= movementToken then return end
+        if not running or terminated or isPaused() or myToken ~= movementToken then
+            return
+        end
 
         local hrp = getHRP()
         local entry = nearestPoint(hrp.Position)
         if (hrp.Position - entry).Magnitude > ARRIVE_EPS then
-            if not lungeTo(entry) or myToken ~= movementToken then return end
+            if not lungeTo(entry) or myToken ~= movementToken then
+                return
+            end
         end
 
         flyAlongStream(myToken)
@@ -920,8 +917,11 @@ do
     -- ================= ToggleUI integration =================
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
+
     pcall(function()
-        if ToggleUI.Refresh then ToggleUI.Refresh() end
+        if ToggleUI.Refresh then
+            ToggleUI.Refresh()
+        end
     end)
 
     local toggleButton = SEA_FRAME:FindFirstChild(TOGGLE_BUTTON_NAME, true)
@@ -929,7 +929,9 @@ do
         warn("AutoBoatDriveButton not found in 'Sea Even' frame")
     else
         local function isButtonOn(btn)
-            local ok, c = pcall(function() return btn.BackgroundColor3 end)
+            local ok, c = pcall(function()
+                return btn.BackgroundColor3
+            end)
             if not ok or not c then return false end
             local r = math.floor(c.R * 255 + 0.5)
             local g = math.floor(c.G * 255 + 0.5)
@@ -937,7 +939,9 @@ do
             return (r == 0 and g == 255 and b == 0)
         end
 
-        pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, false) end)
+        pcall(function()
+            ToggleUI.Set(TOGGLE_BUTTON_NAME, false)
+        end)
 
         local function startRunning()
             if terminated or isPaused() then return end
@@ -965,7 +969,7 @@ do
             running = false
             stopMovement()
         end
-        
+
         local ALLOWED_PLACE_IDS = {
             [7449423635] = true,
             [100117331123089] = true,
@@ -990,53 +994,45 @@ do
                 table.insert(tweens, TweenService:Create(stroke, info, { Color = targetColor }))
             end
             for _, tw in ipairs(tweens) do
-                pcall(function() tw:Play() end)
+                pcall(function()
+                    tw:Play()
+                end)
             end
             task.wait(duration)
         end
 
+        local function onToggleRequested()
+            if clickLock or animating then
+                return
+            end
+
+            clickLock = true
+            task.delay(0.15, function()
+                clickLock = false
+            end)
+
+            local requested = not isButtonOn(toggleButton)
+            if requested and (not isPlaceAllowed()) then
+                if animating then return end
+                animating = true
+                task.spawn(function()
+                    tweenButtonToColor(warnColor, 0.25)
+                    task.wait(1)
+                    tweenButtonToColor(origBg, 0.25)
+                    animating = false
+                end)
+                return
+            end
+
+            pcall(function()
+                ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
+            end)
+        end
+
         if toggleButton.Activated then
-            toggleButton.Activated:Connect(function()
-                if clickLock or animating then return end
-                clickLock = true
-                task.delay(0.15, function() clickLock = false end)
-
-                local requested = not isButtonOn(toggleButton)
-                if requested and (not isPlaceAllowed()) then
-                    if animating then return end
-                    animating = true
-                    task.spawn(function()
-                        tweenButtonToColor(warnColor, 0.25)
-                        task.wait(1)
-                        tweenButtonToColor(origBg, 0.25)
-                        animating = false
-                    end)
-                    return
-                end
-
-                pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, requested) end)
-            end)
+            toggleButton.Activated:Connect(onToggleRequested)
         else
-            toggleButton.MouseButton1Click:Connect(function()
-                if clickLock or animating then return end
-                clickLock = true
-                task.delay(0.15, function() clickLock = false end)
-
-                local requested = not isButtonOn(toggleButton)
-                if requested and (not isPlaceAllowed()) then
-                    if animating then return end
-                    animating = true
-                    task.spawn(function()
-                        tweenButtonToColor(warnColor, 0.25)
-                        task.wait(1)
-                        tweenButtonToColor(origBg, 0.25)
-                        animating = false
-                    end)
-                    return
-                end
-
-                pcall(function() ToggleUI.Set(TOGGLE_BUTTON_NAME, requested) end)
-            end)
+            toggleButton.MouseButton1Click:Connect(onToggleRequested)
         end
 
         task.spawn(function()
@@ -1054,7 +1050,7 @@ do
                 task.wait(0.15)
             end
         end)
-        
+
         toggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
             task.delay(0.05, function()
                 local on = isButtonOn(toggleButton)
@@ -1078,8 +1074,11 @@ do
     local function toggleDriveMode()
         if modeClickLock then return end
         if modeTransitioning then return end
+
         modeClickLock = true
-        task.delay(0.15, function() modeClickLock = false end)
+        task.delay(0.15, function()
+            modeClickLock = false
+        end)
 
         local mode = getDriveMode()
         if mode == "Straight" then
