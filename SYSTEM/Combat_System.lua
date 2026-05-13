@@ -1821,7 +1821,7 @@ do
             safeTimer = 0
             tweenReturnColor(YELLOW)
 
-            root.CFrame += Vector3.new(0, 200, 0)
+            root.CFrame += Vector3.new(0, 500, 0)
         else
             if isEscaping then
                 safeTimer += dt
