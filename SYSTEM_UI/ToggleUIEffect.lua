@@ -485,16 +485,12 @@ local function ON_ENABLE()
 
 	-- code bật ở đây
 
-	print("SYSTEM ENABLED")
-
 end
 
 --// WHEN DISABLE
 local function ON_DISABLE()
 
 	-- code tắt ở đây
-
-	print("SYSTEM DISABLED")
 
 end
 
