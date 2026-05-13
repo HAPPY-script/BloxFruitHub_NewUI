@@ -132,7 +132,6 @@ do
         setDriveSpeedBox(n, true)
     end
 
-    DriveSpeedBox.ClearTextOnFocus = false
     setDriveSpeedBox(DRIVE_SPEED_DEFAULT, true)
 
     if DriveSpeedBox:IsA("TextBox") then
@@ -1327,7 +1326,6 @@ do
 	local REGISTRY = setmetatable({}, { __mode = "k" }) -- [boat] = data
 
 	SpeedBox.Text = "nil"
-	SpeedBox.ClearTextOnFocus = false
 
 	local function isButtonOn(btn)
 		local ok, color = pcall(function()
