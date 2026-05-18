@@ -1644,10 +1644,26 @@ do
         if idleActive or not zone or not running then
             return
         end
-
+    
         idleActive = true
         farmCenter = zone.FarmPos
-
+    
+        local hrp = safeHRP()
+    
+        --// TOO FAR -> RETURN USING HIGH Y
+        if hrp then
+            local distFromFarm = (hrp.Position - farmCenter).Magnitude
+    
+            if distFromFarm > distanceLimit then
+                Lunge(
+                    farmCenter + Vector3.new(0, 5, 0),
+                    true
+                )
+    
+                waitMoveDone(10)
+            end
+        end
+    
         task.spawn(function()
             local rings = {0.10,0.20,0.30,0.40,0.50,0.60,0.70}
             local ringIndex = 1
@@ -1680,7 +1696,7 @@ do
                         farmCenter.Z + math.sin(ang) * radius
                     )
 
-                    Lunge(pt, true)
+                    Lunge(pt)
 
                     local elapsed = 0
                     local waitTime = 0.08
