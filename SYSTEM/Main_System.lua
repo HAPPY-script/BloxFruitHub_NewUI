@@ -338,7 +338,6 @@ end
 
 do
     local Players = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
 
@@ -368,43 +367,6 @@ do
     local ToggleUI = _G.ToggleUI
     if ToggleUI and ToggleUI.Refresh then
         pcall(ToggleUI.Refresh)
-    end
-
-    local SupportTween = playerGui:WaitForChild("SupportTweenToCustom")
-    local DoneTween = playerGui:WaitForChild("DoneTweenTo")
-
-    local tweenDone = false
-    local tweenSuccess = false
-    local tweenTag = nil
-
-    DoneTween.Event:Connect(function(success, tag)
-        tweenDone = true
-        tweenSuccess = success and true or false
-        tweenTag = tag
-    end)
-
-    local function goFarmPos(pos)
-        if typeof(pos) ~= "Vector3" then
-            return false
-        end
-
-        tweenDone = false
-        tweenSuccess = false
-        tweenTag = nil
-
-        pcall(function()
-            SupportTween:Fire(pos, "AutoFarmCall")
-        end)
-
-        local t = 0
-        while t < 10 do
-            if tweenDone and tweenTag == "AutoFarmCall" then
-                return tweenSuccess
-            end
-            t += RunService.Heartbeat:Wait()
-        end
-
-        return false
     end
 
     local function colorEquals(c, r, g, b)
@@ -1336,6 +1298,7 @@ do
     local LOCK_DISTANCE = 200
     local LOCK_HEIGHT = 25
     local distanceLimit = 2500
+    local HIGH_Y_OFFSET = 3000
 
     local movementToken = 0
     local mode = "Idle" -- Idle / Lunge / Follow
@@ -1346,6 +1309,7 @@ do
     local scanThread = nil
     local idleActive = false
     local farmCenter = nil
+    local moveDone = true
 
     local function getLevel()
         local d = player:FindFirstChild("Data")
@@ -1413,6 +1377,7 @@ do
 
     local function stopMovement()
         movementToken += 1
+        moveDone = true
 
         if lungeConn then
             lungeConn:Disconnect()
@@ -1427,41 +1392,85 @@ do
         mode = "Idle"
     end
 
-    -- giữ nguyên logic lunge mẫu, chỉ parameter hóa targetPos
-    local function lungeTo(targetPos)
+    local function waitMoveDone(timeout)
+        local t = 0
+        while not moveDone and t < timeout do
+            t += RunService.Heartbeat:Wait()
+        end
+        return moveDone
+    end
+
+    local function Lunge(targetPos)
+        if typeof(targetPos) ~= "Vector3" then
+            return false
+        end
+
+        stopMovement()
+        mode = "Lunge"
+        moveDone = false
+
         local hrp = getHRP()
         local myToken = movementToken
 
         local startPos = hrp.Position
-        local delta = targetPos - startPos
+        local finalPos = targetPos
+
+        local startHigh = Vector3.new(startPos.X, HIGH_Y_OFFSET, startPos.Z)
+        local targetHigh = Vector3.new(targetPos.X, HIGH_Y_OFFSET, targetPos.Z)
+
+        local delta = targetHigh - startHigh
         local dist = delta.Magnitude
-        if dist < 0.5 then return end
+
+        if dist < 0.5 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = CFrame.new(finalPos)
+            moveDone = true
+            return true
+        end
 
         local dir = delta.Unit
-        local duration = dist / LUNGE_SPEED
+        local duration = math.max(0.01, dist / LUNGE_SPEED)
         local elapsed = 0
 
-        local conn
-        conn = RunService.Heartbeat:Connect(function(dt)
+        pcall(function()
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = CFrame.new(startHigh)
+        end)
+
+        lungeConn = RunService.Heartbeat:Connect(function(dt)
             if myToken ~= movementToken then
-                conn:Disconnect()
+                if lungeConn then
+                    lungeConn:Disconnect()
+                    lungeConn = nil
+                end
+                moveDone = true
                 return
             end
 
             elapsed += dt
             local alpha = math.clamp(elapsed / duration, 0, 1)
-            hrp.CFrame = CFrame.new(startPos + dir * (dist * alpha))
+            local newPos = startHigh + dir * (dist * alpha)
+
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(newPos)
+            end)
 
             if alpha >= 1 then
-                conn:Disconnect()
+                pcall(function()
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.CFrame = CFrame.new(finalPos)
+                end)
+
+                if lungeConn then
+                    lungeConn:Disconnect()
+                    lungeConn = nil
+                end
+                moveDone = true
             end
         end)
-    end
 
-    local function Lunge(targetPos)
-        stopMovement()
-        mode = "Lunge"
-        lungeTo(targetPos)
+        return true
     end
 
     local function acceptQuest(zone)
@@ -1469,12 +1478,8 @@ do
             return false
         end
 
-        local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
-        if not ok and ok ~= nil then
-            return false
-        end
-
-        task.wait(1)
+        Lunge(zone.QuestNPCPos + Vector3.new(0, 3, 0))
+        waitMoveDone(10)
 
         local success = pcall(function()
             ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(
@@ -1612,7 +1617,8 @@ do
                     task.wait(0.2)
                     continue
                 elseif distToCenter > 50 then
-                    goFarmPos(farmCenter + Vector3.new(0, 5, 0))
+                    Lunge(farmCenter + Vector3.new(0, 5, 0))
+                    waitMoveDone(10)
                     task.wait(0.1)
                 end
 
@@ -1638,7 +1644,7 @@ do
                     )
 
                     stopMovement()
-                    lungeTo(pt + Vector3.new(0, 5, 0))
+                    Lunge(pt + Vector3.new(0, 5, 0))
 
                     local waitTime = math.max(0.03, (radius / LUNGE_SPEED) * 0.15)
                     local elapsed = 0
@@ -1770,7 +1776,6 @@ do
         if on and not running then
             running = true
             pausedByDeath = false
-
             _G.BringMobGate2 = true
 
             lastLevel = getLevel()
