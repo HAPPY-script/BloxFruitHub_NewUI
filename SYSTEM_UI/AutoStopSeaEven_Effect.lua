@@ -16,12 +16,7 @@ local selectFrame = main:WaitForChild("SelectEvenFrame")
 local titleFrame = main:WaitForChild("TitleFrame")
 local closeBtn = titleFrame:WaitForChild("Close")
 
-local isMobile = game:GetService("UserInputService").TouchEnabled
-	and not game:GetService("UserInputService").KeyboardEnabled
-
-main.Size = isMobile
-	and UDim2.new(0.5, 0, 0.5, 0)
-	or UDim2.new(0, 450, 0, 450)
+main.Size = UDim2.new(0, 450, 0, 450)
 
 local OPEN_POS = UDim2.new(0.5, 0, 0.5, 0)
 local CLOSE_POS = UDim2.new(0.5, 0, 1.5, 0)
@@ -89,7 +84,6 @@ local function setMain(state)
 		tw.Completed:Once(function()
 			isToggling = false
 		end)
-
 	else
 		local tw = tween(main, MAIN_TWEEN_INFO, {
 			Position = CLOSE_POS
@@ -132,7 +126,6 @@ local function setupIconHover(button)
 	local hoverSize = UDim2.new(
 		baseSize.X.Scale * 1.2,
 		math.floor(baseSize.X.Offset * 1.2),
-
 		baseSize.Y.Scale * 1.2,
 		math.floor(baseSize.Y.Offset * 1.2)
 	)
