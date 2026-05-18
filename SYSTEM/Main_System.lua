@@ -365,19 +365,36 @@ do
 
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
-    if ToggleUI and ToggleUI.Refresh then
-        pcall(ToggleUI.Refresh)
-    end
 
-    local function colorEquals(c, r, g, b)
-        local cr, cg, cb = c.R * 255, c.G * 255, c.B * 255
-        local tol = 2
-        return math.abs(cr - r) <= tol and math.abs(cg - g) <= tol and math.abs(cb - b) <= tol
-    end
+    pcall(function()
+        if ToggleUI.Refresh then
+            ToggleUI.Refresh()
+        end
+    end)
+
+    --// TOGGLE ======================================================
+
+    local CLICK_LOCK = false
+    local ENABLED = false
+    local LAST_ENABLED = false
 
     local function isButtonOn()
-        return colorEquals(toggleBtn.BackgroundColor3, 0, 255, 0)
+        local ok, color = pcall(function()
+            return toggleBtn.BackgroundColor3
+        end)
+
+        if not ok or not color then
+            return false
+        end
+
+        local r = math.floor(color.R * 255 + 0.5)
+        local g = math.floor(color.G * 255 + 0.5)
+        local b = math.floor(color.B * 255 + 0.5)
+
+        return r == 0 and g == 255 and b == 0
     end
+
+    --// CONFIG ======================================================
 
     local FarmZones = {
         {
@@ -1297,19 +1314,21 @@ do
 
     local LOCK_DISTANCE = 200
     local LOCK_HEIGHT = 25
+
     local distanceLimit = 2500
-    local HIGH_Y_OFFSET = 3000
+    local HIGH_Y = 3000
 
     local movementToken = 0
-    local mode = "Idle" -- Idle / Lunge / Follow
     local currentTarget = nil
 
     local lungeConn = nil
     local followConn = nil
-    local scanThread = nil
+
     local idleActive = false
     local farmCenter = nil
     local moveDone = true
+
+    --// HELPERS ======================================================
 
     local function getLevel()
         local d = player:FindFirstChild("Data")
@@ -1322,7 +1341,6 @@ do
                 return zone
             end
         end
-        return nil
     end
 
     local function getCharacter()
@@ -1335,26 +1353,27 @@ do
 
     local function safeHRP()
         local char = player.Character
-        if not char then return nil end
-        return char:FindFirstChild("HumanoidRootPart")
+        return char and char:FindFirstChild("HumanoidRootPart")
     end
 
     local function getNearestMob(name)
         local enemies = workspace:FindFirstChild("Enemies")
-        if not enemies then return nil end
+        local hrp = safeHRP()
 
-        local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return nil end
+        if not enemies or not hrp then
+            return
+        end
 
-        local closest = nil
+        local closest
         local minDist = math.huge
 
         for _, mob in ipairs(enemies:GetChildren()) do
             local hum = mob:FindFirstChildOfClass("Humanoid")
             local root = mob:FindFirstChild("HumanoidRootPart")
+
             if mob.Name == name and hum and root and hum.Health > 0 then
                 local dist = (hrp.Position - root.Position).Magnitude
+
                 if dist < minDist then
                     minDist = dist
                     closest = mob
@@ -1366,14 +1385,14 @@ do
     end
 
     local function getMobRoot(mob)
-        if not mob or not mob.Parent then return nil end
-        return mob:FindFirstChild("HumanoidRootPart")
+        return mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart")
     end
 
     local function getMobHumanoid(mob)
-        if not mob or not mob.Parent then return nil end
-        return mob:FindFirstChildOfClass("Humanoid")
+        return mob and mob.Parent and mob:FindFirstChildOfClass("Humanoid")
     end
+
+    --// MOVEMENT ======================================================
 
     local function stopMovement()
         movementToken += 1
@@ -1388,15 +1407,15 @@ do
             followConn:Disconnect()
             followConn = nil
         end
-
-        mode = "Idle"
     end
 
     local function waitMoveDone(timeout)
         local t = 0
+
         while not moveDone and t < timeout do
             t += RunService.Heartbeat:Wait()
         end
+
         return moveDone
     end
 
@@ -1406,17 +1425,27 @@ do
         end
 
         stopMovement()
-        mode = "Lunge"
+
         moveDone = false
 
         local hrp = getHRP()
         local myToken = movementToken
 
         local startPos = hrp.Position
+
         local finalPos = targetPos
 
-        local startHigh = Vector3.new(startPos.X, HIGH_Y_OFFSET, startPos.Z)
-        local targetHigh = Vector3.new(targetPos.X, HIGH_Y_OFFSET, targetPos.Z)
+        local startHigh = Vector3.new(
+            startPos.X,
+            HIGH_Y,
+            startPos.Z
+        )
+
+        local targetHigh = Vector3.new(
+            targetPos.X,
+            HIGH_Y,
+            targetPos.Z
+        )
 
         local delta = targetHigh - startHigh
         local dist = delta.Magnitude
@@ -1424,12 +1453,14 @@ do
         if dist < 0.5 then
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = CFrame.new(finalPos)
+
             moveDone = true
             return true
         end
 
         local dir = delta.Unit
         local duration = math.max(0.01, dist / LUNGE_SPEED)
+
         local elapsed = 0
 
         pcall(function()
@@ -1438,16 +1469,18 @@ do
         end)
 
         lungeConn = RunService.Heartbeat:Connect(function(dt)
-            if myToken ~= movementToken then
+            if myToken ~= movementToken or not running then
                 if lungeConn then
                     lungeConn:Disconnect()
                     lungeConn = nil
                 end
+
                 moveDone = true
                 return
             end
 
             elapsed += dt
+
             local alpha = math.clamp(elapsed / duration, 0, 1)
             local newPos = startHigh + dir * (dist * alpha)
 
@@ -1466,12 +1499,15 @@ do
                     lungeConn:Disconnect()
                     lungeConn = nil
                 end
+
                 moveDone = true
             end
         end)
 
         return true
     end
+
+    --// QUEST ======================================================
 
     local function acceptQuest(zone)
         if not zone then
@@ -1482,11 +1518,14 @@ do
         waitMoveDone(10)
 
         local success = pcall(function()
-            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(
-                "StartQuest",
-                zone.QuestName,
-                zone.QuestIndex
-            )
+            ReplicatedStorage
+                :WaitForChild("Remotes")
+                :WaitForChild("CommF_")
+                :InvokeServer(
+                    "StartQuest",
+                    zone.QuestName,
+                    zone.QuestIndex
+                )
         end)
 
         if not success then
@@ -1494,8 +1533,10 @@ do
         end
 
         currentQuestKills = 0
+
         local data = player:FindFirstChild("Data")
         local beli = data and data:FindFirstChild("Beli")
+
         currentQuestBeli = beli and beli.Value or 0
         expectedRewardBeli = zone.RewardBeli or expectedRewardBeli
 
@@ -1504,69 +1545,69 @@ do
 
     local function checkQuest(zone)
         if not zone then
-            return false
+            return
         end
 
         local data = player:FindFirstChild("Data")
         local beli = data and data:FindFirstChild("Beli")
+
         local curBeli = beli and beli.Value or 0
 
         if needsInitialQuest then
             if acceptQuest(zone) then
                 needsInitialQuest = false
             end
-            return true
+
+            return
         end
 
         if currentQuestKills >= maxQuestKills then
-            return acceptQuest(zone)
+            acceptQuest(zone)
+            return
         end
 
         if curBeli - currentQuestBeli >= expectedRewardBeli then
-            return acceptQuest(zone)
+            acceptQuest(zone)
         end
-
-        return true
     end
+
+    --// FOLLOW ======================================================
 
     local function follow(mob)
         if not running or not mob then
             return
         end
 
-        local root = getMobRoot(mob)
-        local hum = getMobHumanoid(mob)
-        if not root or not hum or hum.Health <= 0 then
-            return
-        end
-
         stopMovement()
-        mode = "Follow"
+
         currentTarget = mob
 
         local token = movementToken
+
         followConn = RunService.Heartbeat:Connect(function()
-            if not running or token ~= movementToken then
+            if token ~= movementToken or not running then
                 return
             end
 
             local hrp = safeHRP()
-            local mobRoot = getMobRoot(mob)
-            local mobHum = getMobHumanoid(mob)
-            if not hrp or not mobRoot or not mobHum or mobHum.Health <= 0 then
+            local root = getMobRoot(mob)
+            local hum = getMobHumanoid(mob)
+
+            if not hrp or not root or not hum or hum.Health <= 0 then
                 stopMovement()
                 currentTarget = nil
                 return
             end
 
             local desiredPos = Vector3.new(
-                mobRoot.Position.X,
-                mobRoot.Position.Y + LOCK_HEIGHT,
-                mobRoot.Position.Z
+                root.Position.X,
+                root.Position.Y + LOCK_HEIGHT,
+                root.Position.Z
             )
 
-            local distToEnemy = (hrp.Position - mobRoot.Position).Magnitude
-            if distToEnemy > LOCK_DISTANCE then
+            local dist = (hrp.Position - root.Position).Magnitude
+
+            if dist > LOCK_DISTANCE then
                 Lunge(desiredPos)
                 return
             end
@@ -1575,60 +1616,36 @@ do
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = CFrame.new(desiredPos)
             end)
-
-            if (hrp.Position - mobRoot.Position).Magnitude > LOCK_DISTANCE + 10 then
-                stopMovement()
-            end
         end)
     end
 
+    --// IDLE ======================================================
+
     local function idle(zone)
-        if not running or not zone then
+        if idleActive or not zone or not running then
             return
         end
 
-        farmCenter = zone.FarmPos
-        if idleActive then
-            return
-        end
-
-        stopMovement()
-        mode = "Idle"
         idleActive = true
+        farmCenter = zone.FarmPos
 
         task.spawn(function()
-            local rings = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
+            local rings = {0.10,0.20,0.30,0.40,0.50,0.60,0.70}
             local ringIndex = 1
 
-            while running and mode == "Idle" and farmCenter do
+            while running and farmCenter do
                 if getNearestMob(zone.MobName) then
                     break
                 end
 
-                local hrp = safeHRP()
-                if not hrp then
-                    break
-                end
-
-                local distToCenter = (hrp.Position - farmCenter).Magnitude
-                if distToCenter > distanceLimit then
-                    stopMovement()
-                    Lunge(farmCenter + Vector3.new(0, 5, 0))
-                    task.wait(0.2)
-                    continue
-                elseif distToCenter > 50 then
-                    Lunge(farmCenter + Vector3.new(0, 5, 0))
-                    waitMoveDone(10)
-                    task.wait(0.1)
-                end
-
                 local radius = math.max(1, distanceLimit * rings[ringIndex])
+
                 local steps = 24
                 local startAng = math.random() * math.pi * 2
                 local angStep = (2 * math.pi) / steps
 
                 for i = 0, steps - 1 do
-                    if not running or mode ~= "Idle" then
+                    if not running then
                         break
                     end
 
@@ -1637,29 +1654,33 @@ do
                     end
 
                     local ang = startAng + i * angStep
+
                     local pt = Vector3.new(
                         farmCenter.X + math.cos(ang) * radius,
-                        farmCenter.Y,
+                        farmCenter.Y + 5,
                         farmCenter.Z + math.sin(ang) * radius
                     )
 
-                    stopMovement()
-                    Lunge(pt + Vector3.new(0, 5, 0))
+                    Lunge(pt)
 
-                    local waitTime = math.max(0.03, (radius / LUNGE_SPEED) * 0.15)
                     local elapsed = 0
+                    local waitTime = 0.08
+
                     while elapsed < waitTime do
-                        if not running or mode ~= "Idle" then
+                        if not running then
                             break
                         end
+
                         if getNearestMob(zone.MobName) then
                             break
                         end
+
                         elapsed += RunService.Heartbeat:Wait()
                     end
                 end
 
                 ringIndex += 1
+
                 if ringIndex > #rings then
                     ringIndex = 1
                 end
@@ -1669,6 +1690,8 @@ do
         end)
     end
 
+    --// MAIN ======================================================
+
     local function updateTarget()
         if not running then
             return
@@ -1676,6 +1699,7 @@ do
 
         local level = getLevel()
         local zone = getZoneForLevel(level)
+
         if not zone then
             stopMovement()
             currentTarget = nil
@@ -1683,53 +1707,50 @@ do
         end
 
         farmCenter = zone.FarmPos
+
         checkQuest(zone)
 
         local mob = getNearestMob(zone.MobName)
 
         if mob then
-            local hum = getMobHumanoid(mob)
-            local root = getMobRoot(mob)
-
-            if not hum or not root or hum.Health <= 0 then
-                return
-            end
-
-            local hrp = safeHRP()
-            if not hrp then
-                return
-            end
-
             currentTarget = mob
 
+            local root = getMobRoot(mob)
+            local hum = getMobHumanoid(mob)
+            local hrp = safeHRP()
+
+            if not root or not hum or not hrp or hum.Health <= 0 then
+                return
+            end
+
             local dist = (hrp.Position - root.Position).Magnitude
+
             if dist <= LOCK_DISTANCE then
                 follow(mob)
             else
-                stopMovement()
-                mode = "Lunge"
                 Lunge(root.Position + Vector3.new(0, LOCK_HEIGHT, 0))
             end
+
         else
             if currentTarget then
                 local hum = getMobHumanoid(currentTarget)
+
                 if not hum or hum.Health <= 0 or not currentTarget.Parent then
                     currentQuestKills += 1
                     currentTarget = nil
                 end
             end
 
-            if mode ~= "Idle" then
-                idle(zone)
-            elseif not idleActive then
-                idle(zone)
-            end
+            idle(zone)
         end
     end
 
-    spawn(function()
+    --// ATTACK LOOP ======================================================
+
+    task.spawn(function()
         while true do
             task.wait(0.4)
+
             if running then
                 pcall(function()
                     ReplicatedStorage
@@ -1742,15 +1763,19 @@ do
         end
     end)
 
-    spawn(function()
+    --// SCAN LOOP ======================================================
+
+    task.spawn(function()
         while true do
             task.wait(SCAN_INTERVAL)
+
             if not running then
                 continue
             end
 
             local level = getLevel()
             local zone = getZoneForLevel(level)
+
             if not zone then
                 stopMovement()
                 currentTarget = nil
@@ -1762,61 +1787,102 @@ do
                 needsInitialQuest = true
             end
 
-            if needsInitialQuest then
-                checkQuest(zone)
-            end
-
             updateTarget()
         end
     end)
 
-    local function setRunningFromButtonColor()
-        local on = isButtonOn()
+    --// ENABLE ======================================================
 
-        if on and not running then
-            running = true
-            pausedByDeath = false
-            _G.BringMobGate2 = true
+    local function ON_ENABLE()
+        running = true
+        pausedByDeath = false
 
-            lastLevel = getLevel()
-            pcall(function()
-                player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                player:SetAttribute("FastAttackEnemyStyle", "Melee")
-                player:SetAttribute("FastAttackEnemy", true)
-            end)
+        _G.BringMobGate2 = true
 
-            local zone = getZoneForLevel(lastLevel)
-            if zone then
-                farmCenter = zone.FarmPos
-            end
+        lastLevel = getLevel()
+        needsInitialQuest = true
 
-            needsInitialQuest = true
+        pcall(function()
+            player:SetAttribute("FastAttackEnemyMode", "Toggle")
+            player:SetAttribute("FastAttackEnemyStyle", "Melee")
+            player:SetAttribute("FastAttackEnemy", true)
+        end)
 
-        elseif not on and running then
-            running = false
-            pausedByDeath = false
-            _G.BringMobGate2 = false
+        local zone = getZoneForLevel(lastLevel)
 
-            stopMovement()
-            currentTarget = nil
-            farmCenter = nil
-            idleActive = false
-            needsInitialQuest = false
+        if zone then
+            farmCenter = zone.FarmPos
         end
     end
 
-    toggleBtn.Activated:Connect(function()
-        if ToggleUI and ToggleUI.Set then
-            local target = not isButtonOn()
-            pcall(ToggleUI.Set, BUTTON_NAME, target)
+    --// DISABLE ======================================================
+
+    local function ON_DISABLE()
+        running = false
+        pausedByDeath = false
+
+        _G.BringMobGate2 = false
+
+        stopMovement()
+
+        currentTarget = nil
+        farmCenter = nil
+        idleActive = false
+        needsInitialQuest = false
+    end
+
+    --// SYNC ======================================================
+
+    local function syncSystemState()
+        ENABLED = isButtonOn()
+
+        if LAST_ENABLED and not ENABLED then
+            ON_DISABLE()
+
+        elseif (not LAST_ENABLED) and ENABLED then
+            ON_ENABLE()
         end
-    end)
+
+        LAST_ENABLED = ENABLED
+    end
+
+    --// TOGGLE ======================================================
+
+    local function toggleSystem()
+        if CLICK_LOCK then
+            return
+        end
+
+        CLICK_LOCK = true
+
+        task.delay(0.15, function()
+            CLICK_LOCK = false
+        end)
+
+        local requested = not isButtonOn()
+
+        pcall(function()
+            ToggleUI.Set(BUTTON_NAME, requested)
+        end)
+
+        task.delay(0.05, syncSystemState)
+    end
+
+    --// CONNECT ======================================================
+
+    if toggleBtn.Activated then
+        toggleBtn.Activated:Connect(toggleSystem)
+    else
+        toggleBtn.MouseButton1Click:Connect(toggleSystem)
+    end
 
     toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        task.defer(setRunningFromButtonColor)
+        task.delay(0.05, syncSystemState)
     end)
 
-    setRunningFromButtonColor()
+    --// FIRST LOAD ======================================================
+
+    syncSystemState()
 end
 
 --=== AUTO FARM ARENA =====================================================================================================--
