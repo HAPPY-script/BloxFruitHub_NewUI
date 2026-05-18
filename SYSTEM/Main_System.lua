@@ -341,35 +341,29 @@ do
     local TweenService = game:GetService("TweenService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
-    
+
     local player = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
-    local camera = workspace.CurrentCamera
 
     local BUTTON_NAME = "AutoFarmLvlButton"
 
-    -- Đường dẫn tới ScrollingTab như bạn yêu cầu
-    local ScrollingTab = Players.LocalPlayer
-        .PlayerGui
+    local ScrollingTab = playerGui
         :WaitForChild("BloxFruitHubGui")
         :WaitForChild("Main")
         :WaitForChild("ScrollingTab")
 
-    -- Tìm Frame "Main" bên trong ScrollingTab (tìm đệ quy)
     local uiMain = ScrollingTab:FindFirstChild("Main", true)
     if not uiMain then
         warn("Không tìm thấy Frame 'Main' trong ScrollingTab")
         return
     end
 
-    -- Tìm Button toggle trong Frame Main (tìm đệ quy)
     local toggleBtn = uiMain:FindFirstChild(BUTTON_NAME, true)
     if not toggleBtn then
         warn("Không tìm thấy Button:", BUTTON_NAME)
         return
     end
 
-    -- Chờ ToggleUI helper (theo mẫu bạn đưa)
     repeat task.wait() until _G.ToggleUI
     local ToggleUI = _G.ToggleUI
     if ToggleUI and ToggleUI.Refresh then
@@ -413,22 +407,15 @@ do
         return false
     end
 
-    -- Helpers: so sánh màu với ngưỡng
     local function colorEquals(c, r, g, b)
         local cr, cg, cb = c.R * 255, c.G * 255, c.B * 255
-        local tol = 2 -- ngưỡng nhỏ để tránh sai số
+        local tol = 2
         return math.abs(cr - r) <= tol and math.abs(cg - g) <= tol and math.abs(cb - b) <= tol
     end
 
     local function isButtonOn()
         return colorEquals(toggleBtn.BackgroundColor3, 0, 255, 0)
     end
-
-    -- Auto Farm variables & config (giữ logic cũ)
-    local currentQuestBeli = 0
-    local currentQuestKills = 0
-    local maxQuestKills = 9
-    local expectedRewardBeli = 500000
 
     local FarmZones = {
         {
@@ -1332,11 +1319,33 @@ do
             RewardBeli = 15700
         }
     }
-    
+
     local running = false
-    local pausedByDeath = false -- NEW: đánh dấu tạm pause do chết
+    local pausedByDeath = false
     local lastLevel = 0
-    local needsInitialQuest = false -- NEW: khi bật sẽ tự nhận quest 1 lần
+    local needsInitialQuest = false
+
+    local currentQuestBeli = 0
+    local currentQuestKills = 0
+    local maxQuestKills = 9
+    local expectedRewardBeli = 500000
+
+    local LUNGE_SPEED = 300
+    local SCAN_INTERVAL = 0.12
+
+    local LOCK_DISTANCE = 200
+    local LOCK_HEIGHT = 25
+    local distanceLimit = 2500
+
+    local movementToken = 0
+    local mode = "Idle" -- Idle / Lunge / Follow
+    local currentTarget = nil
+
+    local lungeConn = nil
+    local followConn = nil
+    local scanThread = nil
+    local idleActive = false
+    local farmCenter = nil
 
     local function getLevel()
         local d = player:FindFirstChild("Data")
@@ -1352,394 +1361,415 @@ do
         return nil
     end
 
-    -- movement / lunge config
-    local LUNGE_SPEED = 300 -- studs/s for lunge
-    local STOP_DIST = 4
-    local HEIGHT_OFFSET = 6
-
-    -- LOCK config (yêu cầu của bạn)
-    local LOCK_DISTANCE = 200   -- nếu <= 200 sẽ "gắn" ổn định
-    local LOCK_HEIGHT = 25      -- vị trí cao hơn enemy 25 studs
-    -- distanceLimit (dùng cho kiểm tra server-distance)
-    local distanceLimit = 2500
-
-    -- movement token for cancelling lunges
-    local movementToken = 0
-    local function stopMovement()
-        movementToken = movementToken + 1
+    local function getCharacter()
+        return player.Character or player.CharacterAdded:Wait()
     end
 
-    -- utility safe getters
+    local function getHRP()
+        return getCharacter():WaitForChild("HumanoidRootPart")
+    end
+
     local function safeHRP()
         local char = player.Character
         if not char then return nil end
         return char:FindFirstChild("HumanoidRootPart")
     end
-    local function safeHumanoid()
-        local char = player.Character
-        if not char then return nil end
-        return char:FindFirstChildOfClass("Humanoid")
-    end
 
-    -- get nearest mob by name (from original)
     local function getNearestMob(name)
         local enemies = workspace:FindFirstChild("Enemies")
         if not enemies then return nil end
 
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return nil end
+
         local closest = nil
         local minDist = math.huge
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
-        local hrpPos = char.HumanoidRootPart.Position
 
-        for _, mob in pairs(enemies:GetChildren()) do
-            if mob.Name == name and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid") then
-                local dist = (hrpPos - mob.HumanoidRootPart.Position).Magnitude
-                if mob:FindFirstChildOfClass("Humanoid").Health > 0 and dist < minDist then
-                    closest = mob
+        for _, mob in ipairs(enemies:GetChildren()) do
+            local hum = mob:FindFirstChildOfClass("Humanoid")
+            local root = mob:FindFirstChild("HumanoidRootPart")
+            if mob.Name == name and hum and root and hum.Health > 0 then
+                local dist = (hrp.Position - root.Position).Magnitude
+                if dist < minDist then
                     minDist = dist
+                    closest = mob
                 end
             end
         end
+
         return closest
     end
 
-    -- ===== unified lunge movement (replaces tweenTo) =====
-    local function lungeTo(targetPos)
-        local hrp = safeHRP()
-        if not hrp or not hrp.Parent then return false end
+    local function getMobRoot(mob)
+        if not mob or not mob.Parent then return nil end
+        return mob:FindFirstChild("HumanoidRootPart")
+    end
 
-        -- safety: if target is extremely far (possible invalid request), refuse
+    local function getMobHumanoid(mob)
+        if not mob or not mob.Parent then return nil end
+        return mob:FindFirstChildOfClass("Humanoid")
+    end
+
+    local function stopMovement()
+        movementToken += 1
+
+        if lungeConn then
+            lungeConn:Disconnect()
+            lungeConn = nil
+        end
+
+        if followConn then
+            followConn:Disconnect()
+            followConn = nil
+        end
+
+        mode = "Idle"
+    end
+
+    -- giữ nguyên logic lunge mẫu, chỉ parameter hóa targetPos
+    local function lungeTo(targetPos)
+        local hrp = getHRP()
+        local myToken = movementToken
+
         local startPos = hrp.Position
         local delta = targetPos - startPos
         local dist = delta.Magnitude
-        if dist < 0.5 then return true end
-        if dist > 10000 then return false end
+        if dist < 0.5 then return end
 
         local dir = delta.Unit
-        local duration = math.max(0.01, dist / LUNGE_SPEED)
+        local duration = dist / LUNGE_SPEED
         local elapsed = 0
-        local myToken = movementToken
 
-        -- reset vertical velocity to avoid unexpected physics behaviour
-        pcall(function() hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end)
-
-        while elapsed < duration do
-            -- cancel if another movement requested or script stopped
+        local conn
+        conn = RunService.Heartbeat:Connect(function(dt)
             if myToken ~= movementToken then
-                return false
-            end
-            if not running then
-                -- if script turned off while lunging -> cancel
-                return false
+                conn:Disconnect()
+                return
             end
 
-            local dt = RunService.Heartbeat:Wait()
-            elapsed = elapsed + dt
+            elapsed += dt
             local alpha = math.clamp(elapsed / duration, 0, 1)
-            local newPos = startPos + dir * (dist * alpha)
-            -- set CFrame directly (preserve orientation)
-            hrp.CFrame = CFrame.new(newPos)
-        end
+            hrp.CFrame = CFrame.new(startPos + dir * (dist * alpha))
 
-        -- final ensure position
-        if myToken ~= movementToken then
+            if alpha >= 1 then
+                conn:Disconnect()
+            end
+        end)
+    end
+
+    local function Lunge(targetPos)
+        stopMovement()
+        mode = "Lunge"
+        lungeTo(targetPos)
+    end
+
+    local function acceptQuest(zone)
+        if not zone then
             return false
         end
-        hrp.CFrame = CFrame.new(targetPos)
-        return true
-    end
-    -- ======================================================================
 
-    -- acceptQuest (kept, nhưng dùng lungeTo) -> giờ trả về true/false
-    local function acceptQuest(zone)
-        if not zone then return false end
-        -- go to NPC (a little above)
         local ok = lungeTo(zone.QuestNPCPos + Vector3.new(0, 3, 0))
-        if not ok then return false end -- interrupted or couldn't reach, abort accept
+        if not ok and ok ~= nil then
+            return false
+        end
+
         task.wait(1)
 
-        local args = {
-            [1] = "StartQuest",
-            [2] = zone.QuestName,
-            [3] = zone.QuestIndex
-        }
-
-        local success, err = pcall(function()
-            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
+        local success = pcall(function()
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(
+                "StartQuest",
+                zone.QuestName,
+                zone.QuestIndex
+            )
         end)
+
         if not success then
             return false
         end
 
         currentQuestKills = 0
-        currentQuestBeli = player:WaitForChild("Data"):WaitForChild("Beli").Value
+        local data = player:FindFirstChild("Data")
+        local beli = data and data:FindFirstChild("Beli")
+        currentQuestBeli = beli and beli.Value or 0
+        expectedRewardBeli = zone.RewardBeli or expectedRewardBeli
 
-        if zone.RewardBeli then
-            expectedRewardBeli = zone.RewardBeli
+        return true
+    end
+
+    local function checkQuest(zone)
+        if not zone then
+            return false
+        end
+
+        local data = player:FindFirstChild("Data")
+        local beli = data and data:FindFirstChild("Beli")
+        local curBeli = beli and beli.Value or 0
+
+        if needsInitialQuest then
+            if acceptQuest(zone) then
+                needsInitialQuest = false
+            end
+            return true
+        end
+
+        if currentQuestKills >= maxQuestKills then
+            return acceptQuest(zone)
+        end
+
+        if curBeli - currentQuestBeli >= expectedRewardBeli then
+            return acceptQuest(zone)
         end
 
         return true
     end
 
-    -- *** Camera functions turned into NO-OPs to ensure we never change camera ***
-    local function saveCameraState() end
-    local function restoreCameraToPlayer() end
-    local function restoreCameraState() end
+    local function follow(mob)
+        if not running or not mob then
+            return
+        end
 
-    -- followMob: approach enemy; when within LOCK_DISTANCE => "gắn" ổn định vào vị trí trên enemy (LOCK_HEIGHT)
-    local function followMob(mob)
-        if not mob then return end
-        local hrp = safeHRP()
-        if not hrp then return end
-        if not mob:FindFirstChild("HumanoidRootPart") then return end
+        local root = getMobRoot(mob)
+        local hum = getMobHumanoid(mob)
+        if not root or not hum or hum.Health <= 0 then
+            return
+        end
 
-        -- Make sure any previous lunges are canceled before starting follow
         stopMovement()
+        mode = "Follow"
+        currentTarget = mob
 
-        -- Loop: approach until enemy dead or running false
-        while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
-            and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
+        local token = movementToken
+        followConn = RunService.Heartbeat:Connect(function()
+            if not running or token ~= movementToken then
+                return
+            end
 
-            local hrpEnemy = mob.HumanoidRootPart
-            if not hrpEnemy then break end
-
-            -- desired position: directly above enemy by LOCK_HEIGHT
-            local desiredPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + LOCK_HEIGHT, hrpEnemy.Position.Z)
-            local distToDesired = (hrp.Position - desiredPos).Magnitude
-            local distToEnemy = (hrp.Position - hrpEnemy.Position).Magnitude
-
-            if distToEnemy > LOCK_DISTANCE then
-                -- too far: lunge to the desired overhead position
-                local ok = goFarmPos(desiredPos)
-                if not ok then
-                    -- lunge interrupted / cancelled — exit follow
-                    return
-                end
-                -- once lunge arrives, loop will re-evaluate; if within lock threshold we'll lock next iteration
-            else
-                -- within LOCK_DISTANCE: lock position above enemy and hold until enemy dies or moves far away
-                -- cancel any other movement tokens to ensure stable lock
+            local hrp = safeHRP()
+            local mobRoot = getMobRoot(mob)
+            local mobHum = getMobHumanoid(mob)
+            if not hrp or not mobRoot or not mobHum or mobHum.Health <= 0 then
                 stopMovement()
-                -- keep setting HRP to lock position each Heartbeat for stability
-                while mob and mob.Parent and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChildOfClass("Humanoid")
-                    and mob:FindFirstChildOfClass("Humanoid").Health > 0 and running do
+                currentTarget = nil
+                return
+            end
 
-                    local ePos = mob.HumanoidRootPart.Position
-                    local lockPos = Vector3.new(ePos.X, ePos.Y + LOCK_HEIGHT, ePos.Z)
-                    pcall(function()
-                        -- zero velocity and set exact lock CFrame
-                        hrp.AssemblyLinearVelocity = Vector3.zero
-                        hrp.CFrame = CFrame.new(lockPos)
-                    end)
+            local desiredPos = Vector3.new(
+                mobRoot.Position.X,
+                mobRoot.Position.Y + LOCK_HEIGHT,
+                mobRoot.Position.Z
+            )
 
-                    -- if enemy suddenly far from us (unexpected), break lock to re-lunge
-                    local curDistToEnemy = (hrp.Position - ePos).Magnitude
-                    if curDistToEnemy > LOCK_DISTANCE + 10 then -- small hysteresis
+            local distToEnemy = (hrp.Position - mobRoot.Position).Magnitude
+            if distToEnemy > LOCK_DISTANCE then
+                Lunge(desiredPos)
+                return
+            end
+
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(desiredPos)
+            end)
+
+            if (hrp.Position - mobRoot.Position).Magnitude > LOCK_DISTANCE + 10 then
+                stopMovement()
+            end
+        end)
+    end
+
+    local function idle(zone)
+        if not running or not zone then
+            return
+        end
+
+        farmCenter = zone.FarmPos
+        if idleActive then
+            return
+        end
+
+        stopMovement()
+        mode = "Idle"
+        idleActive = true
+
+        task.spawn(function()
+            local rings = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
+            local ringIndex = 1
+
+            while running and mode == "Idle" and farmCenter do
+                if getNearestMob(zone.MobName) then
+                    break
+                end
+
+                local hrp = safeHRP()
+                if not hrp then
+                    break
+                end
+
+                local distToCenter = (hrp.Position - farmCenter).Magnitude
+                if distToCenter > distanceLimit then
+                    stopMovement()
+                    Lunge(farmCenter + Vector3.new(0, 5, 0))
+                    task.wait(0.2)
+                    continue
+                elseif distToCenter > 50 then
+                    goFarmPos(farmCenter + Vector3.new(0, 5, 0))
+                    task.wait(0.1)
+                end
+
+                local radius = math.max(1, distanceLimit * rings[ringIndex])
+                local steps = 24
+                local startAng = math.random() * math.pi * 2
+                local angStep = (2 * math.pi) / steps
+
+                for i = 0, steps - 1 do
+                    if not running or mode ~= "Idle" then
                         break
                     end
 
-                    RunService.Heartbeat:Wait()
+                    if getNearestMob(zone.MobName) then
+                        break
+                    end
+
+                    local ang = startAng + i * angStep
+                    local pt = Vector3.new(
+                        farmCenter.X + math.cos(ang) * radius,
+                        farmCenter.Y,
+                        farmCenter.Z + math.sin(ang) * radius
+                    )
+
+                    stopMovement()
+                    lungeTo(pt + Vector3.new(0, 5, 0))
+
+                    local waitTime = math.max(0.03, (radius / LUNGE_SPEED) * 0.15)
+                    local elapsed = 0
+                    while elapsed < waitTime do
+                        if not running or mode ~= "Idle" then
+                            break
+                        end
+                        if getNearestMob(zone.MobName) then
+                            break
+                        end
+                        elapsed += RunService.Heartbeat:Wait()
+                    end
+                end
+
+                ringIndex += 1
+                if ringIndex > #rings then
+                    ringIndex = 1
                 end
             end
+
+            idleActive = false
+        end)
+    end
+
+    local function updateTarget()
+        if not running then
+            return
         end
-    end
 
-    -- FARM CENTER (replaces part + billboard): Vector3 or nil
-    local farmCenter = nil
+        local level = getLevel()
+        local zone = getZoneForLevel(level)
+        if not zone then
+            stopMovement()
+            currentTarget = nil
+            return
+        end
 
-    local function createFarmCenter(pos)
-        -- set/replace farm center position (no Part / no Billboard)
-        farmCenter = pos
-    end
+        farmCenter = zone.FarmPos
+        checkQuest(zone)
 
-    local function destroyFarmCenter()
-        farmCenter = nil
-    end
+        local mob = getNearestMob(zone.MobName)
 
-    -- patrol logic (orbit around farmCenter) using lungeTo
-    local patrolActive = false
+        if mob then
+            local hum = getMobHumanoid(mob)
+            local root = getMobRoot(mob)
 
-    local function circlePoint(center, radius, angleRad)
-        return Vector3.new(center.X + math.cos(angleRad) * radius, center.Y, center.Z + math.sin(angleRad) * radius)
-    end
+            if not hum or not root or hum.Health <= 0 then
+                return
+            end
 
-    local function orbitOnce(center, radiusPercent, zoneMobName)
-        if not center then return false end
-        if not running then return false end
-        local radius = math.max(1, (distanceLimit) * radiusPercent)
-        local startAng = math.random() * math.pi * 2
-        local steps = 24
-        local angStep = (2 * math.pi) / steps
+            local hrp = safeHRP()
+            if not hrp then
+                return
+            end
 
-        for s = 0, steps - 1 do
-            if not running then return false end
-            -- frequently check for enemies (use fixed center)
-            if getNearestMob(zoneMobName) then return false end
+            currentTarget = mob
 
-            local ang = startAng + s * angStep
-            local pt = circlePoint(center, radius, ang)
+            local dist = (hrp.Position - root.Position).Magnitude
+            if dist <= LOCK_DISTANCE then
+                follow(mob)
+            else
+                stopMovement()
+                mode = "Lunge"
+                Lunge(root.Position + Vector3.new(0, LOCK_HEIGHT, 0))
+            end
+        else
+            if currentTarget then
+                local hum = getMobHumanoid(currentTarget)
+                if not hum or hum.Health <= 0 or not currentTarget.Parent then
+                    currentQuestKills += 1
+                    currentTarget = nil
+                end
+            end
 
-            -- Lunge to patrol point (do NOT modify farmCenter)
-            local arrived = lungeTo(pt + Vector3.new(0, 5, 0))
-            if not arrived then return false end
-
-            -- tiny smooth pause using Heartbeat
-            local pauseTime = 0.03
-            local elapsed = 0
-            while elapsed < pauseTime do
-                if not running then return false end
-                if getNearestMob(zoneMobName) then return false end
-                elapsed = elapsed + RunService.Heartbeat:Wait()
+            if mode ~= "Idle" then
+                idle(zone)
+            elseif not idleActive then
+                idle(zone)
             end
         end
-        return true
     end
 
-    local function startPatrol(zoneMobName)
-        if not farmCenter then return end
-        if patrolActive then return end
-        patrolActive = true
-
-        local radii = {0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70}
-        local idx = 1
-        local center = farmCenter -- fixed center
-
-        while patrolActive and running do
-            local radiusPercent = radii[idx]
-            local ang = math.random() * math.pi * 2
-            local startPt = circlePoint(center, math.max(1, (distanceLimit) * radiusPercent), ang)
-
-            local ok = goFarmPos(startPt + Vector3.new(0, 5, 0))
-            if not ok then break end
-
-            local completedOrbit = orbitOnce(center, radiusPercent, zoneMobName)
-            if not completedOrbit then break end
-
-            idx = idx + 1
-            if idx > #radii then idx = 1 end
-
-            if getNearestMob(zoneMobName) then break end
-            -- small idle to avoid busy loop
-            local idle = 0.02
-            local e = 0
-            while e < idle do
-                if not running then break end
-                e = e + RunService.Heartbeat:Wait()
-            end
-        end
-
-        patrolActive = false
-    end
-
-    -- Auto attack loop (kept)
     spawn(function()
         while true do
             task.wait(0.4)
             if running then
                 pcall(function()
-                    local args = { 0.4000000059604645 }
                     ReplicatedStorage
                         :WaitForChild("Modules")
                         :WaitForChild("Net")
                         :WaitForChild("RE/RegisterAttack")
-                        :FireServer(unpack(args))
+                        :FireServer(0.4000000059604645)
                 end)
             end
         end
     end)
 
-    -- Farm loop (dựa trên biến running) - sử dụng FarmPos as farmCenter
     spawn(function()
-        local lastSeen = tick()
         while true do
-            task.wait()
+            task.wait(SCAN_INTERVAL)
             if not running then
-                lastSeen = tick()
                 continue
             end
 
             local level = getLevel()
             local zone = getZoneForLevel(level)
-            if not zone then continue end
+            if not zone then
+                stopMovement()
+                currentTarget = nil
+                continue
+            end
 
             if level ~= lastLevel then
                 lastLevel = level
-                acceptQuest(zone)
+                needsInitialQuest = true
             end
 
-            -- ensure farmCenter is placed at zone.FarmPos (ngưỡng nhỏ tránh recreate liên tục)
-            if not farmCenter or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
-                createFarmCenter(zone.FarmPos)
-            end
-
-            -- NEW: Thử tự nhận quest đúng 1 lần khi mới bật
             if needsInitialQuest then
-                -- gọi acceptQuest; nếu thành công thì clear flag, nếu thất bại sẽ thử lại sau
-                local ok = acceptQuest(zone)
-                if ok then
-                    needsInitialQuest = false
-                else
-                    -- nếu không thành công (bị huỷ), đợi vòng lặp sau để thử lại
-                    continue
-                end
+                checkQuest(zone)
             end
 
-            -- check for nearest mob of this zone
-            local mob = getNearestMob(zone.MobName)
-            if mob then
-                -- cancel any ongoing patrol/movement and follow
-                stopMovement()
-                patrolActive = false
-                followMob(mob)
-                currentQuestKills = currentQuestKills + 1
-                lastSeen = tick()
-                -- after finishing an enemy, immediately continue the loop to search for next enemy
-                continue
-            else
-                -- no mob found: only move to farm area center or start patrol if idle >= 0.5s
-                if (tick() - lastSeen) >= 0.5 then
-                    -- Move to farm center if too far (> distanceLimit) or just reposition if moderately far
-                    local hrp = safeHRP()
-                    if hrp and farmCenter then
-                        local distToFarm = (hrp.Position - farmCenter).Magnitude
-                        if distToFarm > distanceLimit then
-                            -- too far: cancel patrols and return to farm center immediately via lunge
-                            stopMovement()
-                            patrolActive = false
-                            goFarmPos(farmCenter + Vector3.new(0, 5, 0))
-                        elseif distToFarm > 50 then
-                            -- minor reposition inside farm area
-                            goFarmPos(farmCenter + Vector3.new(0, 5, 0))
-                        end
-                    end
-
-                    -- start patrol if not active
-                    if not patrolActive and farmCenter then
-                        task.spawn(function()
-                            startPatrol(zone.MobName)
-                        end)
-                    end
-                end
-            end
-
-            -- quest completion checks
-            local newBeli = player:FindFirstChild("Data"):FindFirstChild("Beli").Value
-            if newBeli - currentQuestBeli >= expectedRewardBeli then
-                acceptQuest(zone)
-            elseif currentQuestKills >= maxQuestKills then
-                acceptQuest(zone)
-            end
+            updateTarget()
         end
     end)
 
-    -- toggle handling & initial state
     local function setRunningFromButtonColor()
         local on = isButtonOn()
 
         if on and not running then
             running = true
-            pausedByDeath = false -- nếu bật lại bằng tay thì clear pause
+            pausedByDeath = false
 
             _G.BringMobGate2 = true
 
@@ -1750,36 +1780,26 @@ do
                 player:SetAttribute("FastAttackEnemy", true)
             end)
 
-            -- NOTE: camera save removed (no-op)
-            -- create farmCenter at current zone if available
             local zone = getZoneForLevel(lastLevel)
             if zone then
-                createFarmCenter(zone.FarmPos)
+                farmCenter = zone.FarmPos
             end
 
-            -- NEW: mark that we need to accept quest once at start
             needsInitialQuest = true
 
         elseif not on and running then
-            -- User turned OFF manually: stop and reset
             running = false
-            pausedByDeath = false -- user explicitly turned off => clear any death-pause
-
+            pausedByDeath = false
             _G.BringMobGate2 = false
 
-            -- NOTE: camera restore removed (no-op)
-
-            -- cleanup farmCenter/patrol
             stopMovement()
-            patrolActive = false
-            destroyFarmCenter()
-
-            -- clear initial quest flag
+            currentTarget = nil
+            farmCenter = nil
+            idleActive = false
             needsInitialQuest = false
         end
     end
 
-    -- Khi người dùng click vào button UI: gửi lệnh cho ToggleUI (theo mẫu bạn đưa)
     toggleBtn.Activated:Connect(function()
         if ToggleUI and ToggleUI.Set then
             local target = not isButtonOn()
@@ -1787,77 +1807,11 @@ do
         end
     end)
 
-    -- Nếu màu nền button thay đổi => cập nhật running
     toggleBtn:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-        task.defer(function()
-            setRunningFromButtonColor()
-        end)
+        task.defer(setRunningFromButtonColor)
     end)
 
-    -- Khởi tạo trạng thái theo màu hiện tại của button khi script bắt đầu
     setRunningFromButtonColor()
-
-    -- Khi chết: chỉ tạm dừng (pause) — không reset UI về OFF
-    local function onDeath()
-        if running then
-            pausedByDeath = true
-            running = false
-        end
-        -- NOTE: do NOT alter camera
-        stopMovement()
-        patrolActive = false
-        -- giữ farmCenter để khi respawn có thể tiếp tục nhanh
-        -- destroyFarmCenter() -- *bị loại bỏ* để không reset vùng làm việc
-    end
-
-    -- Kết nối sự kiện chết cho mỗi character
-    player.CharacterAdded:Connect(function(char)
-        local h = char:WaitForChild("Humanoid", 5)
-        if h then
-            h.Died:Connect(function()
-                onDeath()
-            end)
-        end
-
-        -- NOTE: do NOT alter camera on respawn
-
-        -- Sau respawn: nếu trước đó bị pause do chết và nút vẫn ON => tự resume
-        task.spawn(function()
-            -- đợi chút để nhân vật ổn định
-            task.wait(0.5)
-            if pausedByDeath then
-                -- clear paused flag early to avoid race nếu người bấm tắt ngay lập tức
-                pausedByDeath = false
-                if isButtonOn() then
-                    -- bật lại running và các thiết lập
-                    running = true
-                    _G.BringMobGate2 = true
-
-                    lastLevel = getLevel()
-                    pcall(function()
-                        player:SetAttribute("FastAttackEnemyMode", "Toggle")
-                        player:SetAttribute("FastAttackEnemyStyle", "Melee")
-                        player:SetAttribute("FastAttackEnemy", true)
-                    end)
-
-                    -- ensure farmCenter exists for current zone
-                    local zone = getZoneForLevel(lastLevel)
-                    if zone then
-                        if not farmCenter or (farmCenter and (farmCenter - zone.FarmPos).Magnitude > 0.1) then
-                            createFarmCenter(zone.FarmPos)
-                        end
-                    end
-                else
-                    -- nếu người đã tắt nút trong thời gian chết thì không resume
-                end
-            end
-        end)
-    end)
-
-    -- Connect if character already exists at script start
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character:FindFirstChild("Humanoid").Died:Connect(function() onDeath() end)
-    end
 end
 
 --=== AUTO FARM ARENA =====================================================================================================--
