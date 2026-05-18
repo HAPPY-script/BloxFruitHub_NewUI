@@ -1419,91 +1419,110 @@ do
         return moveDone
     end
 
-    local function Lunge(targetPos)
+    local function Lunge(targetPos, useHighY)
         if typeof(targetPos) ~= "Vector3" then
             return false
         end
-
+    
         stopMovement()
-
+    
         moveDone = false
-
+    
         local hrp = getHRP()
         local myToken = movementToken
-
+    
         local startPos = hrp.Position
-
         local finalPos = targetPos
-
-        local startHigh = Vector3.new(
-            startPos.X,
-            HIGH_Y,
-            startPos.Z
-        )
-
-        local targetHigh = Vector3.new(
-            targetPos.X,
-            HIGH_Y,
-            targetPos.Z
-        )
-
-        local delta = targetHigh - startHigh
+    
+        local startMovePos
+        local targetMovePos
+    
+        --// HIGH Y MODE (ONLY FOR FARMPOS)
+        if useHighY then
+    
+            startMovePos = Vector3.new(
+                startPos.X,
+                HIGH_Y,
+                startPos.Z
+            )
+    
+            targetMovePos = Vector3.new(
+                targetPos.X,
+                HIGH_Y,
+                targetPos.Z
+            )
+    
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(startMovePos)
+            end)
+    
+        --// NORMAL LUNGE
+        else
+    
+            startMovePos = startPos
+            targetMovePos = targetPos
+    
+        end
+    
+        local delta = targetMovePos - startMovePos
         local dist = delta.Magnitude
-
+    
         if dist < 0.5 then
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.CFrame = CFrame.new(finalPos)
-
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.CFrame = CFrame.new(finalPos)
+            end)
+    
             moveDone = true
             return true
         end
-
+    
         local dir = delta.Unit
         local duration = math.max(0.01, dist / LUNGE_SPEED)
-
+    
         local elapsed = 0
-
-        pcall(function()
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.CFrame = CFrame.new(startHigh)
-        end)
-
+    
         lungeConn = RunService.Heartbeat:Connect(function(dt)
+    
             if myToken ~= movementToken or not running then
+    
                 if lungeConn then
                     lungeConn:Disconnect()
                     lungeConn = nil
                 end
-
+    
                 moveDone = true
                 return
             end
-
+    
             elapsed += dt
-
+    
             local alpha = math.clamp(elapsed / duration, 0, 1)
-            local newPos = startHigh + dir * (dist * alpha)
-
+    
+            local newPos = startMovePos + dir * (dist * alpha)
+    
             pcall(function()
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = CFrame.new(newPos)
             end)
-
+    
             if alpha >= 1 then
+    
                 pcall(function()
                     hrp.AssemblyLinearVelocity = Vector3.zero
                     hrp.CFrame = CFrame.new(finalPos)
                 end)
-
+    
                 if lungeConn then
                     lungeConn:Disconnect()
                     lungeConn = nil
                 end
-
+    
                 moveDone = true
             end
         end)
-
+    
         return true
     end
 
@@ -1661,7 +1680,7 @@ do
                         farmCenter.Z + math.sin(ang) * radius
                     )
 
-                    Lunge(pt)
+                    Lunge(pt, true)
 
                     local elapsed = 0
                     local waitTime = 0.08
