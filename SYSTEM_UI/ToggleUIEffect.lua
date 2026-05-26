@@ -16,8 +16,11 @@ local DEFAULT_ON_LIST = {
 local X_ON = 0.75
 local X_OFF = 0.25
 
-local COLOR_ON = Color3.fromRGB(0,255,0)
-local COLOR_OFF = Color3.fromRGB(255,0,0)
+local COLOR_ON = Color3.fromRGB(0, 255, 0)
+local COLOR_OFF = Color3.fromRGB(255, 0, 0)
+
+local REPAIR_INTERVAL = 0.75
+local STUCK_ICON_TIMEOUT = TWEEN_TIME * 2.5
 
 --// UI ROOT ====================================================
 
@@ -42,13 +45,12 @@ local function normalizeRotation(v)
 	return n
 end
 
-local function safeFindIcon(dot,name)
+local function safeFindIcon(dot, name)
 	if not dot then
 		return nil
 	end
 
 	local icon = dot:FindFirstChild(name)
-
 	if icon and icon:IsA("ImageLabel") then
 		return icon
 	end
@@ -56,12 +58,12 @@ local function safeFindIcon(dot,name)
 	return nil
 end
 
-local function tween(obj,props,info)
+local function tween(obj, props, info)
 	if not obj then
 		return nil
 	end
 
-	local ok,t = pcall(function()
+	local ok, t = pcall(function()
 		return TweenService:Create(
 			obj,
 			info or TweenInfo.new(
@@ -92,7 +94,7 @@ local function cancelTweens(data)
 	data._token += 1
 
 	if data._tweens then
-		for _,t in ipairs(data._tweens) do
+		for _, t in ipairs(data._tweens) do
 			if t then
 				pcall(function()
 					t:Cancel()
@@ -105,47 +107,136 @@ local function cancelTweens(data)
 	data._animating = false
 end
 
---// HARD APPLY =================================================
+local function getIcons(data)
+	local onIcon = safeFindIcon(data.Dot, "OnIcon")
+	local offIcon = safeFindIcon(data.Dot, "OffIcon")
+	return onIcon, offIcon
+end
 
-local function applyInstant(data,isOn)
-	cancelTweens(data)
+local function setIconState(icon, visible)
+	if not icon then
+		return
+	end
+
+	pcall(function()
+		icon.Rotation = 0
+		icon.ImageTransparency = visible and 0 or 1
+	end)
+end
+
+local function syncVisuals(data, isOn, force)
+	if not data then
+		return
+	end
 
 	local targetX = isOn and X_ON or X_OFF
 	local color = isOn and COLOR_ON or COLOR_OFF
 	local base = data.BasePos
 
-	data.Dot.Position = UDim2.new(
-		targetX,
-		base.X.Offset,
-		base.Y.Scale,
-		base.Y.Offset
-	)
+	pcall(function()
+		data.Dot.Position = UDim2.new(
+			targetX,
+			base.X.Offset,
+			base.Y.Scale,
+			base.Y.Offset
+		)
+	end)
 
-	data.Button.BackgroundColor3 = color
-	data.Stroke.Color = color
+	pcall(function()
+		data.Button.BackgroundColor3 = color
+	end)
 
-	local onIcon = safeFindIcon(data.Dot,"OnIcon")
-	local offIcon = safeFindIcon(data.Dot,"OffIcon")
+	pcall(function()
+		data.Stroke.Color = color
+	end)
 
-	if onIcon then
-		onIcon.Rotation = 0
-		onIcon.ImageTransparency = isOn and 0 or 1
+	local onIcon, offIcon = getIcons(data)
+	setIconState(onIcon, isOn)
+	setIconState(offIcon, not isOn)
+
+	if force then
+		data.State = isOn
+	end
+end
+
+local function isIconMismatch(data)
+	local onIcon, offIcon = getIcons(data)
+	if not onIcon or not offIcon then
+		return false
 	end
 
-	if offIcon then
-		offIcon.Rotation = 0
-		offIcon.ImageTransparency = isOn and 1 or 0
+	local okOnT, onT = pcall(function()
+		return onIcon.ImageTransparency
+	end)
+	local okOffT, offT = pcall(function()
+		return offIcon.ImageTransparency
+	end)
+
+	if not okOnT or not okOffT then
+		return true
 	end
 
-	data.State = isOn
+	local expectedOn = data.State and 0 or 1
+	local expectedOff = data.State and 1 or 0
+
+	if math.abs((onT or 1) - expectedOn) > 0.03 then
+		return true
+	end
+
+	if math.abs((offT or 1) - expectedOff) > 0.03 then
+		return true
+	end
+
+	return false
+end
+
+local function repairData(data)
+	if not data then
+		return
+	end
+
+	local alive = true
+	pcall(function()
+		if not data.Button or not data.Button.Parent then
+			alive = false
+		end
+	end)
+
+	if not alive then
+		return
+	end
+
+	local now = os.clock()
+	local elapsed = now - (data._lastChange or 0)
+
+	-- Nếu đang animating quá lâu, coi như bị kẹt và ép về state cuối cùng.
+	if data._animating and elapsed > STUCK_ICON_TIMEOUT then
+		cancelTweens(data)
+		syncVisuals(data, data.State, true)
+		return
+	end
+
+	-- Nếu không animating nhưng icon bị lệch, tự sửa lại.
+	if (not data._animating) and isIconMismatch(data) then
+		syncVisuals(data, data.State, true)
+	end
+end
+
+--// HARD APPLY =================================================
+
+local function applyInstant(data, isOn)
+	cancelTweens(data)
+	data._lastChange = os.clock()
+	syncVisuals(data, isOn, true)
 end
 
 --// ANIMATION ==================================================
 
-local function animateSwap(data,isOn)
+local function animateSwap(data, isOn)
 	cancelTweens(data)
 
 	data._animating = true
+	data._lastChange = os.clock()
 
 	local token = data._token
 	local base = data.BasePos
@@ -153,10 +244,9 @@ local function animateSwap(data,isOn)
 	local targetX = isOn and X_ON or X_OFF
 	local color = isOn and COLOR_ON or COLOR_OFF
 
-	local onIcon = safeFindIcon(data.Dot,"OnIcon")
-	local offIcon = safeFindIcon(data.Dot,"OffIcon")
+	local onIcon, offIcon = getIcons(data)
 
-	local dotTween = tween(data.Dot,{
+	local dotTween = tween(data.Dot, {
 		Position = UDim2.new(
 			targetX,
 			base.X.Offset,
@@ -165,45 +255,42 @@ local function animateSwap(data,isOn)
 		)
 	})
 
-	local bgTween = tween(data.Button,{
+	local bgTween = tween(data.Button, {
 		BackgroundColor3 = color
 	})
 
-	local strokeTween = tween(data.Stroke,{
+	local strokeTween = tween(data.Stroke, {
 		Color = color
 	})
 
-	if dotTween then table.insert(data._tweens,dotTween) end
-	if bgTween then table.insert(data._tweens,bgTween) end
-	if strokeTween then table.insert(data._tweens,strokeTween) end
+	if dotTween then table.insert(data._tweens, dotTween) end
+	if bgTween then table.insert(data._tweens, bgTween) end
+	if strokeTween then table.insert(data._tweens, strokeTween) end
 
 	if isOn then
-
 		if offIcon then
-			offIcon.Rotation = normalizeRotation(offIcon.Rotation)
+			local startRot = normalizeRotation(offIcon.Rotation)
+			offIcon.Rotation = startRot
 
 			local t = tween(
 				offIcon,
 				{
-					Rotation = offIcon.Rotation + 360,
+					Rotation = startRot + 360,
 					ImageTransparency = 1
 				},
-				TweenInfo.new(
-					TWEEN_TIME,
-					Enum.EasingStyle.Linear
-				)
+				TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Linear)
 			)
 
 			if t then
-				table.insert(data._tweens,t)
+				table.insert(data._tweens, t)
 			end
 		end
 
 		if onIcon then
-			onIcon.Rotation = normalizeRotation(onIcon.Rotation)
+			local startRot = normalizeRotation(onIcon.Rotation)
+			onIcon.Rotation = startRot
 
-			task.delay(START_DELAY,function()
-
+			task.delay(START_DELAY, function()
 				if token ~= data._token then
 					return
 				end
@@ -211,48 +298,41 @@ local function animateSwap(data,isOn)
 				local t = tween(
 					onIcon,
 					{
-						Rotation = onIcon.Rotation + 360,
+						Rotation = startRot + 360,
 						ImageTransparency = 0
 					},
-					TweenInfo.new(
-						TWEEN_TIME - START_DELAY,
-						Enum.EasingStyle.Linear
-					)
+					TweenInfo.new(TWEEN_TIME - START_DELAY, Enum.EasingStyle.Linear)
 				)
 
 				if t then
-					table.insert(data._tweens,t)
+					table.insert(data._tweens, t)
 				end
 			end)
 		end
-
 	else
-
 		if onIcon then
-			onIcon.Rotation = normalizeRotation(onIcon.Rotation)
+			local startRot = normalizeRotation(onIcon.Rotation)
+			onIcon.Rotation = startRot
 
 			local t = tween(
 				onIcon,
 				{
-					Rotation = onIcon.Rotation - 360,
+					Rotation = startRot - 360,
 					ImageTransparency = 1
 				},
-				TweenInfo.new(
-					TWEEN_TIME,
-					Enum.EasingStyle.Linear
-				)
+				TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Linear)
 			)
 
 			if t then
-				table.insert(data._tweens,t)
+				table.insert(data._tweens, t)
 			end
 		end
 
 		if offIcon then
-			offIcon.Rotation = normalizeRotation(offIcon.Rotation)
+			local startRot = normalizeRotation(offIcon.Rotation)
+			offIcon.Rotation = startRot
 
-			task.delay(START_DELAY,function()
-
+			task.delay(START_DELAY, function()
 				if token ~= data._token then
 					return
 				end
@@ -260,54 +340,45 @@ local function animateSwap(data,isOn)
 				local t = tween(
 					offIcon,
 					{
-						Rotation = offIcon.Rotation - 360,
+						Rotation = startRot - 360,
 						ImageTransparency = 0
 					},
-					TweenInfo.new(
-						TWEEN_TIME - START_DELAY,
-						Enum.EasingStyle.Linear
-					)
+					TweenInfo.new(TWEEN_TIME - START_DELAY, Enum.EasingStyle.Linear)
 				)
 
 				if t then
-					table.insert(data._tweens,t)
+					table.insert(data._tweens, t)
 				end
 			end)
 		end
 	end
 
-	task.delay(TWEEN_TIME,function()
-
+	task.delay(TWEEN_TIME + 0.05, function()
 		if token ~= data._token then
 			return
 		end
 
-		applyInstant(data,isOn)
+		syncVisuals(data, isOn, true)
 		data._animating = false
 	end)
 
+	-- Failsafe: nếu lag làm tween final không tới, watchdog sẽ sửa.
 	data.State = isOn
 end
 
 --// SCAN =======================================================
 
 local function scanUI()
-
 	table.clear(buttonMap)
 
-	for _,frame in ipairs(ScrollingTab:GetChildren()) do
-
+	for _, frame in ipairs(ScrollingTab:GetChildren()) do
 		if frame:IsA("Frame") then
-
-			for _,btn in ipairs(frame:GetChildren()) do
-
+			for _, btn in ipairs(frame:GetChildren()) do
 				if btn:IsA("TextButton") or btn:IsA("ImageButton") then
-
 					local dot = btn:FindFirstChild("Dot")
 					local stroke = btn:FindFirstChildOfClass("UIStroke")
 
-					if dot and stroke then
-
+					if dot and dot:IsA("Frame") and stroke then
 						local data = {
 							Button = btn,
 							Dot = dot,
@@ -316,12 +387,12 @@ local function scanUI()
 							State = false,
 							_token = 0,
 							_tweens = {},
-							_animating = false
+							_animating = false,
+							_lastChange = 0,
 						}
 
 						buttonMap[btn.Name] = data
-
-						applyInstant(data,false)
+						applyInstant(data, false)
 					end
 				end
 			end
@@ -333,72 +404,73 @@ scanUI()
 
 --// PUBLIC =====================================================
 
-function ToggleUI.Set(buttonName,isOn)
-
+function ToggleUI.Set(buttonName, isOn)
 	local data = buttonMap[buttonName]
 
 	if not data then
 		scanUI()
 		data = buttonMap[buttonName]
-
 		if not data then
-			warn("[ToggleUI] Button not found:",buttonName)
+			warn("[ToggleUI] Button not found:", buttonName)
 			return
 		end
 	end
 
 	if data.State == isOn and not data._animating then
+		repairData(data)
 		return
 	end
 
-	animateSwap(data,isOn)
+	animateSwap(data, isOn)
 end
 
-function ToggleUI.SetDefault(buttonName,isOn)
-
+function ToggleUI.SetDefault(buttonName, isOn)
 	local data = buttonMap[buttonName]
 
 	if not data then
 		scanUI()
 		data = buttonMap[buttonName]
-
 		if not data then
-			warn("[ToggleUI] Button not found:",buttonName)
+			warn("[ToggleUI] Button not found:", buttonName)
 			return
 		end
 	end
 
-	applyInstant(data,isOn)
+	applyInstant(data, isOn)
 end
 
 function ToggleUI.IsOn(buttonName)
-
 	local data = buttonMap[buttonName]
-
 	if not data then
 		return false
 	end
-
-	return data.State
+	return data.State == true
 end
 
 function ToggleUI.Refresh()
-
 	scanUI()
 
 	for name in pairs(buttonMap) do
-		ToggleUI.SetDefault(name,false)
+		ToggleUI.SetDefault(name, false)
 	end
 
-	for _,name in ipairs(DEFAULT_ON_LIST) do
+	for _, name in ipairs(DEFAULT_ON_LIST) do
 		if buttonMap[name] then
-			ToggleUI.SetDefault(name,true)
+			ToggleUI.SetDefault(name, true)
 		end
 	end
 end
 
-ToggleUI.Refresh()
+task.spawn(function()
+	while true do
+		task.wait(REPAIR_INTERVAL)
+		for _, data in pairs(buttonMap) do
+			repairData(data)
+		end
+	end
+end)
 
+ToggleUI.Refresh()
 _G.ToggleUI = ToggleUI
 
 return ToggleUI
