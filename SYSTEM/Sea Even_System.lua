@@ -1123,167 +1123,117 @@ _G.PauseSEven = true/false
 --=== AUTO STOP SEA EVEN =============================================================================================--
 
 do
-    -- Load System + UI + Effect
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_System.lua"))()
-    
-    local Players = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
-    
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
-    
-    local ScrollingTab = playerGui
-    	:WaitForChild("BloxFruitHubGui")
-    	:WaitForChild("Main")
-    	:WaitForChild("ScrollingTab")
-    
-    local TOGGLE_BUTTON_NAME = "AutoStopSEvenButton"
-    local SETTING_BUTTON_NAME = "AutoStopSEvenSettingButton"
-    
-    _G.AutoStopSEvenSystem = false
-    
-    repeat task.wait() until _G.ToggleUI
-    local ToggleUI = _G.ToggleUI
-    
-    pcall(function()
-    	if ToggleUI.Refresh then
-    		ToggleUI.Refresh()
-    	end
-    end)
-    
-    local toggleButton = ScrollingTab:FindFirstChild(TOGGLE_BUTTON_NAME, true)
-    local settingButton = ScrollingTab:FindFirstChild(SETTING_BUTTON_NAME, true)
-    
-    if not toggleButton then
-    	warn(TOGGLE_BUTTON_NAME .. " not found")
-    	return
-    end
-    
-    if not settingButton then
-    	warn(SETTING_BUTTON_NAME .. " not found")
-    end
-    
-    local function findStroke(inst)
-    	if not inst then
-    		return nil
-    	end
-    
-    	for _, v in ipairs(inst:GetDescendants()) do
-    		if v:IsA("UIStroke") then
-    			return v
-    		end
-    	end
-    end
-    
-    local function isButtonOn(btn)
-    	local ok, color = pcall(function()
-    		return btn.BackgroundColor3
-    	end)
-    
-    	if not ok or not color then
-    		return false
-    	end
-    
-    	local r = math.floor(color.R * 255 + 0.5)
-    	local g = math.floor(color.G * 255 + 0.5)
-    	local b = math.floor(color.B * 255 + 0.5)
-    
-    	return r == 0 and g == 255 and b == 0
-    end
-    
-    local stroke = findStroke(toggleButton)
-    
-    local clickLock = false
-    local animating = false
-    
-    local function tweenButtonColor(targetColor, duration)
-    	duration = duration or 0.25
-    
-    	local info = TweenInfo.new(
-    		duration,
-    		Enum.EasingStyle.Quad,
-    		Enum.EasingDirection.Out
-    	)
-    
-    	local tweens = {
-    		TweenService:Create(toggleButton, info, {
-    			BackgroundColor3 = targetColor
-    		})
-    	}
-    
-    	if stroke then
-    		table.insert(
-    			tweens,
-    			TweenService:Create(stroke, info, {
-    				Color = targetColor
-    			})
-    		)
-    	end
-    
-    	for _, tw in ipairs(tweens) do
-    		pcall(function()
-    			tw:Play()
-    		end)
-    	end
-    
-    	task.wait(duration)
-    end
-    
-    pcall(function()
-    	ToggleUI.Set(TOGGLE_BUTTON_NAME, false)
-    end)
-    
-    _G.AutoStopSEvenSystem = false
-    
-    local function syncSystemState()
-    	_G.AutoStopSEvenSystem = isButtonOn(toggleButton)
-    end
-    
-    toggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-    	task.delay(0.05, syncSystemState)
-    end)
-    
-    local function toggleSystem()
-    	if clickLock or animating then
-    		return
-    	end
-    
-    	clickLock = true
-    
-    	task.delay(0.15, function()
-    		clickLock = false
-    	end)
-    
-    	local requested = not isButtonOn(toggleButton)
-    
-    	pcall(function()
-    		ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
-    	end)
-    
-    	task.delay(0.05, syncSystemState)
-    end
-    
-    if toggleButton.Activated then
-    	toggleButton.Activated:Connect(toggleSystem)
-    else
-    	toggleButton.MouseButton1Click:Connect(toggleSystem)
-    end
-    
-    if settingButton then
-    	local function openSettings()
-    		if type(_G.AutoStopSEvenGui) == "function" then
-    			pcall(_G.AutoStopSEvenGui)
-    		end
-    	end
-    
-    	if settingButton.Activated then
-    		settingButton.Activated:Connect(openSettings)
-    	else
-    		settingButton.MouseButton1Click:Connect(openSettings)
-    	end
-    end
-    
-    syncSystemState()
+	-- Load System + UI + Effect
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/HAPPY-script/BloxFruitHub_NewUI/refs/heads/main/SYSTEM_UI/AutoStopSeaEven_System.lua"))()
+
+	local Players = game:GetService("Players")
+	local TweenService = game:GetService("TweenService")
+
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	local ScrollingTab = playerGui
+		:WaitForChild("BloxFruitHubGui")
+		:WaitForChild("Main")
+		:WaitForChild("ScrollingTab")
+
+	local TOGGLE_BUTTON_NAME = "AutoStopSEvenButton"
+	local SETTING_BUTTON_NAME = "AutoStopSEvenSettingButton"
+
+	_G.AutoStopSEvenSystem = false
+
+	repeat task.wait() until _G.ToggleUI
+	local ToggleUI = _G.ToggleUI
+
+	pcall(function()
+		if ToggleUI.Refresh then
+			ToggleUI.Refresh()
+		end
+	end)
+
+	local toggleButton = ScrollingTab:FindFirstChild(TOGGLE_BUTTON_NAME, true)
+	local settingButton = ScrollingTab:FindFirstChild(SETTING_BUTTON_NAME, true)
+
+	if not toggleButton then
+		warn(TOGGLE_BUTTON_NAME .. " not found")
+		return
+	end
+
+	if not settingButton then
+		warn(SETTING_BUTTON_NAME .. " not found")
+	end
+
+	local CLICK_LOCK = false
+	local ENABLED = false
+	local LAST_ENABLED = false
+
+	local function ON_ENABLE()
+		_G.AutoStopSEvenSystem = true
+	end
+
+	local function ON_DISABLE()
+		_G.AutoStopSEvenSystem = false
+	end
+
+	local function syncSystemState()
+		ENABLED = ToggleUI.IsOn(TOGGLE_BUTTON_NAME)
+
+		if LAST_ENABLED and not ENABLED then
+			ON_DISABLE()
+		elseif (not LAST_ENABLED) and ENABLED then
+			ON_ENABLE()
+		end
+
+		LAST_ENABLED = ENABLED
+	end
+
+	local function toggleSystem()
+		if CLICK_LOCK then
+			return
+		end
+
+		CLICK_LOCK = true
+		task.delay(0.08, function()
+			CLICK_LOCK = false
+		end)
+
+		local requested = not ToggleUI.IsOn(TOGGLE_BUTTON_NAME)
+
+		pcall(function()
+			ToggleUI.Set(
+				TOGGLE_BUTTON_NAME,
+				requested
+			)
+		end)
+
+		task.delay(0.03, syncSystemState)
+	end
+
+	if toggleButton.Activated then
+		toggleButton.Activated:Connect(toggleSystem)
+	else
+		toggleButton.MouseButton1Click:Connect(toggleSystem)
+	end
+
+	toggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
+		task.delay(0.03, syncSystemState)
+	end)
+
+	if settingButton then
+		local function openSettings()
+			if type(_G.AutoStopSEvenGui) == "function" then
+				pcall(_G.AutoStopSEvenGui)
+			end
+		end
+
+		if settingButton.Activated then
+			settingButton.Activated:Connect(openSettings)
+		else
+			settingButton.MouseButton1Click:Connect(openSettings)
+		end
+	end
+
+	syncSystemState()
 end
 
 --=== SHIP SPEED =============================================================================================--
@@ -1326,20 +1276,6 @@ do
 	local REGISTRY = setmetatable({}, { __mode = "k" }) -- [boat] = data
 
 	SpeedBox.Text = "nil"
-
-	local function isButtonOn(btn)
-		local ok, color = pcall(function()
-			return btn.BackgroundColor3
-		end)
-		if not ok or not color then
-			return false
-		end
-
-		local r = math.floor(color.R * 255 + 0.5)
-		local g = math.floor(color.G * 255 + 0.5)
-		local b = math.floor(color.B * 255 + 0.5)
-		return r == 0 and g == 255 and b == 0
-	end
 
 	local function setBox(text)
 		INTERNAL = true
@@ -1654,8 +1590,8 @@ do
 	end
 
 	local function syncSystemState()
-		ENABLED = isButtonOn(ToggleButton)
-
+		ENABLED = ToggleUI.IsOn(TOGGLE_BUTTON_NAME)
+	
 		if LAST_ENABLED and not ENABLED then
 			restoreAllBoats()
 			CURRENT_SEAT = nil
@@ -1666,37 +1602,40 @@ do
 			applyAllBoats()
 			refreshSeat()
 		end
-
+	
 		LAST_ENABLED = ENABLED
 	end
-
+	
 	local function toggleSystem()
 		if CLICK_LOCK then
 			return
 		end
-
+	
 		CLICK_LOCK = true
-		task.delay(0.15, function()
+		task.delay(0.08, function()
 			CLICK_LOCK = false
 		end)
-
-		local requested = not isButtonOn(ToggleButton)
-
+	
+		local requested = not ToggleUI.IsOn(TOGGLE_BUTTON_NAME)
+	
 		pcall(function()
-			ToggleUI.Set(TOGGLE_BUTTON_NAME, requested)
+			ToggleUI.Set(
+				TOGGLE_BUTTON_NAME,
+				requested
+			)
 		end)
-
-		task.delay(0.05, syncSystemState)
+	
+		task.delay(0.03, syncSystemState)
 	end
-
+	
 	if ToggleButton.Activated then
 		ToggleButton.Activated:Connect(toggleSystem)
 	else
 		ToggleButton.MouseButton1Click:Connect(toggleSystem)
 	end
-
+	
 	ToggleButton:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-		task.delay(0.05, syncSystemState)
+		task.delay(0.03, syncSystemState)
 	end)
 
 	SpeedBox.Focused:Connect(function()
