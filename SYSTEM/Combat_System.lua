@@ -1034,8 +1034,8 @@ do
     local playerStyle = "Melee"
     
     local radius = 5000
-    local delay = 0.01
-    local maxhit = 5
+    local delay = 0.02
+    local maxhit = 10
     
     local suppressAttrToUI = false
     local suppressUIToAttr = false
