@@ -769,7 +769,7 @@ do
         },
         {
             MinLevel = 1125,
-            MaxLevel = 1149,
+            MaxLevel = 1174,
             MobName = "Horned Warrior",
             FarmPos = Vector3.new(-6265.67, 15.99, -5766.91),
             QuestNPCPos = Vector3.new(-6043.20, 15.99, -4909.17),
@@ -778,8 +778,8 @@ do
             RewardBeli = 12500
         },
         {
-            MinLevel = 1150,
-            MaxLevel = 1174,
+            MinLevel = 1175,
+            MaxLevel = 1199,
             MobName = "Magma Ninja",
             FarmPos = Vector3.new(-5293.55, 35.44, -4705.81),
             QuestNPCPos = Vector3.new(-5445.89, 15.99, -5292.91),
@@ -788,8 +788,8 @@ do
             RewardBeli = 12250
         },
         {
-            MinLevel = 1175,
-            MaxLevel = 1199,
+            MinLevel = 1200,
+            MaxLevel = 1249,
             MobName = "Lava Pirate",
             FarmPos = Vector3.new(-5524.52, 60.59, -5935.76),
             QuestNPCPos = Vector3.new(-5445.89, 15.99, -5292.91),
@@ -798,7 +798,7 @@ do
             RewardBeli = 12500
         },
         {
-            MinLevel = 1200,
+            MinLevel = 1250,
             MaxLevel = 1274,
             MobName = "Ship Deckhand",
             FarmPos = Vector3.new(914.82, 125.99, 33128.67),
