@@ -1723,12 +1723,6 @@ do
     local safeTimer = 0
     local initialY = 0
 
-    local escapeStartTime = 0
-    local phase1Pos = nil
-    local phase1TargetY = nil
-    local phase2Y = nil
-    local nextPhase2Step = 0
-
     -- ===== COLOR =====
     local RED    = Color3.fromRGB(255, 0, 0)
     local GREEN  = Color3.fromRGB(0, 255, 0)
@@ -1751,7 +1745,7 @@ do
         local bg = ToggleBtn.BackgroundColor3
         return bg.G > bg.R and bg.G > bg.B
     end
-
+    
     -- ===== TOGGLE BUTTON CLICK =====
     local function onToggleActivated()
         local cur = isToggleOn()
@@ -1768,7 +1762,7 @@ do
             end
         end)
     end)
-
+    
     if ToggleBtn.Activated then
         ToggleBtn.Activated:Connect(onToggleActivated)
     else
@@ -1805,11 +1799,6 @@ do
         if not isToggleOn() then
             isEscaping = false
             safeTimer = 0
-            escapeStartTime = 0
-            phase1Pos = nil
-            phase1TargetY = nil
-            phase2Y = nil
-            nextPhase2Step = 0
             tweenReturnColor(RED)
             return
         end
@@ -1826,55 +1815,18 @@ do
             if not isEscaping then
                 initialY = root.Position.Y
                 ReturnBtn.Text = "Y=" .. math.floor(initialY)
-
-                isEscaping = true
-                safeTimer = 0
-
-                escapeStartTime = os.clock()
-                phase1Pos = root.Position
-                phase1TargetY = phase1Pos.Y + 100000
-                phase2Y = phase1TargetY
-                nextPhase2Step = escapeStartTime + 1.5 / 90
             end
 
+            isEscaping = true
+            safeTimer = 0
             tweenReturnColor(YELLOW)
 
-            local now = os.clock()
-            local elapsed = now - escapeStartTime
-
-            -- PHASE 1:
-            -- 90 lần / 1.5s = 1 lần mỗi 1/60s
-            -- Tp đúng 1 tọa độ cố định, không tăng dần tiếp
-            if elapsed < 1.5 then
-                local targetPos = Vector3.new(phase1Pos.X, phase1TargetY, phase1Pos.Z)
-
-                root.CFrame = CFrame.new(targetPos)
-
-                -- nếu FPS thấp, đảm bảo không bỏ nhịp
-                while now >= nextPhase2Step and nextPhase2Step <= escapeStartTime + 1.5 do
-                    root.CFrame = CFrame.new(targetPos)
-                    nextPhase2Step += 1.5 / 90
-                end
-            else
-                -- PHASE 2:
-                -- sau 1.5s mới tp cao tiếp, tốc độ 50 / 0.1s
-                if phase2Y then
-                    if not root.Parent then return end
-                    phase2Y += 30
-                    root.CFrame = CFrame.new(phase1Pos.X, phase2Y, phase1Pos.Z)
-                    task.wait(0.1)
-                end
-            end
+            root.CFrame += Vector3.new(0, 100, 0)
         else
             if isEscaping then
                 safeTimer += dt
                 if safeTimer >= 1 then
                     isEscaping = false
-                    escapeStartTime = 0
-                    phase1Pos = nil
-                    phase1TargetY = nil
-                    phase2Y = nil
-                    nextPhase2Step = 0
                 end
             end
 
