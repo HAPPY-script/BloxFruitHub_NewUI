@@ -1860,7 +1860,7 @@ do
                 -- sau 1.5s mới tp cao tiếp, tốc độ 50 / 0.1s
                 if phase2Y then
                     if not root.Parent then return end
-                    phase2Y += 50
+                    phase2Y += 30
                     root.CFrame = CFrame.new(phase1Pos.X, phase2Y, phase1Pos.Z)
                     task.wait(0.1)
                 end
