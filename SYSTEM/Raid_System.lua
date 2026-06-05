@@ -501,63 +501,54 @@ do
         local hrpEnemy = enemy:FindFirstChild("HumanoidRootPart")
         local humanoid = enemy:FindFirstChildOfClass("Humanoid")
         if not hrpEnemy or not humanoid then return end
-
+    
         currentTarget = enemy
         updateHighlight(enemy)
         local anc = ensureAnchor()
-        local camera = workspace.CurrentCamera
-        camera.CameraType = Enum.CameraType.Custom
-        camera.CameraSubject = anc
-
-        -- If Random mode: compute offset now, mark and perform brief visit then release
+    
         if raidMode == MODE_RANDOM then
             local anchorOffset = (Style == "Melee") and 35 or 10
-            local targetPos = Vector3.new(hrpEnemy.Position.X, hrpEnemy.Position.Y + anchorOffset, hrpEnemy.Position.Z)
-
-            -- mark
-            pcall(function() markedEnemies[enemy] = true end)
-
-            -- do a short visit: place anchor near and teleport/lerp player there quickly
+            local targetPos = Vector3.new(
+                hrpEnemy.Position.X,
+                hrpEnemy.Position.Y + anchorOffset,
+                hrpEnemy.Position.Z
+            )
+    
+            pcall(function()
+                markedEnemies[enemy] = true
+            end)
+    
             pcall(function()
                 anc.Position = targetPos
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.CFrame = CFrame.new(targetPos)
             end)
-
-            -- small pause to allow "visit"
+    
             task.wait(0.18)
-
-            -- restore camera subject to player if possible
-            if hrp then
-                camera.CameraSubject = hrp
-            end
-
+    
             currentTarget = nil
             return
         end
-
-        -- Nearest mode behavior: follow until dead or conditions break
+    
         while humanoid.Health > 0 and running do
             if not hrp then break end
             updateHighlight(enemy)
-            -- compute offset each loop so style changes apply immediately
+    
             local anchorOffset = (Style == "Melee") and 35 or 10
             local anchorY = hrpEnemy.Position.Y + anchorOffset
             local curTargetPos = Vector3.new(hrpEnemy.Position.X, anchorY, hrpEnemy.Position.Z)
+    
             anc.Position = anc.Position:Lerp(curTargetPos, 0.15)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(curTargetPos), 0.25)
+    
             RunService.RenderStepped:Wait()
         end
-
-        if hrp then
-            camera.CameraSubject = hrp
-        end
-
+    
         currentTarget = nil
     end
 
-    -- main loop (giữ logic cũ, nhưng thêm Random selection + prune marks)
+    -- main loop
     task.spawn(function()
         while true do
             RunService.Heartbeat:Wait()
